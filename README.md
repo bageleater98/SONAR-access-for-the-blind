@@ -1,8 +1,10 @@
 <div align="center">
 
-# 🔊 SONAR
+# 🔊 SONAR - Access
 
 ### Hear the space around you.
+
+**By BagelEater**
 
 **A client-side Fabric accessibility mod that turns Minecraft's surroundings into sound, built for blind and low-vision players.**
 
