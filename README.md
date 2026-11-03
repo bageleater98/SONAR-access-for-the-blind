@@ -11,7 +11,7 @@ By **BagelEater**
 ![Java](https://img.shields.io/badge/Java-25%2B-F89820?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-CC0--1.0-blue?style=for-the-badge)
 
-[Features](#-features) | [See it](#-see-it-in-action) | [Controls](#-controls) | [How it works](#-how-it-works) | [Install](#-installation) | [FAQ](#-faq)
+[Features](#-features) | [Controls](#-controls) | [How it works](#-how-it-works) | [Install](#-installation) | [FAQ](#-faq)
 
 </div>
 
@@ -50,24 +50,6 @@ No mods on the server. No special hardware. No sighted help. Just install it, pu
 | 🗣️ **Spoken help** | Identify what you are looking at, or hear a summary of the room. |
 | 🧍 **Player chime** | Find other players by their jingle. |
 | 🎛️ **Fully adjustable** | Volumes, range, keys and every cue can be changed in game. |
-
----
-
-## 🎬 See it in action
-
-> Both clips are stylised visualisations of how SONAR works, not recordings of the game.
-
-<div align="center">
-
-### First person: the pulse goes out, the walls light up
-
-<img src="docs/sonar-first-person.gif" alt="First-person view of a cave. A red pulse spreads out and walls light up green as it passes, with left and right sound meters at the bottom." width="720">
-
-### From above: SONAR only reports what you could actually see
-
-<img src="docs/sonar-scan.gif" alt="Top-down view of a cave. A red ring spreads from the player and lights up walls, water, lava and a path, labelling each one." width="720">
-
-</div>
 
 ---
 
