@@ -1,6 +1,8 @@
 <div align="center">
 
-<img src="docs/banner.svg" width="100%" alt="SONAR - Access. Hear the space around you.">
+# 🔊 SONAR - Access
+
+### Hear the space around you.
 
 **A Fabric mod that turns Minecraft into 3D sound, so blind and low-vision players can explore by ear.**
 
