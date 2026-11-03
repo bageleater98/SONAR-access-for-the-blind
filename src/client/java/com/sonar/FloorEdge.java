@@ -9,11 +9,13 @@ import net.minecraft.world.level.block.state.BlockState;
 public class FloorEdge {
 	private static final int[] RAYS = {0, -40, 40}; // degrees relative to where you face (ahead only, never sideways)
 
+	private static int foundY; // height of the floor block the last floorAt() call found
+
 	private static BlockState floorAt(Minecraft mc, int x, int z, int feetY) {
 		var pos = new BlockPos.MutableBlockPos();
 		for (int y = feetY; y >= feetY - 3; y--) {
 			BlockState s = mc.level.getBlockState(pos.set(x, y, z));
-			if (!s.getCollisionShape(mc.level, pos).isEmpty()) return s;
+			if (!s.getCollisionShape(mc.level, pos).isEmpty()) { foundY = y; return s; }
 		}
 		return null;
 	}
@@ -53,7 +55,7 @@ public class FloorEdge {
 	/** Returns true when a built path/floor is within reach (the caller then quiets everything else a little). Only built blocks make sound; natural ground beside the path stays silent. */
 	public static boolean ping(Minecraft mc, SonarConfig cfg) {
 		var p = mc.player;
-		if (!cfg.floorEdge || !p.onGround()) return false;
+		if (!cfg.floorEdge) return false;
 		int fy = p.getBlockY() - 1;
 		BlockState here = floorAt(mc, p.getBlockX(), p.getBlockZ(), fy);
 		if (here == null) return false;
@@ -75,10 +77,12 @@ public class FloorEdge {
 			double a = yaw + Math.toRadians(deg), dx = -Math.sin(a), dz = Math.cos(a);
 			BlockState last = null;
 			double lastD = 0;
-			for (double d = 1.5; d <= 7.0; d += 0.5) {
+			int cy = fy; // the floor follows stairs and slopes up and down along the ray
+			for (double d = 1.5; d <= 8.0; d += 0.5) {
 				int x = (int) Math.floor(p.getX() + dx * d), z = (int) Math.floor(p.getZ() + dz * d);
-				BlockState s = floorAt(mc, x, z, fy);
+				BlockState s = floorAt(mc, x, z, cy + 1);
 				if (s == null) break; // drop or water: the ledge cue handles it
+				cy = foundY;
 				boolean built = !natural(s);
 				if (onPath) {
 					if (!built) break; // the path ends: sound the last path block, nothing from the ground beside it
@@ -93,9 +97,23 @@ public class FloorEdge {
 				found = true;
 				int x = (int) Math.floor(p.getX() + dx * lastD), z = (int) Math.floor(p.getZ() + dz * lastD);
 				SoundEvent snd = last.getSoundType().getStepSound();
-				float vol = Math.min(1f, cfg.volume * 1.5f * (1.15f - (float) lastD / 7.5f));
+				float vol = Math.min(1f, cfg.volume * 1.1f) * (deg == 0 ? 0.6f : 1f); // the two diagonals lead; straight ahead is softer
 								if (cfg.debug) mc.player.sendSystemMessage(net.minecraft.network.chat.Component.literal("path: " + last.getBlock().getDescriptionId() + " (" + (onPath ? "on path" : "off path") + ", here=" + here.getBlock().getDescriptionId() + ") -> " + snd.location().getPath() + " vol " + vol));
-				Cues.play(mc, snd, vol, Cues.materialPitch(snd), p.getX() + dx * Math.min(lastD, 1.0), fy + 0.2, p.getZ() + dz * Math.min(lastD, 1.0)); // under your feet and just ahead (toward the bell), never out where the block is
+				// a guide echo: one hit just in front of you at floor level, then the same sound runs out along the path (block 1, 2, 3 ... up to 6), a tick or two apart and fading
+					int steps = (int) Math.min(7, Math.floor(lastD + 0.5));
+					int ey = fy;
+					for (int i = 1; i <= steps; i++) {
+						double px = p.getX() + dx * i, pz = p.getZ() + dz * i;
+						BlockState bs = floorAt(mc, (int) Math.floor(px), (int) Math.floor(pz), ey + 1); // each hit uses the sound of the block actually under it; plain ground stays silent
+						if (bs == null) break;
+						ey = foundY;
+						if (natural(bs)) continue;
+						SoundEvent bsnd = bs.getSoundType().getStepSound();
+						float v = vol * (float) Math.pow(0.8, i - 1);
+						float pt = Cues.materialPitch(bsnd) * (float) Math.pow(0.98, i - 1);
+						if (i == 1) Cues.play(mc, bsnd, v, pt, px, ey + 0.2, pz);
+						else Cues.pending.add(new Cues.Pending(bsnd, v, pt, px, ey + 0.2, pz, new int[]{(i - 1) * 3 / 2})); // 1.5 ticks per block
+					}
 				played++;
 			}
 		}

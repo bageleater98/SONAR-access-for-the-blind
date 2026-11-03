@@ -1,7 +1,9 @@
 # Publishes a new Sonar version: bumps the patch number, builds, commits, pushes, creates a GitHub release with the jar,
 # and installs the jar into the Modrinth profile and the Desktop Sonar-mod.zip.
 # Usage: .\release.ps1 "what changed"
-param([Parameter(Mandatory = $true)][string]$Message)
+# Level: patch (default) = bug fixes and small tweaks (1.0.2 -> 1.0.3); minor = features added, removed or drastically changed (1.0.2 -> 1.1.0);
+# major = the whole mod redone in a big way (1.0.2 -> 2.0.0).
+param([Parameter(Mandatory = $true)][string]$Message, [ValidateSet('patch', 'minor', 'major')][string]$Level = 'patch')
 $ErrorActionPreference = 'Continue' # git writes warnings to stderr; failures are caught through the exit code checks below
 Set-Location $PSScriptRoot
 $gh = 'C:\Program Files\GitHub CLI\gh.exe'
@@ -10,7 +12,13 @@ $repo = 'bageleater98/SONAR-access-for-the-blind'
 $props = Get-Content gradle.properties -Raw
 if ($props -notmatch '(?m)^version=(\d+)\.(\d+)\.(\d+)\s*$') { throw 'version= line not found in gradle.properties' }
 $old = "$($Matches[1]).$($Matches[2]).$($Matches[3])"
-$new = "$($Matches[1]).$($Matches[2]).$([int]$Matches[3] + 1)"
+$maj = [int]$Matches[1]; $min = [int]$Matches[2]; $pat = [int]$Matches[3]
+switch ($Level) {
+	'major' { $maj++; $min = 0; $pat = 0 }
+	'minor' { $min++; $pat = 0 }
+	default { $pat++ }
+}
+$new = "$maj.$min.$pat"
 $props = $props -replace '(?m)^version=.*$', "version=$new"
 [IO.File]::WriteAllText("$PWD\gradle.properties", $props, (New-Object Text.UTF8Encoding $false))
 
