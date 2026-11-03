@@ -1,8 +1,6 @@
 <div align="center">
 
-# 🔊 SONAR - Access
-
-### Hear the space around you.
+<img src="docs/banner.svg" width="100%" alt="SONAR - Access. Hear the space around you.">
 
 **A Fabric mod that turns Minecraft into 3D sound, so blind and low-vision players can explore by ear.**
 
@@ -28,6 +26,17 @@ Press a key and the mod sends out a sonar ping. Walls, drops, water, paths and o
 With a pair of headphones, that is enough to find your way around: you can hear where the walls are, where a drop begins, where the water and lava are, which way a path runs, and how big a room is.
 
 SONAR runs only on your own computer, so nothing needs to be installed on the server. Put on headphones and press **R**.
+
+### See it in action
+
+<div align="center">
+
+<img src="docs/sonar-scan.gif" width="49%" alt="A sonar ping scanning the area around the player">
+<img src="docs/sonar-first-person.gif" width="49%" alt="First-person view of a player exploring with SONAR">
+
+**[⬇️ Download the latest release](../../releases/latest)**
+
+</div>
 
 ---
 
