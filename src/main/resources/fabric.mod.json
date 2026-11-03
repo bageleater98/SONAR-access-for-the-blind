@@ -5,7 +5,7 @@
 	"name": "Sonar - Access",
 	"description": "Accessibility mod for blind players: press a key to hear the space around you.",
 	"authors": ["BagelEater"],
-	"license": "CC0-1.0",
+	"license": "GPL-3.0-only",
 	"icon": "assets/sonar/icon.png",
 	"environment": "client",
 	"mixins": [{"config": "sonar.client.mixins.json", "environment": "client"}],

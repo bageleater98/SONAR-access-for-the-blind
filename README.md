@@ -1,4 +1,4 @@
-<div align="center">
+﻿<div align="center">
 
 # 🔊 SONAR - Access
 
@@ -11,7 +11,7 @@ By **BagelEater**
 ![Minecraft](https://img.shields.io/badge/Minecraft-26.3-62B47A?style=for-the-badge)
 ![Loader](https://img.shields.io/badge/Fabric-Client--only-DBD0B4?style=for-the-badge)
 ![Java](https://img.shields.io/badge/Java-25%2B-F89820?style=for-the-badge)
-![License](https://img.shields.io/badge/License-CC0--1.0-blue?style=for-the-badge)
+![License](https://img.shields.io/badge/License-GPL--3.0-blue?style=for-the-badge)
 
 [What is SONAR](#what-is-sonar) | [Features](#-features) | [Controls](#-controls) | [How it works](#-how-it-works) | [Install](#-installation) | [FAQ](#-faq)
 
@@ -183,4 +183,4 @@ Created by **BagelEater**. Built with [Fabric](https://fabricmc.net/).
 
 ## 📜 License
 
-Released under [CC0-1.0](LICENSE), public domain. Use it, learn from it, and build on it.
+Released under the [GNU GPL v3.0](LICENSE). Use it, learn from it, and build on it. If you share a modified version, it must stay open source under the same license and credit the original author (BagelEater).
