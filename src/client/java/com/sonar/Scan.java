@@ -174,6 +174,8 @@ public class Scan {
 	private void consider(BlockState s, int x, int y, int z) {
 		boolean liquid = s.getBlock() instanceof LiquidBlock;
 		if (!liquid && (ignored(s) || !solid(s, x, y, z))) return;
+		// a slab or stair you could simply walk onto (free headroom above it) is part of the floor, not a wall: slab stairways and slab roofs used to ping on every step
+		if (cfg.ignoreSteps && !liquid && (s.is(BlockTags.SLABS) || s.is(BlockTags.STAIRS)) && passable(x, y + 1, z) && passable(x, y + 2, z)) return;
 		double vx = x + 0.5 - ex, vy = y + 0.5 - ey, vz = z + 0.5 - ez;
 		double d = Math.sqrt(vx * vx + vy * vy + vz * vz);
 		if (d < 0.8 || d > range) return;

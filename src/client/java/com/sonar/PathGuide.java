@@ -19,6 +19,43 @@ public class PathGuide {
 	private static int t, lastFound = -1000, lbx, lby, lbz;
 	private static float lyaw;
 	private static boolean endMode;
+	/** The path cells (x,z -> floor y) of the path being followed, for the ledge warning: while the bell is on, the path itself tells where the sides are. */
+	private static java.util.HashMap<Long, Integer> guideCells, traceCells;
+
+	private static long key(int x, int z) {
+		return ((long) x << 32) ^ (z & 0xffffffffL);
+	}
+
+	public static boolean active() {
+		return guideCells != null && t - lastFound <= 60; // 3 s grace: the bell flickering off near a junction must not flip the edge warning back and forth
+	}
+
+	/** Distances from you to the two sides of the path (left, right; MAX = no drop on that side), measured sideways along (rx,rz) = your right. Each is already reduced by 0.5 so it matches the
+	 *  edge-cell distances the ledge scan uses. Null when you are not standing on the path. A side only counts when a drop of `minDrop`+ blocks lies just beyond the path there. */
+	public static double[] edges(Minecraft mc, double ex, double ez, int fy, double rx, double rz, int minDrop) {
+		var cells = guideCells;
+		if (cells == null) return null;
+		Integer here = cells.get(key((int) Math.floor(ex), (int) Math.floor(ez)));
+		if (here == null || Math.abs(here - fy) > 1) return null;
+		double[] out = {Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE}; // [2],[3] = distance to where the path ends sideways (drop or not)
+		var pos = new BlockPos.MutableBlockPos();
+		for (int side = 0; side < 2; side++) {
+			double sg = side == 0 ? -1 : 1;
+			for (double d = 0.1; d <= 6.0; d += 0.1) {
+				int x = (int) Math.floor(ex + sg * rx * d), z = (int) Math.floor(ez + sg * rz * d);
+				Integer y = cells.get(key(x, z));
+				if (y != null && Math.abs(y - fy) <= 1) continue;
+				out[2 + side] = d;
+				boolean wall = false; // anything solid at or above foot level just beyond is a wall or a slope, not a drop
+				for (int yy = fy + 1; yy >= fy - minDrop + 1; yy--) {
+					if (!mc.level.getBlockState(pos.set(x, yy, z)).getCollisionShape(mc.level, pos).isEmpty()) { wall = true; break; }
+				}
+				if (!wall) out[side] = Math.max(0.05, d - 0.5);
+				break;
+			}
+		}
+		return out;
+	}
 
 	/** y of the first solid block at x,z scanning down `depth` blocks from y, or MIN_VALUE. */
 	private static int floorY(Minecraft mc, int x, int z, int y, int depth, BlockPos.MutableBlockPos pos) {
@@ -56,9 +93,15 @@ public class PathGuide {
 		// Under a roof 3 walls is enough (a covered bridge has only 2 sides); in the open it takes 6 (a walled courtyard).
 		boolean roof = Cues.rayLen(mc, p.getEyePosition(), 0, 1, 0, 6, true) < 6;
 		int walls = 0;
-		for (int i = 0; i < 8; i++) {
+		for (int i = 0; i < 8; i++) { // only BUILT walls count: the dirt or stone sides of a trench or cliff stairway are not a building
 			double a = i * Math.PI / 4;
-			if (Cues.rayLen(mc, p.getEyePosition(), Math.cos(a), 0, Math.sin(a), 7, true) < 7) walls++;
+			for (int d = 1; d <= 7; d++) {
+				var wp = pos.set(Math.floor(p.getX() + Math.cos(a) * d), Math.floor(p.getEyeY()), Math.floor(p.getZ() + Math.sin(a) * d));
+				BlockState ws = mc.level.getBlockState(wp);
+				if (ws.getCollisionShape(mc.level, wp).isEmpty()) continue;
+				if (!FloorEdge.natural(ws)) walls++;
+				break;
+			}
 		}
 		if (walls >= (roof ? 3 : 6)) { say(mc, cfg, "off: " + (roof ? "inside a building" : "walled area") + " (" + walls + "/8 walls)"); return; }
 		// candidate starts: the nearest built floor cell in each of 8 directions (and under you), within 3 blocks. Floor may be a few blocks below while jumping or on stairs.
@@ -89,13 +132,15 @@ public class PathGuide {
 		if (cover > 54) { say(mc, cfg, "off: too wide (" + cover + " built blocks in 9x9)"); return; }
 		// follow whichever nearby path you are facing most
 		double[] best = null;
+		java.util.HashMap<Long, Integer> bestCells = null;
 		for (int i = 0; i < 9; i++) {
 			if (cand[i] == null) continue;
 			double[] r = trace(mc, p, cand[i][0], cand[i][1], cand[i][2], pos);
-			if (r != null && (best == null || r[3] > best[3])) best = r;
+			if (r != null && (best == null || r[3] > best[3])) { best = r; bestCells = traceCells; }
 		}
 		if (best == null) { say(mc, cfg, "off: no path 8-11 blocks ahead"); return; }
 		say(mc, cfg, "on");
+		guideCells = bestCells;
 		tx = best[0]; ty = best[1]; tz = best[2]; endMode = best[4] > 0;
 		have = true;
 		lastFound = t;
@@ -111,6 +156,9 @@ public class PathGuide {
 		int si = (sz - pz + R) * W + (sx - px + R);
 		if (si < 0 || si >= dist.length || Math.abs(sx - px) > R || Math.abs(sz - pz) > R) return null;
 		dist[si] = 0; ys[si] = sy;
+		var seen = new java.util.HashMap<Long, Integer>();
+		traceCells = seen;
+		seen.put(key(sx, sz), sy);
 		q.add(new int[]{sx, sz});
 		double yaw = Math.toRadians(p.getYRot()), fx = -Math.sin(yaw), fz = Math.cos(yaw);
 		double sumX = 0, sumZ = 0, sumY = 0;
@@ -131,6 +179,7 @@ public class PathGuide {
 				int y = floorY(mc, nx, nz, cy + 1, 3, pos);
 				if (y == Integer.MIN_VALUE || Math.abs(y - cy) > 1 || !built(mc, nx, y, nz, pos)) { dist[ni] = -2; continue; }
 				dist[ni] = dist[ci] + 1; ys[ni] = y;
+				seen.put(key(nx, nz), y);
 				q.add(new int[]{nx, nz});
 			}
 		}
@@ -140,12 +189,12 @@ public class PathGuide {
 	}
 
 	public static void tick(Minecraft mc, SonarConfig cfg) {
-		if (!cfg.pathGuide || mc.level == null || mc.player == null || mc.player.isInWater() || mc.player.isSpectator()) { have = false; return; }
+		if (!cfg.pathGuide || mc.level == null || mc.player == null || mc.player.isInWater() || mc.player.isSpectator()) { have = false; guideCells = null; return; }
 		t++;
 		var p0 = mc.player;
 		boolean moved = p0.getBlockX() != lbx || p0.getBlockY() != lby || p0.getBlockZ() != lbz || Math.abs(net.minecraft.util.Mth.wrapDegrees(p0.getYRot() - lyaw)) > 6;
 		// re-trace only when you moved or turned (or the last result is getting old); idle with no path is re-checked every second
-		if (t % 5 == 1 && (moved || (have ? t - lastFound > 25 : t % 20 == 1))) {
+		if ((have ? t % 5 == 1 : t % 2 == 1) && (moved || (have ? t - lastFound > 25 : t % 20 == 1))) {
 			lbx = p0.getBlockX(); lby = p0.getBlockY(); lbz = p0.getBlockZ(); lyaw = p0.getYRot();
 			find(mc, cfg);
 		}

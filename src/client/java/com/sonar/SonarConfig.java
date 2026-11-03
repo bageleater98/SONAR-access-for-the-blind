@@ -27,6 +27,7 @@ public class SonarConfig {
 	public int echoCount = -1; // echoes per ping: -1 = auto (more for big spaces, more entrances, irregular shapes), 0 = none, 1-4 fixed
 	public boolean edgeBrake = true; // sprinting straight at a drop: briefly slow you by ~80% so you can stop
 	public boolean sideLedges = true; // quieter tones for edges to your left and right
+	public boolean ignoreSteps = true; // slabs and stairs you can walk onto count as floor, not as walls
 	public boolean ignoreFloorBumps = false; // blocks of the same material as your floor, at or below foot level and within 8 blocks, stay silent
 	public boolean lineOfSight = true; // a block only sounds if you could see it (no leaking through thin walls)
 	public boolean ceilingCue = true; // soft tone from above when the ceiling is low

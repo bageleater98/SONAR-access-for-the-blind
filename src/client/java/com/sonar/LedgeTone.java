@@ -22,7 +22,7 @@ public class LedgeTone extends AbstractTickableSoundInstance {
 
 	@Override
 	public void tick() {
-		volume += (tv - volume) * (tv > volume ? 0.8f : 0.06f); // follows how close the edge is straight away; only the fade-out is slow
+		volume += (tv - volume) * (tv > volume ? 0.55f : 0.06f); // always ramps in (about 0.1 s, never a click-on); the fade-out is slower
 		pitch += (tp - pitch) * 0.12f;
 		x += (tx - x) * 0.15;
 		y += (ty - y) * 0.15;
@@ -35,7 +35,7 @@ public class LedgeTone extends AbstractTickableSoundInstance {
 		if (t != null && t.ev != ev) { mc.getSoundManager().stop(t); t = cur[slot] = null; }
 		if (t == null || t.isStopped()) {
 			t = cur[slot] = new LedgeTone(ev);
-			t.volume = vol; t.pitch = pitch; t.x = x; t.y = y; t.z = z;
+			t.volume = 0.02f; t.pitch = pitch; t.x = x; t.y = y; t.z = z; // starts near silent and ramps up (a sound at exactly 0 would not start)
 			mc.getSoundManager().play(t);
 		}
 		t.tv = vol; t.tp = pitch; t.tx = x; t.ty = y; t.tz = z;
@@ -44,6 +44,14 @@ public class LedgeTone extends AbstractTickableSoundInstance {
 	/** One slot goes quiet (it fades out smoothly). */
 	public static void quiet(int slot) {
 		if (cur[slot] != null) cur[slot].tv = 0;
+	}
+
+	/** One slot goes silent at once (no fade), for when the situation changes and the old tone no longer applies. */
+	public static void hush(int slot) {
+		if (cur[slot] != null) {
+			cur[slot].tv = 0;
+			cur[slot].volume = 0f;
+		}
 	}
 
 	/** Fades every slot from `first` upward (0 = all). */

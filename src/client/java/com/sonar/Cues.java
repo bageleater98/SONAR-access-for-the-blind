@@ -301,6 +301,16 @@ public class Cues {
 		Ledge[] side = new Ledge[2];
 		double[] rad = new double[2];
 		if (cfg.sideLedges) {
+			boolean aheadEdge = false; // an edge in front of you: the ones behind are not needed
+			for (Ledge l : s.ledges) {
+				if (l.d <= cfg.ledgeWarnRange && l.d != Float.MAX_VALUE) {
+					double ex = l.x + 0.5 - s.ex, ez = l.z + 0.5 - s.ez;
+					if (Math.abs(Math.toDegrees(Math.atan2(ex * rx + ez * rz, ex * fx + ez * fz))) < 45.0) {
+						aheadEdge = true;
+						break;
+					}
+				}
+			}
 			for (Ledge l : s.ledges) {
 				if (l.d > 4.0F || l.d < 0.6F) {
 					continue;
@@ -310,6 +320,16 @@ public class Cues {
 				double r = Math.atan2(ex * rx + ez * rz, ex * fx + ez * fz);
 				if (Math.abs(Math.toDegrees(r)) < 45.0) {
 					continue; // ahead is handled by the main tone
+					}
+				if (corridor) { // on a path: only the nearer edge sounds, and only once you are clearly off-centre (so a centred walk is silent)
+					double latd = Math.abs(ex * rx + ez * rz);
+					double od = ex * rx + ez * rz < 0 ? corrRight : corrLeft;
+					if (latd > 1.8 || latd > od * 0.6) {
+						continue;
+					}
+				}
+				if (aheadEdge && Math.abs(Math.toDegrees(r)) > 110.0) {
+					continue; // an edge ahead: leave out the ones behind you
 				}
 				int k = r < 0.0 ? 0 : 1;
 				if (side[k] == null || l.d < side[k].d) {
@@ -317,6 +337,24 @@ public class Cues {
 					rad[k] = r;
 				}
 			}
+		}
+
+		if (corridor) { // on a path: silent while centred; the nearer edge gets its own tone, panned hard to that side, once you are clearly off-centre
+			boolean anyC = false;
+			for (int k = 0; k < 2; k++) {
+				double dn = k == 0 ? corrLeft : corrRight, df = k == 0 ? corrRight : corrLeft;
+				if (dn <= 0.8 && dn < df * 0.6) {
+					float c = 1.0F - (float)(dn / 0.8);
+					float vol = Math.min(1.0F, 0.72F * (0.45F + 0.55F * c) * cfg.volume / 0.6F * cfg.ledgeVolume);
+					float pitch = 0.75F + 0.7F * c;
+					double a = (k == 0 ? -1.0 : 1.0) * 1.2;
+					LedgeTone.update(mc, ledgeSound(cfg), k + 1, vol, pitch, s.ex + 4.0 * (Math.cos(a) * fx + Math.sin(a) * rx), s.feetY - 1.0, s.ez + 4.0 * (Math.cos(a) * fz + Math.sin(a) * rz));
+					anyC = true;
+				} else {
+					LedgeTone.quiet(k + 1);
+				}
+			}
+			return anyC;
 		}
 
 		boolean any = false;
@@ -353,6 +391,8 @@ public class Cues {
 	private static int ledgeMiss;
 	/** True while an edge is within warning range, so the tone keeps going even if you stand still next to it. */
 	static boolean ledgeActive;
+	private static boolean corridor, wasCorridor;
+	private static double corrLeft, corrRight;
 
 	public static int watchLedges(Minecraft mc, Scan s, SonarConfig cfg, double vx, double vz) {
 		double sp = Math.max(1.0E-6, Math.hypot(vx, vz));
@@ -402,7 +442,72 @@ public class Cues {
 			}
 		}
 
-		if (holeCount >= 4 && maxGap < Math.toRadians(110.0)) {
+		// corridor: a straight path or ridge with a drop on BOTH sides. Each side is a line of edge cells at the same distance (3+ cells within 4 blocks along your heading).
+		// Its edges are constant, so they only sound once you drift close to one. (It is also not a hole, though edges surround you.)
+		double cyaw = Math.toRadians(s.yaw);
+		double cfx = -Math.sin(cyaw), cfz = Math.cos(cyaw), crx = -Math.cos(cyaw), crz = -Math.sin(cyaw);
+		double dLeft = Double.MAX_VALUE, dRight = Double.MAX_VALUE;
+		for (Ledge l : s.ledges) {
+			if (l.d > 5.0F || l.d == Float.MAX_VALUE) {
+				continue;
+			}
+			double ex = l.x + 0.5 - s.ex, ez = l.z + 0.5 - s.ez;
+			double lat = ex * crx + ez * crz, fwd = ex * cfx + ez * cfz;
+			if (Math.abs(fwd) > 4.0 || Math.abs(lat) < 0.05) {
+				continue; // far ahead or behind: not a side edge
+			}
+			if (lat < 0) {
+				dLeft = Math.min(dLeft, -lat);
+			} else {
+				dRight = Math.min(dRight, lat);
+			}
+		}
+		int nLeft = 0, nRight = 0;
+		for (Ledge l : s.ledges) {
+			if (l.d > 5.0F || l.d == Float.MAX_VALUE) {
+				continue;
+			}
+			double ex = l.x + 0.5 - s.ex, ez = l.z + 0.5 - s.ez;
+			double lat = ex * crx + ez * crz, fwd = ex * cfx + ez * cfz;
+			if (Math.abs(fwd) > 4.0 || Math.abs(lat) < 0.05) {
+				continue;
+			}
+			if (lat < 0 && -lat - dLeft < 0.6) {
+				nLeft++;
+			} else if (lat > 0 && lat - dRight < 0.6) {
+				nRight++;
+			}
+		}
+		corridor = dLeft <= 4.5 && dRight <= 4.5 && nLeft >= 2 && nRight >= 2;
+		boolean guided = false;
+		double bndL = Double.MAX_VALUE, bndR = Double.MAX_VALUE;
+		if (PathGuide.active()) { // the path guide knows the path (stairs, ramps, bends too): measure the sides from the path itself instead of guessing from the drops
+			double[] pe = PathGuide.edges(mc, s.ex, s.ez, mc.player.getBlockY() - 1, crx, crz, cfg.ledgeMinDrop);
+			if (pe != null) {
+				guided = true;
+				corridor = true;
+				dLeft = pe[0];
+				dRight = pe[1];
+				bndL = pe[2];
+				bndR = pe[3];
+			}
+		}
+		corrLeft = dLeft;
+		corrRight = dRight;
+		if (corridor && !wasCorridor) {
+			LedgeTone.hush(0); // stepped onto a path: the island's edge tone must not ring on for a second
+			LedgeTone.hush(1);
+			LedgeTone.hush(2);
+		}
+		wasCorridor = corridor;
+
+		if (cfg.debug && ++dbgTick % 7 == 3) {
+			mc.player.sendSystemMessage(Component.literal(String.format("hole check: guided %b corridor %b (L %.1f x%d, R %.1f x%d) edges<=4: %d, maxGap %.0f", guided, corridor, dLeft > 1e6 ? -1.0 : dLeft, nLeft, dRight > 1e6 ? -1.0 : dRight, nRight, holeCount, Math.toDegrees(maxGap))));
+		}
+		if (!corridor && !PathGuide.active() && holeCount >= 4 && maxGap < Math.toRadians(110.0)) {
+			if (cfg.debug) {
+				mc.player.sendSystemMessage(Component.literal("TONE: hole (under you), nearest " + nearest + " deepest " + deepest));
+			}
 			ledgeMiss = 0;
 			ledgeActive = true;
 			float c = Math.max(0.0F, Math.min(1.0F, 1.0F - (float)Math.max(0.0, nearest - lead) / cfg.ledgeWarnRange));
@@ -417,6 +522,19 @@ public class Cues {
 
 		edgeAheadD = Float.MAX_VALUE;
 		boolean anySide = sideTones(mc, s, cfg, lead);
+		if (cfg.debug && dbgTick % 7 == 1) {
+			int nLedges = 0;
+			StringBuilder sb = new StringBuilder();
+			for (Ledge e : s.ledges) {
+				if (e.d != Float.MAX_VALUE && e.d <= 6.0F) {
+					double ex = e.x + 0.5 - s.ex, ez = e.z + 0.5 - s.ez;
+					if (++nLedges <= 8) {
+						sb.append(String.format(" [fwd %.1f lat %.1f drop %d]", ex * cfx + ez * cfz, ex * crx + ez * crz, e.drop));
+					}
+				}
+			}
+			mc.player.sendSystemMessage(Component.literal(String.format("corridor %b (L %.1f R %.1f) ledges<=6: %d%s", corridor, dLeft, dRight, nLedges, sb)));
+		}
 		if (cfg.debug && ++dbgTick % 7 == 0) {
 			Ledge nl = null;
 			int n = 0;
@@ -439,8 +557,23 @@ public class Cues {
 			double ex = l.x + 0.5 - s.ex;
 			double ez = l.z + 0.5 - s.ez;
 			double el = Math.max(1.0E-6, Math.hypot(ex, ez));
-			if ((ex * vx + ez * vz) / (el * sp) < 0.7 && l.d > 0.6) {
+			if ((ex * vx + ez * vz) / (el * sp) < 0.7 && el > 1.0) { // el = the real distance: l.d can be shrunk to 0.5 by the stair-approach logic, which must not let an edge far behind you count as "right at your feet"
 				continue; // only edges within ~45 degrees of where you are heading count (open sides of a staircase or bridge stay quiet)
+			}
+			if (guided) { // on the guided path: terrain beyond its sides (a cliff, terraces, the island next to it) is not on your way, so it stays silent until you are back on the main land
+				double lat = ex * crx + ez * crz;
+				if (lat < -(bndL + 0.1) || lat > bndR + 0.1) {
+					continue;
+				}
+				if (Math.abs(lat + (bndL - 0.5)) < 0.6 || Math.abs(lat - (bndR - 0.5)) < 0.6) { // matched against both side lines: next to an edge the sign of lat flips
+					continue; // the cells along the path's own side lines (any drop size): sideTones handles those, they are not "ahead"
+				}
+			}
+			if (corridor) { // the two lines of edge cells along the path are handled by sideTones; only something else (the end of the path, a drop across it) counts as ahead
+				double lat = ex * crx + ez * crz;
+				if (Math.abs(lat + dLeft) < 0.6 || Math.abs(lat - dRight) < 0.6) {
+					continue;
+				}
 			}
 			near.add(l);
 		}
@@ -485,6 +618,10 @@ public class Cues {
 		float dropF = 0.65F + 0.35F * Math.min(1.0F, Math.max(0, l.drop - 4) / 10.0F);
 		float vol = Math.min(1.0F, 0.72F * (0.4F + 0.6F * c) * dropF * cfg.volume / 0.6F * cfg.ledgeVolume);
 		float pitch = Math.max(0.5F, Math.min(2.0F, 0.75F + 0.7F * c - (l.deep ? 0.15F : 0.0F)));
+		if (cfg.debug) {
+			double dx0 = l.x + 0.5 - s.ex, dz0 = l.z + 0.5 - s.ez;
+			mc.player.sendSystemMessage(Component.literal(String.format("TONE: main from edge fwd %.1f lat %.1f drop %d d %.1f vol %.2f | guided %b corridor %b bnd L %.1f R %.1f", dx0 * cfx + dz0 * cfz, dx0 * crx + dz0 * crz, l.drop, l.d, vol, guided, corridor, bndL > 1e6 ? -1.0 : bndL, bndR > 1e6 ? -1.0 : bndR)));
+		}
 		LedgeTone.update(mc, ledgeSound(cfg), 0, vol, pitch, l.x + 0.5, l.y - 0.5, l.z + 0.5);
 		edgeAheadD = l.d;
 		edgeAheadDrop = l.drop;
@@ -643,7 +780,7 @@ public class Cues {
 
 				if (sol.state != null && !quiet) {
 					if (cfg.debug && mc.player != null) mc.player.sendSystemMessage(Component.literal("wall: " + sol.state.getBlock().getDescriptionId() + " at " + sol.x + "," + sol.y + "," + sol.z + " -> " + blockSound(sol.state, cfg).location().getPath()));
-					com.sonar.Cues.Cue solCue = at(s, cfg, sol.d, sol.x + 0.5, sol.y + 0.5, sol.z + 0.5, blockSound(sol.state, cfg), 0.9F, materialPitch(blockSound(sol.state, cfg)), 1);
+					com.sonar.Cues.Cue solCue = at(s, cfg, sol.d, sol.x + 0.5, sol.y + 0.5, sol.z + 0.5, blockSound(sol.state, cfg), (sol.state.is(net.minecraft.tags.BlockTags.SLABS) || sol.state.is(net.minecraft.tags.BlockTags.STAIRS)) ? 0.45F : 0.9F, materialPitch(blockSound(sol.state, cfg)), 1);
 					cues.add(solCue);
 					tagTree(treeKind, solCue, sol.state);
 				} else if (tac.state != null && !quiet) {

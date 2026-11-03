@@ -7,7 +7,7 @@ import net.minecraft.world.level.block.state.BlockState;
 
 /** Part of the sonar ping: plays the sound of an unusual floor material (stone path, sand, gravel, planks...) from where it begins, ahead and to the sides. Plain grass/dirt ground is ignored. */
 public class FloorEdge {
-	private static final int[] RAYS = {-80, -40, 0, 40, 80}; // degrees relative to where you face
+	private static final int[] RAYS = {0, -40, 40}; // degrees relative to where you face (ahead only, never sideways)
 
 	private static BlockState floorAt(Minecraft mc, int x, int z, int feetY) {
 		var pos = new BlockPos.MutableBlockPos();
@@ -36,6 +36,18 @@ public class FloorEdge {
 			|| s.is(net.minecraft.world.level.block.Blocks.SANDSTONE) || s.is(net.minecraft.world.level.block.Blocks.RED_SANDSTONE)
 			|| s.is(net.minecraft.world.level.block.Blocks.SOUL_SAND) || s.is(net.minecraft.world.level.block.Blocks.SOUL_SOIL) || s.is(net.minecraft.world.level.block.Blocks.OBSIDIAN)
 			|| s.is(net.minecraft.world.level.block.Blocks.BEDROCK) || s.is(net.minecraft.world.level.block.Blocks.WATER);
+	}
+
+	/** How many cells of the 9x9 around (x,z) have a built (non-natural) floor. */
+	private static int builtCover(Minecraft mc, int x, int z, int fy) {
+		int cover = 0;
+		for (int dx = -4; dx <= 4; dx++) {
+			for (int dz = -4; dz <= 4; dz++) {
+				BlockState c = floorAt(mc, x + dx, z + dz, fy);
+				if (c != null && !natural(c)) cover++;
+			}
+		}
+		return cover;
 	}
 
 	/** Returns true when a built path/floor is within reach (the caller then quiets everything else a little). Only built blocks make sound; natural ground beside the path stays silent. */
@@ -72,17 +84,18 @@ public class FloorEdge {
 					if (!built) break; // the path ends: sound the last path block, nothing from the ground beside it
 					last = s; lastD = d;
 				} else if (built) {
+					if (builtCover(mc, x, z, fy) > 40 || s.is(net.minecraft.tags.BlockTags.SLABS) || s.is(net.minecraft.tags.BlockTags.STAIRS)) break; // a slab roof, plaza or platform is not a path: stay quiet about it
 					last = s; lastD = d; // path begins here
 					break;
 				}
 			}
-			if (last != null && played < 3) {
+				if (last != null && played < 3) {
 				found = true;
 				int x = (int) Math.floor(p.getX() + dx * lastD), z = (int) Math.floor(p.getZ() + dz * lastD);
 				SoundEvent snd = last.getSoundType().getStepSound();
 				float vol = Math.min(1f, cfg.volume * 1.5f * (1.15f - (float) lastD / 7.5f));
-				if (cfg.debug) mc.player.sendSystemMessage(net.minecraft.network.chat.Component.literal("path: " + last.getBlock().getDescriptionId() + " (" + (onPath ? "on path" : "off path") + ", here=" + here.getBlock().getDescriptionId() + ") -> " + snd.location().getPath() + " vol " + vol));
-				Cues.play(mc, snd, vol, Cues.materialPitch(snd), x + 0.5, fy + 1.0, z + 0.5);
+								if (cfg.debug) mc.player.sendSystemMessage(net.minecraft.network.chat.Component.literal("path: " + last.getBlock().getDescriptionId() + " (" + (onPath ? "on path" : "off path") + ", here=" + here.getBlock().getDescriptionId() + ") -> " + snd.location().getPath() + " vol " + vol));
+				Cues.play(mc, snd, vol, Cues.materialPitch(snd), p.getX() + dx * Math.min(lastD, 1.0), fy + 0.2, p.getZ() + dz * Math.min(lastD, 1.0)); // under your feet and just ahead (toward the bell), never out where the block is
 				played++;
 			}
 		}
