@@ -13,28 +13,21 @@ By **BagelEater**
 ![Java](https://img.shields.io/badge/Java-25%2B-F89820?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-CC0--1.0-blue?style=for-the-badge)
 
-[Features](#-features) | [Controls](#-controls) | [How it works](#-how-it-works) | [Install](#-installation) | [FAQ](#-faq)
+[What is SONAR](#what-is-sonar) | [Features](#-features) | [Controls](#-controls) | [How it works](#-how-it-works) | [Install](#-installation) | [FAQ](#-faq)
 
 </div>
 
 ---
 
-## 🔊 What is SONAR?
+## What is SONAR?
 
 SONAR lets you explore Minecraft by ear.
 
-Press a key and the mod sends out a sonar ping. Walls, drops, water, lava, paths and open rooms each answer with a sound of their own, placed in 3D around your head exactly where they are in the world. A wall to your left is heard on your left. Something behind you is quieter and more muffled. The closer something is, the louder it plays.
+Press a key and the mod sends out a sonar ping. Walls, drops, water, paths and open rooms each answer with a sound of their own, placed in 3D around your head exactly where they are in the world. A wall to your left is heard on your left. The closer something is, the louder it plays, and anything behind you is quieter and more muffled, so you can tell front from back.
 
-With headphones on, you can hear:
+With a pair of headphones, that is enough to find your way around: you can hear where the walls are, where a drop begins, where the water and lava are, which way a path runs, and how big a room is.
 
-- 🧱 the walls around you, and how far away they are
-- ⚠️ the edge of a drop, before you reach it
-- 🌊 water and lava nearby
-- 🛤️ the path ahead, so you can follow roads and corridors
-- 🏛️ the size of the room you are in, from its echo
-- 🧍 other players nearby, by their chime
-
-SONAR runs only on your own computer, so there is nothing to install on the server. All you need is a pair of headphones. Install it, put them on, and press **R**.
+SONAR runs only on your own computer, so nothing needs to be installed on the server. Put on headphones and press **R**.
 
 ---
 
@@ -42,13 +35,16 @@ SONAR runs only on your own computer, so there is nothing to install on the serv
 
 | | |
 |---|---|
-| 🎧 **True 3D sound** | Every sound comes from the direction of the thing that made it. Sounds behind you are quieter, lower and muffled. |
+| 🎧 **True 3D sound** | Every sound comes from the direction of the thing that made it. |
 | 📡 **Sonar ping** | One key press scans everything within your range, up to 60 blocks. |
-| 🔄 **Auto-ping** | Hold **R** for two seconds and SONAR keeps pinging on its own, hands free. |
-| ⚠️ **Ledge warning** | A blip that speeds up as you get closer to a drop, a steep slope or lava. |
-| 🛑 **Edge brake** | An optional safety net that briefly slows you down when you run at a real drop. |
-| 🌊 **Room echoes** | Caves and enclosed rooms echo back, and the pitch and length of the echo tell you how big the space is. |
-| 🛤️ **Path guide** | A bell sounds from the path ahead so you can follow it. |
+| 🔄 **Auto-ping** | SONAR keeps pinging on its own at a steady rhythm, so your hands stay free. |
+| ⚠️ **Ledge warning** | A blip that speeds up as you get closer to a drop, a steep slope or lava. Ordinary stairs and fenced edges are ignored, and it stays quiet while you sneak. |
+| 🛑 **Edge brake** | An optional safety net: if you run at a real drop, SONAR slows you down for half a second. Sneaking, stopping or turning away cancels it at once, so it can never trap you. |
+| 🌊 **Room echoes** | Caves and enclosed rooms echo back. A small room gives a short, high echo and a large hall gives a long, low one. |
+| 🛤️ **Path guide** | A bell rings from the path 8 to 11 blocks ahead so you can follow roads and corridors. It stays quiet inside buildings and on wide plazas. |
+| 🟫 **Floor edges** | Tells you where a built floor begins or ends, such as stepping from grass onto a stone road. |
+| 💧 **Water and lava** | Within a few blocks of either, SONAR repeats its sound every couple of seconds so you always know it is there. |
+| 💥 **Wall thud** | Walk into a wall and you hear a thud. Two thuds in a row mean the wall is two or more blocks tall, so you cannot jump it. |
 | 🗣️ **Spoken help** | Hear the name and distance of whatever you are looking at, or a short summary of your surroundings. |
 | 🧍 **Player chime** | Other players give off a steady jingle, so you can find each other. |
 | 🎛️ **Fully adjustable** | Volumes, range, key bindings and every cue can be changed in game. |
@@ -66,7 +62,7 @@ SONAR runs only on your own computer, so there is nothing to install on the serv
 | **H** | Echo | Turn room echoes on or off. |
 | **J** | Ledge warning | Turn the ledge warning on or off. |
 
-Every key can be changed. Open the pause menu, choose **Sonar Settings**, then **Keys**, click an action and press the key you want.
+Every key can be changed: open the pause menu, choose **Sonar Settings**, then **Keys**, click an action and press the key you want.
 
 ---
 
@@ -76,61 +72,37 @@ Every ping happens in three steps.
 
 ### 1. 👀 Look
 
-SONAR scans the blocks in a sphere around you. It divides that sphere into 16 directions and 3 heights, and sorts what it finds into four kinds: dangers, solid surfaces such as walls and floors, things you can touch, and water.
+SONAR scans the blocks in a sphere around you. It divides the sphere into 16 directions and 3 heights, and sorts what it finds into four kinds: dangers, solid surfaces such as walls and floors, things you can touch, and water.
 
-Each direction keeps only its most important find in each kind, so you hear a clear picture instead of a wall of noise. A block only counts if you have a clear line of sight to it, so nothing hidden behind a wall gives itself away. The scan is spread over many game ticks in small slices, so your game keeps running smoothly.
+Each direction keeps only its most important find of each kind, so you hear a clear picture instead of a wall of noise. A block only counts if you have a clear line of sight to it, so nothing hidden behind a wall gives itself away. The scan is spread over many game ticks, so the game keeps running smoothly.
 
 ### 2. 🎧 Sound
 
-Each find becomes a sound, played from the direction it is in. When there are too many to play at once, dangers come first, then walls, then things you can touch.
+Each find becomes a sound played from its direction. If there are too many to play at once, dangers come first, then walls, then things you can touch.
 
-Minecraft's own sound system makes distant sounds fade out quickly, so SONAR compresses distances into a range where everything stays audible, while keeping near things louder than far ones. The sounds start a fraction of a second apart, front first, so they come across as a sequence you can follow instead of one jumble. Anything behind you is quieter, lower in pitch and muffled, which is how you tell front from back.
+Minecraft's sound system fades distant sounds out quickly, so SONAR squeezes distances into a range where everything stays audible while near things still sound louder than far ones. The sounds start a fraction of a second apart, front first, so they arrive as a sequence you can follow instead of one jumble.
 
 ### 3. 🌊 Echo
 
-Inside a cave or a closed room, SONAR adds an echo, much like the way a bathroom sounds different from a cathedral. The far walls echo first and the nearest last. A small room gives a short, high echo, and a large hall gives a long, low one.
-
----
-
-## 🛰️ Always-on helpers
-
-These work in the background as you move, without any key presses.
-
-**⚠️ Ledge warning.** When you walk toward a drop, a steep slope or lava, you hear a blip that gets faster the closer you get. Ordinary stairs and fenced edges are ignored, so it only speaks up when it matters. It quiets down when you stand still and stays silent while you sneak.
-
-**🛑 Edge brake (optional).** If you run at a real drop, SONAR can slow you down for half a second to give you time to react. It can never trap you: sneaking, stopping or turning away cancels it immediately.
-
-**🛤️ Path guide.** On a built path, a bell rings from 8 to 11 blocks ahead so you can follow roads and corridors. It stays quiet inside buildings and on wide plazas.
-
-**🟫 Floor edges.** Tells you where a built floor begins or ends, such as stepping from grass onto a stone road.
-
-**💧 Water and lava loop.** Within a few blocks of water or lava, SONAR keeps sounding it every couple of seconds so you always know it is there.
-
-**💥 Stuck thud.** If you walk into a wall, you hear a thud about once a second. Two thuds in a row mean the wall is two or more blocks tall, so you cannot jump over it.
-
-**🧍 Player chime.** Other players give off a constant jingle, so you can find your friends.
-
-**🗣️ Speech.** SONAR speaks its messages using a Windows voice, and falls back to Minecraft's built-in narrator if that is not available.
-
-**🔄 Auto-ping.** Hold **R** and SONAR pings at a steady rhythm on its own, with an echo a moment after each ping.
+In a cave or closed room, SONAR adds an echo, the same way a bathroom sounds different from a cathedral. The far walls echo first and the nearest last, and the size of the room changes the pitch and length of the echo.
 
 ---
 
 ## 🎛️ Make it yours
 
-Open the pause menu and choose **Sonar Settings**. Everything is there, with separate screens for **Volumes**, **Keys** and **More**.
+Open the pause menu and choose **Sonar Settings**. Everything is there, on separate screens for **Volumes**, **Keys** and **More**.
 
 | Setting | What it does |
 |---|---|
 | Sonar range | How far SONAR listens, from 15 to 60 blocks. |
 | Direction spread | Exaggerates left and right so directions are easier to tell apart. |
 | Smallest drop warned | The smallest fall that triggers a warning, from 2 to 8 blocks. |
-| Switches | Turn individual cues on or off: hazards, close-range touch, gaps and doors, stuck thud, water and lava, path guide, floor edges, edge brake, and sonar off indoors. |
+| Switches | Turn individual cues on or off, such as hazards, close-range touch, gaps and doors, wall thud, water and lava, path guide, floor edges and edge brake. |
 | Reset | Put every setting back to its default. |
 
-Settings are saved in `config/sonar.json` and reload instantly, so you can edit the file while the game is running. If the file contains a mistake, SONAR keeps your last working settings instead of breaking.
+Settings are saved in `config/sonar.json` and reload instantly, so you can edit the file while the game is running. If the file contains a mistake, SONAR keeps your last working settings.
 
-The first time you play, SONAR also turns on Minecraft's *Directional Audio* setting so you get proper 3D sound. You can change it back afterwards.
+The first time you play, SONAR also turns on Minecraft's *Directional Audio* setting, which is what gives you proper 3D sound. You can switch it back afterwards.
 
 ---
 
@@ -144,7 +116,7 @@ The first time you play, SONAR also turns on Minecraft's *Directional Audio* set
 | Java | 25 or newer |
 | Environment | Client only |
 
-**Tip:** use stereo headphones. The 3D sound is what makes SONAR work.
+Stereo headphones are strongly recommended, because the 3D sound is what makes SONAR work. Spoken help uses a Windows voice and falls back to Minecraft's built-in narrator on other systems.
 
 ## 📥 Installation
 
@@ -153,7 +125,30 @@ The first time you play, SONAR also turns on Minecraft's *Directional Audio* set
 3. Put both files in your `mods` folder.
 4. Start the game and press **R**.
 
-## 🛠️ Building from source
+---
+
+## ❓ FAQ
+
+**Do I need to install anything on the server?**
+No. SONAR runs only on your own computer, so it works in singleplayer and on any server that allows client mods.
+
+**Do I need headphones?**
+They are strongly recommended. Stereo headphones are what let you tell which direction a sound is coming from.
+
+**Will it slow my game down?**
+It is designed not to. The scan is split into small pieces spread over many game ticks, so the game does not freeze or stutter.
+
+**It is too loud, too busy or too quiet. What can I do?**
+Open **Sonar Settings**. You can change the volumes and range, and switch off any cue you do not want.
+
+**How do I report a problem or suggest an idea?**
+Open an issue on this repository. SONAR is built for blind players, so feedback from the people using it matters most.
+
+---
+
+## 🛠️ For developers
+
+### Building from source
 
 ```bash
 git clone https://github.com/bageleater98/SONAR-access-for-the-blind.git
@@ -163,7 +158,7 @@ cd SONAR-access-for-the-blind
 
 The finished jar appears in `build/libs/`. You need JDK 25 or newer.
 
-## 🗂️ Project layout
+### Project layout
 
 ```
 src/client/java/com/sonar/    The mod: Scan, Cues, helpers, and the settings screens
@@ -173,30 +168,6 @@ DESIGN.md                     Technical design notes
 ```
 
 For the full technical details, see [DESIGN.md](DESIGN.md).
-
-## 🙇 Getting help and feedback
-
-SONAR is built for blind players, so your feedback matters most. If a sound is confusing, too loud or missing, or if you have an idea, please [open an issue](../../issues).
-
-## ❓ FAQ
-
-**Do I need to install anything on the server?**
-No. SONAR runs only on your own computer, so it works in singleplayer and on any server that allows client mods.
-
-**Do I need headphones?**
-They are strongly recommended. The 3D sound is what tells you which direction something is in, and that works best with stereo headphones.
-
-**Will it slow my game down?**
-It is designed not to. The scan is spread over many game ticks in small pieces, so the game does not freeze or stutter.
-
-**Can I change the keys?**
-Yes. Open the pause menu, choose **Sonar Settings**, then **Keys**.
-
-**It is too loud, too busy or too quiet. What can I do?**
-Open **Sonar Settings**. You can change the volumes and range, and switch off any cue you do not want.
-
-**How do I report a problem or suggest an idea?**
-Open an issue on this repository. See *Getting help and feedback* above.
 
 ---
 
