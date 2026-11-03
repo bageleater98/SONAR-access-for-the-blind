@@ -39,7 +39,7 @@ SONAR runs only on your own computer, so nothing needs to be installed on the se
 | 📡 **Sonar ping** | One key press scans everything within your range, up to 60 blocks. |
 | 🔄 **Auto-ping** | SONAR keeps pinging on its own at a steady rhythm, so your hands stay free. |
 | ⚠️ **Ledge warning** | A blip that speeds up as you get closer to a drop, a steep slope or lava. Ordinary stairs and fenced edges are ignored, and it stays quiet while you sneak. |
-| 🛑 **Edge brake** | An optional safety net: if you run at a real drop, SONAR slows you down for half a second. Sneaking, stopping or turning away cancels it at once, so it can never trap you. |
+| 🛑 **Edge brake** | A safety net, on by default: if you run at a real drop, SONAR slows you down for half a second. Sneaking, stopping or turning away cancels it at once, so it can never trap you. You can turn it off under **More** in Sonar Settings. |
 | 🌊 **Room echoes** | Caves and enclosed rooms echo back. A small room gives a short, high echo and a large hall gives a long, low one. |
 | 🛤️ **Path guide** | A bell rings from the path 8 to 11 blocks ahead so you can follow roads and corridors. It stays quiet inside buildings and on wide plazas. |
 | 🟫 **Floor edges** | Tells you where a built floor begins or ends, such as stepping from grass onto a stone road. |
@@ -121,7 +121,7 @@ Stereo headphones are strongly recommended, because the 3D sound is what makes S
 ## 📥 Installation
 
 1. Install [Fabric Loader](https://fabricmc.net/use/) for Minecraft 26.3.
-2. Download [Fabric API](https://modrinth.com/mod/fabric-api) and the SONAR `.jar`.
+2. Download [Fabric API](https://modrinth.com/mod/fabric-api) and the latest SONAR `.jar` from the [Releases page](https://github.com/bageleater98/SONAR-access-for-the-blind/releases).
 3. Put both files in your `mods` folder.
 4. Start the game and press **R**.
 
