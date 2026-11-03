@@ -1,31 +1,77 @@
 <div align="center">
 
-# 🔊 SONAR - Access
+<img src="docs/banner.svg" alt="SONAR - Access. Hear the space around you." width="100%">
 
-### Hear the space around you.
+**A Fabric mod that turns Minecraft into 3D sound, so blind and low-vision players can explore by ear.**
 
-**By BagelEater**
+By **BagelEater**
 
-**A client-side Fabric accessibility mod that turns Minecraft's surroundings into sound, built for blind and low-vision players.**
+![Minecraft](https://img.shields.io/badge/Minecraft-26.3-62B47A?style=for-the-badge)
+![Loader](https://img.shields.io/badge/Fabric-Client--only-DBD0B4?style=for-the-badge)
+![Java](https://img.shields.io/badge/Java-25%2B-F89820?style=for-the-badge)
+![License](https://img.shields.io/badge/License-CC0--1.0-blue?style=for-the-badge)
 
-![Minecraft](https://img.shields.io/badge/Minecraft-26.3-62B47A?style=flat-square)
-![Loader](https://img.shields.io/badge/Fabric-Client--only-DBD0B4?style=flat-square)
-![Java](https://img.shields.io/badge/Java-25%2B-F89820?style=flat-square)
-![License](https://img.shields.io/badge/License-CC0--1.0-blue?style=flat-square)
+[Features](#-features) | [See it](#-see-it-in-action) | [Controls](#-controls) | [How it works](#-how-it-works) | [Install](#-installation) | [FAQ](#-faq)
 
 </div>
 
 ---
 
-## What is SONAR?
+## 🔊 What is SONAR?
 
-Press **R** and the world speaks. Walls, floors, drops, water, lava, paths and open rooms each get their own sound, and every sound comes from the exact direction of the thing that made it. Wear headphones and you can tell what is ahead, what is beside you, and what is behind you, without ever looking at the screen.
+**SONAR gives you a new way to see: with your ears.**
 
-SONAR runs entirely on your own computer. Nothing is installed on the server, so it works in singleplayer and on any server that allows client mods.
+It uses **spatial audio** to place every wall, drop, pool of water and open doorway in 3D space around your head. Press a key and the world answers back with sound, each one coming from exactly where the thing is. Left sounds on your left. Behind sounds behind you. Near sounds loud, far sounds soft.
+
+With a pair of headphones you can tell:
+
+- 🧱 **where the walls are**, and how far away
+- ⚠️ **where the edge is**, before you walk off it
+- 🌊 **where the water and lava are**, so you never wander into them
+- 🛤️ **where the path goes**, so you can follow roads and corridors
+- 🏛️ **how big the room is**, from the echo alone
+- 🧍 **where your friends are**, from their jingle
+
+No mods on the server. No special hardware. No sighted help. Just install it, put on headphones and press **R**.
 
 ---
 
-## Controls
+## ✨ Features
+
+| | |
+|---|---|
+| 🎧 **True 3D sound** | Every sound comes from its real direction, with sounds behind you quieter, lower and muffled, just like real life. |
+| 📡 **Instant sonar scan** | One key press scans a bubble of up to 60 blocks around you. |
+| 🔄 **Auto-scan** | Hold **R** and SONAR pings on its own, hands free. |
+| ⚠️ **Ledge warning** | A blip that speeds up as you near drops, steep slopes and lava. |
+| 🛑 **Edge brake** | Optionally slows you before a real drop, never traps you. |
+| 🌊 **Cave and room echoes** | Hear the size of the space you are standing in. |
+| 🛤️ **Path guide** | A bell that leads you along built paths. |
+| 🗣️ **Spoken help** | Identify what you are looking at, or hear a summary of the room. |
+| 🧍 **Player chime** | Find other players by their jingle. |
+| 🎛️ **Fully adjustable** | Volumes, range, keys and every cue can be changed in game. |
+
+---
+
+## 🎬 See it in action
+
+> Both clips are stylised visualisations of how SONAR works, not recordings of the game.
+
+<div align="center">
+
+### First person: the pulse goes out, the walls light up
+
+<img src="docs/sonar-first-person.gif" alt="First-person view of a cave. A red pulse spreads out and walls light up green as it passes, with left and right sound meters at the bottom." width="720">
+
+### From above: SONAR only reports what you could actually see
+
+<img src="docs/sonar-scan.gif" alt="Top-down view of a cave. A red ring spreads from the player and lights up walls, water, lava and a path, labelling each one." width="720">
+
+</div>
+
+---
+
+## 🎮 Controls
 
 | Key | Action | What happens |
 |:---:|---|---|
@@ -40,7 +86,7 @@ Every key can be changed. Open the pause menu, choose **Sonar Settings**, then *
 
 ---
 
-## How it works
+## 🧠 How it works
 
 Think of SONAR as a friendly bat that lives in your ears. Every time you scan, it goes through three simple steps.
 
@@ -70,7 +116,7 @@ Inside a cave or a closed room, SONAR adds an echo, the way you can *feel* the s
 
 ---
 
-## Always-on helpers
+## 🛰️ Always-on helpers
 
 These keep working while you walk, without you pressing anything.
 
@@ -94,7 +140,7 @@ These keep working while you walk, without you pressing anything.
 
 ---
 
-## Make it yours
+## 🎛️ Make it yours
 
 Open the pause menu and choose **Sonar Settings**. Everything is there, with sub-screens for **Volumes**, **Keys** and **More**.
 
@@ -110,7 +156,7 @@ Settings are saved in `config/sonar.json` and reload instantly, so you can edit 
 
 ---
 
-## Requirements
+## 📋 Requirements
 
 | | |
 |---|---|
@@ -122,14 +168,14 @@ Settings are saved in `config/sonar.json` and reload instantly, so you can edit 
 
 **Tip:** use stereo headphones. The 3D sound is what makes SONAR work.
 
-## Installation
+## 📥 Installation
 
 1. Install [Fabric Loader](https://fabricmc.net/use/) for Minecraft 26.3.
 2. Download [Fabric API](https://modrinth.com/mod/fabric-api) and the SONAR `.jar`.
 3. Put both files in your `mods` folder.
 4. Start the game and press **R**.
 
-## Building from source
+## 🛠️ Building from source
 
 ```bash
 git clone https://github.com/bageleater98/SONAR-access-for-the-blind.git
@@ -139,7 +185,7 @@ cd SONAR-access-for-the-blind
 
 The finished jar appears in `build/libs/`. You need JDK 25 or newer.
 
-## Project layout
+## 🗂️ Project layout
 
 ```
 src/client/java/com/sonar/    The mod: Scan, Cues, helpers, and the settings screens
@@ -150,10 +196,36 @@ DESIGN.md                     Technical design notes
 
 For the full technical details, see [DESIGN.md](DESIGN.md).
 
-## Feedback
+## 🙇 Getting help and feedback
 
 SONAR is built for blind players, so your feedback shapes it more than anything else. If a sound is confusing, too loud or missing, please [open an issue](../../issues).
 
-## License
+## ❓ FAQ
+
+**Do I need to install anything on the server?**
+No. SONAR runs only on your own computer, so it works in singleplayer and on any server that allows client mods.
+
+**Do I need headphones?**
+Strongly recommended. The 3D sound is what tells you the direction of things, and stereo headphones are what make that work.
+
+**Will it slow my game down?**
+It is built not to. The scan is spread out in small pieces over many game ticks, so the game does not freeze or stutter.
+
+**Can I change the keys?**
+Yes. Open the pause menu, choose **Sonar Settings**, then **Keys**.
+
+**It is too loud, too busy or too quiet. What can I do?**
+Open **Sonar Settings**. You can change volumes and range, and switch off any cue you do not want.
+
+**Can I report a problem or suggest an idea?**
+Please do. See the section below.
+
+---
+
+## 👏 Credits
+
+Created by **BagelEater**. Built with [Fabric](https://fabricmc.net/).
+
+## 📜 License
 
 Released under [CC0-1.0](LICENSE), public domain. Use it, learn from it, and build on it.
