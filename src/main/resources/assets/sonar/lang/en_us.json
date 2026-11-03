@@ -1,0 +1,9 @@
+{
+	"key.sonar.scan": "Sonar scan (hold 2 s: auto scan)",
+	"key.sonar.front": "Sonar front scan",
+	"key.sonar.summary": "Sonar spoken summary",
+	"key.sonar.echo": "Sonar echo toggle",
+	"key.sonar.ledge": "Sonar ledge warning toggle",
+	"key.sonar.identify": "Sonar identify target",
+	"key.category.sonar.sonar": "Sonar"
+}

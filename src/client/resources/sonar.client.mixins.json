@@ -1,0 +1,7 @@
+{
+	"required": true,
+	"package": "com.sonar.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"client": ["MobAccessor", "GameNarratorAccessor", "KeyboardInputMixin"],
+	"injectors": { "defaultRequire": 1 }
+}

@@ -1,0 +1,21 @@
+{
+	"schemaVersion": 1,
+	"id": "sonar",
+	"version": "${version}",
+	"name": "Sonar",
+	"description": "Accessibility mod for blind players: press a key to hear the space around you.",
+	"authors": ["Sonar"],
+	"license": "CC0-1.0",
+	"icon": "assets/sonar/icon.png",
+	"environment": "client",
+	"mixins": [{"config": "sonar.client.mixins.json", "environment": "client"}],
+	"entrypoints": {
+		"client": ["com.sonar.SonarClient"]
+	},
+	"depends": {
+		"fabricloader": ">=0.19.5",
+		"minecraft": "~26.3",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}
