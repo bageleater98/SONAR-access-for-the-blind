@@ -29,12 +29,7 @@ With a pair of headphones, that is enough to find your way around: you can hear 
 
 SONAR runs only on your own computer, so nothing needs to be installed on the server. Put on headphones and press **R**.
 
-### See it in action
-
 <div align="center">
-
-<img src="docs/sonar-scan.gif" width="49%" alt="A sonar ping scanning the area around the player">
-<img src="docs/sonar-first-person.gif" width="49%" alt="First-person view of a player exploring with SONAR">
 
 **[⬇️ Download the latest release](../../releases/latest)**
 
