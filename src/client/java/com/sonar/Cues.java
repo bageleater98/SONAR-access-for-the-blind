@@ -128,6 +128,7 @@ public class Cues {
 	}
 
 	private static String lastRoomMsg = "";
+	private static int offCorridorChecks;
 
 	static boolean enclosed(Minecraft mc, Scan s) {
 		return enclosed(mc, new Vec3(s.ex, s.ey, s.ez));
@@ -604,11 +605,12 @@ public class Cues {
 		corrRight = dRight;
 		corrLeftDrop = dropL;
 		corrRightDrop = dropR;
-		if (corridor && !wasCorridor) {
-			LedgeTone.hush(0); // stepped onto a path: the island's edge tone must not ring on for a second
+		if (corridor && !wasCorridor && offCorridorChecks >= 12) { // really stepped onto a path after a while off it (about a second of checks): the island's edge tone must not ring on. A flicker of the path state (the guide losing and regaining the path while you stand at an edge) must NOT cut the tone.
+			LedgeTone.hush(0);
 			LedgeTone.hush(1);
 			LedgeTone.hush(2);
 		}
+		offCorridorChecks = corridor ? 0 : offCorridorChecks + 1;
 		wasCorridor = corridor;
 
 		if (cfg.debug && ++dbgTick % 7 == 3) {
@@ -925,13 +927,16 @@ public class Cues {
 		}
 
 		if (!s.front) {
-			for (Ledge l : s.ledges) {
-				if (l.d != Float.MAX_VALUE && !cfg.autoLedge) {
-					if (l.deep && cfg.hazardCue) {
-						ledgeCues.add(at(s, cfg, l.d, l.x + 0.5, l.y, l.z + 0.5, ledgeSound(cfg), ledgeVol(l), 0.8F, 0));
-					} else {
-						ledgeCues.add(at(s, cfg, l.d, l.x + 0.5, l.y, l.z + 0.5, ledgeSound(cfg), ledgeVol(l), 0.95F, 0));
-					}
+			if (!cfg.autoLedge) { // Ledge warning is off: a ping still names the nearest edges, but at the warning's own loudness (closer = louder, small drops quiet), not flat full blast
+				List<Ledge> near = new ArrayList<>();
+				for (Ledge l : s.ledges) if (l.d != Float.MAX_VALUE && l.d <= cfg.ledgeWarnRange) near.add(l);
+				near.sort(Comparator.comparingDouble(l -> l.d));
+				for (int i = 0; i < Math.min(2, near.size()); i++) {
+					Ledge l = near.get(i);
+					float c = Math.max(0.0F, Math.min(1.0F, 1.0F - l.d / cfg.ledgeWarnRange));
+					float vol = Math.min(1.0F, 0.72F * (0.4F + 0.6F * c) * dropFactor(l.drop) * cfg.volume / 0.6F * cfg.ledgeVolume);
+					float pitch = Math.max(0.4F, Math.min(2.0F, (0.75F + 0.7F * c) * dropPitch(l.drop)));
+					ledgeCues.add(at(s, cfg, l.d, l.x + 0.5, l.y, l.z + 0.5, ledgeSound(cfg), vol, pitch, 0));
 				}
 			}
 
