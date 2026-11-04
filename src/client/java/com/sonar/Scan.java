@@ -71,7 +71,10 @@ public class Scan {
 	public boolean done;
 	public boolean ledgeOnly;
 	public boolean withEcho = true;
+	public boolean auto; // started by the auto-scan timer, not by a key press
 	public Boolean inside; // cached by Cues.insideSpace
+	public boolean doorsSearched;
+	public final java.util.List<double[]> doors = new java.util.ArrayList<>(); // doors in sight within range: {bearing (atan2 z,x), distance}
 	public long nanos;
 
 	private final net.minecraft.world.entity.Entity viewer;
@@ -174,6 +177,7 @@ public class Scan {
 	}
 
 	private void consider(BlockState s, int x, int y, int z) {
+		if (s.is(BlockTags.DOORS) && s.hasProperty(net.minecraft.world.level.block.DoorBlock.HALF) && s.getValue(net.minecraft.world.level.block.DoorBlock.HALF) == net.minecraft.world.level.block.state.properties.DoubleBlockHalf.LOWER) noteDoor(x, y, z);
 		boolean liquid = s.getBlock() instanceof LiquidBlock;
 		if (!liquid && (ignored(s) || !solid(s, x, y, z))) return;
 		// a slab or stair you could simply walk onto (free headroom above it) is part of the floor, not a wall: slab stairways and slab roofs used to ping on every step
@@ -211,6 +215,58 @@ public class Scan {
 				|| (oy && faceVisible(x, y, z, 0, up ? 1 : -1, 0)))) {
 			c.d = (float) d; c.x = x; c.y = y; c.z = z; c.state = s;
 		}
+	}
+
+	/** Finds the doors in sight without the block pass (the automatic echo uses a Scan that never ran one): only the 16-block sections whose palette holds a door are searched, so it is cheap. */
+	private int doorDbg;
+
+	public void findDoors() {
+		doors.clear();
+		if (cfg.debug && viewer instanceof net.minecraft.world.entity.player.Player pl) pl.sendSystemMessage(net.minecraft.network.chat.Component.literal("door search started, range " + range));
+		int minX = (int) Math.floor(ex) - range, maxX = (int) Math.floor(ex) + range, minZ = (int) Math.floor(ez) - range, maxZ = (int) Math.floor(ez) + range;
+		for (int cx = minX >> 4; cx <= maxX >> 4; cx++) {
+			for (int cz = minZ >> 4; cz <= maxZ >> 4; cz++) {
+				var ch = level.getChunkSource().getChunk(cx, cz, net.minecraft.world.level.chunk.status.ChunkStatus.FULL, false);
+				if (ch == null) continue;
+				var secs = ch.getSections();
+				for (int si = 0; si < secs.length; si++) {
+					var sec = secs[si];
+					if (sec == null || sec.hasOnlyAir() || !sec.maybeHas(st -> st.is(BlockTags.DOORS))) continue;
+					int y0 = ch.getMinY() + si * 16;
+					for (int lx = 0; lx < 16; lx++) for (int ly = 0; ly < 16; ly++) for (int lz = 0; lz < 16; lz++) {
+						BlockState st = sec.getBlockState(lx, ly, lz);
+						if (!st.is(BlockTags.DOORS) || !st.hasProperty(net.minecraft.world.level.block.DoorBlock.HALF)
+							|| st.getValue(net.minecraft.world.level.block.DoorBlock.HALF) != net.minecraft.world.level.block.state.properties.DoubleBlockHalf.LOWER) continue;
+						noteDoor((cx << 4) + lx, y0 + ly, (cz << 4) + lz);
+					}
+				}
+			}
+		}
+	}
+
+	/** A door you could see from your eyes (a clear line to its middle) within range. */
+	private void noteDoor(int x, int y, int z) {
+		double vx = x + 0.5 - ex, vy = y + 1.0 - ey, vz = z + 0.5 - ez, d = Math.sqrt(vx * vx + vy * vy + vz * vz);
+		if (d < 1.5 || d > range) return;
+		boolean dbg = cfg.debug && doorDbg++ < 8 && viewer instanceof net.minecraft.world.entity.player.Player;
+		// a door is recessed in its frame and often seen at an angle, so one line to its middle can clip the frame: try 18 points across both halves of the door and count any clear one
+		var eye = new net.minecraft.world.phys.Vec3(ex, ey, ez);
+		String blockedBy = "";
+		boolean seen = false;
+		outer:
+		for (double ty : new double[]{0.3, 1.0, 1.7}) for (double tx : new double[]{0.15, 0.5, 0.85}) for (double tz : new double[]{0.15, 0.85}) {
+			var hit = level.clip(new net.minecraft.world.level.ClipContext(eye, new net.minecraft.world.phys.Vec3(x + tx, y + ty, z + tz), net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, viewer));
+			if (hit.getType() == net.minecraft.world.phys.HitResult.Type.MISS) { seen = true; break outer; }
+			var hp = hit.getBlockPos();
+			if (level.getBlockState(hp).is(BlockTags.DOORS) && Math.abs(hp.getX() - x) <= 1 && Math.abs(hp.getZ() - z) <= 1 && Math.abs(hp.getY() - y) <= 1) { seen = true; break outer; }
+			blockedBy = level.getBlockState(hp).getBlock().getDescriptionId() + " at " + hp.getX() + "," + hp.getY() + "," + hp.getZ();
+		}
+		if (!seen) {
+			if (dbg) ((net.minecraft.world.entity.player.Player) viewer).sendSystemMessage(net.minecraft.network.chat.Component.literal(String.format("door at %d,%d,%d (%.1f blocks): hidden, last blocked by %s", x, y, z, d, blockedBy)));
+			return;
+		}
+		if (dbg) ((net.minecraft.world.entity.player.Player) viewer).sendSystemMessage(net.minecraft.network.chat.Component.literal(String.format("door at %d,%d,%d (%.1f blocks): visible", x, y, z, d)));
+		doors.add(new double[]{Math.atan2(vz, vx), d});
 	}
 
 	/** True if you could actually see this face: a straight line from your eyes to just outside the face's centre meets nothing solid. Only run for blocks that would become the nearest in their sector. */

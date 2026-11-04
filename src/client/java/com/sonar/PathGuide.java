@@ -11,6 +11,8 @@ import java.util.ArrayDeque;
 /** On or near a narrow built path (not in buildings, not on big platforms), a steady bell sounds from the path about 10 blocks ahead of you, so you can follow it. */
 public class PathGuide {
 	private static final int R = 14;
+	/** The path never climbs more than this far above where it starts (a house wall or roof reached by stairs is higher than that), nor drops more than MAX_FALL. A hill path re-traces as you climb. */
+	private static final int MAX_RISE = 3, MAX_FALL = 6;
 	private static final double MIN_REACH = 8.0; // the connected path must extend at least this many blocks from you
 	/** Short, sharp tick (the start of the vanilla ice chime with its ring cut off) so it is easy to follow. */
 	private static final net.minecraft.sounds.SoundEvent GUIDE = net.minecraft.sounds.SoundEvent.createVariableRangeEvent(
@@ -113,6 +115,8 @@ public class PathGuide {
 	/** Part of the walkable path: any built block, plus dirt path blocks. */
 	private static boolean built(Minecraft mc, int x, int y, int z, BlockPos.MutableBlockPos pos) {
 		BlockState s = mc.level.getBlockState(pos.set(x, y, z));
+		var shape = s.getCollisionShape(mc.level, pos);
+		if (shape.isEmpty() || shape.max(net.minecraft.core.Direction.Axis.Y) < 0.5 || s.is(net.minecraft.tags.BlockTags.TRAPDOORS) || s.is(net.minecraft.tags.BlockTags.DOORS)) return false; // thin things lying on the ground (trapdoors, carpets, plates, snow) are not path
 		return !FloorEdge.natural(s) || s.is(net.minecraft.world.level.block.Blocks.DIRT_PATH);
 	}
 
@@ -122,12 +126,73 @@ public class PathGuide {
 			&& mc.level.getBlockState(pos.set(x, y + 2, z)).getCollisionShape(mc.level, pos).isEmpty();
 	}
 
+	/** A floor cell inside a building: a roof within 5 blocks overhead and built walls on at least 3 of its 4 sides within 4 blocks. A covered bridge or porch has walls on at most 2 sides.
+	 *  The path flood must not run through a doorway into the rooms behind it, or a house's interior floor looks like a long path. */
+	private static boolean indoors(Minecraft mc, int x, int y, int z, BlockPos.MutableBlockPos pos) {
+		boolean roof = false;
+		for (int dy = 2; dy <= 5 && !roof; dy++) roof = !mc.level.getBlockState(pos.set(x, y + dy, z)).getCollisionShape(mc.level, pos).isEmpty();
+		if (!roof) return false;
+		int sides = 0;
+		for (int k = 0; k < 4; k++) {
+			int sx = k == 0 ? 1 : k == 1 ? -1 : 0, sz = k == 2 ? 1 : k == 3 ? -1 : 0;
+			side:
+			for (int d = 1; d <= 4; d++) for (int dy = 1; dy <= 2; dy++) {
+				BlockState ws = mc.level.getBlockState(pos.set(x + sx * d, y + dy, z + sz * d));
+				if (ws.getCollisionShape(mc.level, pos).isEmpty() || FloorEdge.natural(ws)) continue;
+				sides++;
+				break side;
+			}
+		}
+		return sides >= 3;
+	}
+
+	/** Workstations, containers, lights and beds are furniture: the top of one is not floor you walk a path on. */
+	/** How many of the 4 neighbouring cells are built floor at about the same height. */
+	private static int builtNeighbours(Minecraft mc, int x, int y, int z, BlockPos.MutableBlockPos pos) {
+		int n = 0;
+		for (int k = 0; k < 4; k++) {
+			int nx = x + (k == 0 ? 1 : k == 1 ? -1 : 0), nz = z + (k == 2 ? 1 : k == 3 ? -1 : 0);
+			int ny = floorY(mc, nx, nz, y + 1, 3, pos);
+			if (ny != Integer.MIN_VALUE && Math.abs(ny - y) <= 1 && built(mc, nx, ny, nz, pos) && headroom(mc, nx, ny, nz, pos)) n++;
+		}
+		return n;
+	}
+
+	private static boolean furniture(BlockState s) {
+		if (s.hasBlockEntity()) return true;
+		String n = s.getBlock().getDescriptionId();
+		for (String f : new String[]{"crafting_table", "stonecutter", "lantern", "grindstone", "loom", "anvil", "smithing_table", "fletching_table", "cartography_table", "composter", "cauldron", "_bed", "bookshelf", "barrel"})
+			if (n.contains(f)) return true;
+		return false;
+	}
+
+	/** The top of a roof over a room: nothing solid right under the floor block, but built walls on at least 3 sides of the space below it. A bridge has open sides, so it still counts. */
+	private static boolean roofOverRoom(Minecraft mc, int x, int y, int z, BlockPos.MutableBlockPos pos) {
+		if (!mc.level.getBlockState(pos.set(x, y - 1, z)).getCollisionShape(mc.level, pos).isEmpty()) return false;
+		int sides = 0;
+		for (int k = 0; k < 4; k++) {
+			int sx = k == 0 ? 1 : k == 1 ? -1 : 0, sz = k == 2 ? 1 : k == 3 ? -1 : 0;
+			side:
+			for (int d = 1; d <= 5; d++) for (int dy = 1; dy <= 2; dy++) {
+				BlockState ws = mc.level.getBlockState(pos.set(x + sx * d, y - dy, z + sz * d));
+				if (ws.getCollisionShape(mc.level, pos).isEmpty() || FloorEdge.natural(ws)) continue;
+				sides++;
+				break side;
+			}
+		}
+		return sides >= 3;
+	}
+
+	private static boolean notFloor(Minecraft mc, int x, int y, int z, BlockPos.MutableBlockPos pos) {
+		return furniture(mc.level.getBlockState(pos.set(x, y, z))) || indoors(mc, x, y, z, pos) || roofOverRoom(mc, x, y, z, pos);
+	}
+
 	private static boolean isRailOrPath(BlockState s) {
 		return s.is(net.minecraft.world.level.block.Blocks.DIRT_PATH) || s.is(net.minecraft.tags.BlockTags.FENCES) || s.is(net.minecraft.tags.BlockTags.WALLS)
 			|| s.is(net.minecraft.tags.BlockTags.FENCE_GATES) || s.is(net.minecraft.world.level.block.Blocks.IRON_BARS);
 	}
 
-	private static String why = "";
+	private static String why = "", traceWhy;
 
 	private static void say(Minecraft mc, SonarConfig cfg, String r) {
 		if (cfg.debug && !r.equals(why)) mc.player.sendSystemMessage(net.minecraft.network.chat.Component.literal("guide: " + r));
@@ -153,6 +218,7 @@ public class PathGuide {
 				break;
 			}
 		}
+		if (Cues.enclosed(mc, p.getEyePosition())) { say(mc, cfg, "off: inside a room"); return; } // the same test the echo uses: any roof-and-walls space, whatever the walls are made of
 		if (walls >= (roof ? 3 : 6)) { say(mc, cfg, "off: " + (roof ? "inside a building" : "walled area") + " (" + walls + "/8 walls)"); return; }
 		// candidate starts: the nearest built floor cell in each of 8 directions (and under you), within 3 blocks. Floor may be a few blocks below while jumping or on stairs.
 		int[][] cand = new int[9][];
@@ -162,7 +228,7 @@ public class PathGuide {
 		for (int dx = -3; dx <= 3; dx++) {
 			for (int dz = -3; dz <= 3; dz++) {
 				int y = floorY(mc, px + dx, pz + dz, fy + 2, 6, pos);
-				if (y == Integer.MIN_VALUE || Math.abs(y - fy) > 2 || !built(mc, px + dx, y, pz + dz, pos) || !headroom(mc, px + dx, y, pz + dz, pos)) continue;
+				if (y == Integer.MIN_VALUE || Math.abs(y - fy) > 2 || !built(mc, px + dx, y, pz + dz, pos) || !headroom(mc, px + dx, y, pz + dz, pos) || notFloor(mc, px + dx, y, pz + dz, pos)) continue;
 				int d = dx * dx + dz * dz;
 				int sec = (dx == 0 && dz == 0) ? 8 : Math.floorMod((int) Math.round(Math.atan2(dz, dx) / (Math.PI / 4)), 8);
 				if (d < candD[sec]) { candD[sec] = d; cand[sec] = new int[]{px + dx, pz + dz, y}; }
@@ -181,6 +247,7 @@ public class PathGuide {
 		}
 		if (cover > 54) { say(mc, cfg, "off: too wide (" + cover + " built blocks in 9x9)"); return; }
 		// follow whichever nearby path you are facing most
+		traceWhy = null;
 		double[] best = null;
 		java.util.HashMap<Long, Integer> bestCells = null;
 		for (int i = 0; i < 9; i++) {
@@ -188,7 +255,29 @@ public class PathGuide {
 			double[] r = trace(mc, p, cand[i][0], cand[i][1], cand[i][2], pos);
 			if (r != null && (best == null || r[3] > best[3])) { best = r; bestCells = traceCells; }
 		}
-		if (best == null) { say(mc, cfg, "off: no path 8-11 blocks ahead"); return; }
+		if (best == null) { say(mc, cfg, traceWhy != null ? traceWhy : "off: no path 8-11 blocks ahead"); return; }
+		if (cfg.debug && (!why.equals("on") || t % 100 == 0)) { // what the guide thinks the path is made of
+			var counts = new java.util.TreeMap<String, Integer>();
+			for (var e : bestCells.entrySet()) {
+				long k = e.getKey();
+				var bn = mc.level.getBlockState(pos.set((int) (k >> 32), e.getValue(), (int) k)).getBlock().getDescriptionId().replace("block.minecraft.", "");
+				counts.merge(bn, 1, Integer::sum);
+			}
+			var lg = org.slf4j.LoggerFactory.getLogger("sonar");
+			lg.info("PATHMAP me {},{} y {} (digit = floor height relative to your feet, S=start, .=not path; x across, z down)", px, pz, p.getBlockY());
+			for (int mz = -R; mz <= R; mz++) {
+				StringBuilder row = new StringBuilder();
+				for (int mx = -R; mx <= R; mx++) {
+					Integer yy = bestCells.get(key(px + mx, pz + mz));
+					char ch = yy == null ? '.' : (char) ('0' + Math.max(0, Math.min(9, yy - (p.getBlockY() - 1) + 4)));
+					if (px + mx == sx && pz + mz == sz) ch = 'S';
+					if (mx == 0 && mz == 0) ch = 'M';
+					row.append(ch);
+				}
+				lg.info("PATHMAP {}", row);
+			}
+			p.sendSystemMessage(net.minecraft.network.chat.Component.literal("path made of " + bestCells.size() + " cells: " + counts + " | start " + sx + "," + sz + " cover " + cover + " walls " + walls + " roof " + roof));
+		}
 		say(mc, cfg, "on");
 		guideCells = bestCells;
 		tx = best[0]; ty = best[1]; tz = best[2]; endMode = best[4] > 0;
@@ -214,6 +303,7 @@ public class PathGuide {
 		double yaw = Math.toRadians(p.getYRot()), fx = -Math.sin(yaw), fz = Math.cos(yaw);
 		dirx[si] = fx; dirz[si] = fz;
 		double sumX = 0, sumZ = 0, sumY = 0;
+		var bandCells = new java.util.ArrayList<int[]>();
 		int n = 0;
 		double reach = 0; // how far from you the connected built floor extends, in any direction
 		double fbX = 0, fbY = 0, fbZ = 0, fbD = 0; // farthest path cell ahead, used when the path ends before the normal 8-11 block window
@@ -223,7 +313,7 @@ public class PathGuide {
 			double ddx = c[0] + 0.5 - p.getX(), ddz = c[1] + 0.5 - p.getZ(), dl = Math.hypot(ddx, ddz);
 			if (dl > reach) reach = dl;
 				if (dl >= 4.0 && dl > fbD && (ddx * fx + ddz * fz) / dl > 0.7) { fbD = dl; fbX = c[0] + 0.5; fbY = cy + 1; fbZ = c[1] + 0.5; }
-			if (dl >= 8.0 && dl <= 11.0 && (ddx * fx + ddz * fz) / dl > 0.7) { sumX += c[0] + 0.5; sumZ += c[1] + 0.5; sumY += cy + 1; n++; }
+			if (dl >= 8.0 && dl <= 11.0 && (ddx * fx + ddz * fz) / dl > 0.7) { sumX += c[0] + 0.5; sumZ += c[1] + 0.5; sumY += cy + 1; n++; bandCells.add(c); }
 			int nbuilt = 0; // built neighbours of this cell: a sparse trail (stepping stones, scattered path blocks) has few
 			for (int k = 0; k < 4; k++) {
 				int nx = c[0] + (k == 0 ? 1 : k == 1 ? -1 : 0), nz = c[1] + (k == 2 ? 1 : k == 3 ? -1 : 0);
@@ -233,7 +323,7 @@ public class PathGuide {
 				if (dist[ni] >= 0) { nbuilt++; continue; }
 				if (dist[ni] == -2) continue;
 				int y = floorY(mc, nx, nz, cy + 1, 3, pos);
-				if (y == Integer.MIN_VALUE || Math.abs(y - cy) > 1 || !built(mc, nx, y, nz, pos) || !headroom(mc, nx, y, nz, pos)) { dist[ni] = -2; continue; }
+				if (y == Integer.MIN_VALUE || Math.abs(y - cy) > 1 || y - sy > MAX_RISE || sy - y > MAX_FALL || !built(mc, nx, y, nz, pos) || !headroom(mc, nx, y, nz, pos) || notFloor(mc, nx, y, nz, pos)) { dist[ni] = -2; continue; }
 				nbuilt++;
 				dist[ni] = dist[ci] + 1; ys[ni] = y; dirx[ni] = nx - c[0]; dirz[ni] = nz - c[1];
 				seen.put(key(nx, nz), y);
@@ -252,7 +342,7 @@ public class PathGuide {
 							int ti = (tdz + R) * W + (tdx + R);
 							if (dist[ti] != -1) continue;
 							int ty = floorY(mc, tx, tz, cy + 2, 6, pos);
-							if (ty == Integer.MIN_VALUE || Math.abs(ty - cy) > 2 || !built(mc, tx, ty, tz, pos) || !headroom(mc, tx, ty, tz, pos)) continue;
+							if (ty == Integer.MIN_VALUE || Math.abs(ty - cy) > 2 || ty - sy > MAX_RISE || sy - ty > MAX_FALL || !built(mc, tx, ty, tz, pos) || !headroom(mc, tx, ty, tz, pos) || notFloor(mc, tx, ty, tz, pos) || builtNeighbours(mc, tx, ty, tz, pos) > 1) continue; // a gap is only crossed to reach another stepping stone, never the edge of a patio or building
 							dist[ti] = dist[ci] + r; ys[ti] = ty; dirx[ti] = bx / bl; dirz[ti] = bz / bl;
 							seen.put(key(tx, tz), ty);
 							q.add(new int[]{tx, tz});
@@ -262,6 +352,18 @@ public class PathGuide {
 				}
 			}
 		}
+		if (n > 0) { // a path is narrow: where the bell would play, a 5x5 around each cell is at most about two thirds built. A patio, plaza or broad roof is nearly full all the way across.
+			double dense = 0;
+			for (int[] c : bandCells) {
+				int cnt = 0;
+				for (int ax = -2; ax <= 2; ax++) for (int az = -2; az <= 2; az++) {
+					Integer ry = seen.get(key(c[0] + ax, c[1] + az));
+					if (ry != null && !(isRailOrPath(mc.level.getBlockState(pos.set(c[0] + ax, ry, c[1] + az))) && !mc.level.getBlockState(pos).is(net.minecraft.world.level.block.Blocks.DIRT_PATH))) cnt++; // railings are not path width
+				}
+				dense += cnt;
+			}
+			if (dense / n > 17.0) { traceWhy = String.format("off: wide area ahead (%.0f of 25 cells built on average)", dense / n); return null; }
+		}
 		double cx = n > 0 ? sumX / n : fbX, cz = n > 0 ? sumZ / n : fbZ, ox = cx - p.getX(), oz = cz - p.getZ(), ol = Math.max(1e-6, Math.hypot(ox, oz));
 		if (reach < MIN_REACH) return null; // too short to be a path (a doorstep, a patch of floor, the foot of a wall); a long path you are near the end of still reaches back past this
 		if (n == 0 && fbD == 0) return null; // the path ends right here: nothing ahead to guide to
@@ -269,7 +371,7 @@ public class PathGuide {
 	}
 
 	public static void tick(Minecraft mc, SonarConfig cfg) {
-		if (!cfg.pathGuide || mc.level == null || mc.player == null || mc.player.isInWater() || mc.player.isSpectator()) { have = false; guideCells = null; return; }
+		if (!cfg.enabled || !cfg.pathGuide || mc.level == null || mc.player == null || mc.player.isInWater() || mc.player.isSpectator()) { have = false; guideCells = null; return; }
 		t++;
 		var p0 = mc.player;
 		boolean moved = p0.getBlockX() != lbx || p0.getBlockY() != lby || p0.getBlockZ() != lbz || Math.abs(net.minecraft.util.Mth.wrapDegrees(p0.getYRot() - lyaw)) > 6;

@@ -5,10 +5,10 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 
-/** Main Sonar settings: the everyday switches and sliders. Everything else lives under More. */
+/** Sonar Access: the everyday switches, and the folders: Sliders, Volumes, Warnings, Paths and Echo, Keys, Advanced. */
 public class SettingsScreen extends SonarScreen {
 	public SettingsScreen(Screen parent) {
-		super("Sonar Settings", parent);
+		super("Sonar Access", parent);
 	}
 
 	@Override
@@ -25,19 +25,21 @@ public class SettingsScreen extends SonarScreen {
 		toggle(0, y, "Player jingle", () -> c.playerChime, () -> c.playerChime = !c.playerChime);
 		toggle(1, y, "Directional audio", () -> this.minecraft.options.directionalAudio().get(),
 			() -> { var o = this.minecraft.options.directionalAudio(); o.set(!o.get()); this.minecraft.options.save(); });
-		y += 32;
-		slider(y, 308, "Echoes per ping", -1, 4, 1, c.echoCount, v -> (int) v < 0 ? "auto" : (int) v == 0 ? "off" : String.valueOf((int) v), v -> c.echoCount = (int) v);
-		y += 24;
-		slider(y, 308, "Auto scan every", 0.3, 6.0, 0.1, c.autoPing, v -> String.format("%.1f s", v), v -> c.autoPing = (float) v);
-		y += 24;
-		slider(y, 308, "Ledge warning distance", 2.0, 10.0, 0.5, c.ledgeWarnRange, v -> v + " blocks", v -> c.ledgeWarnRange = (float) v);
-		y += 24;
-		slider(y, 308, "Speech speed", 0, 10, 1, c.speechRate, v -> String.valueOf((int) v), v -> c.speechRate = (int) v);
 		y += 36;
-		int w = 75, x = this.width / 2 - 154;
-		this.addRenderableWidget(Button.builder(Component.literal("Volumes"), b -> this.minecraft.gui.setScreen(new VolumesScreen(this))).bounds(x, y, w, 20).build());
-		this.addRenderableWidget(Button.builder(Component.literal("Keys"), b -> this.minecraft.gui.setScreen(new KeysScreen(this))).bounds(x + 78, y, w, 20).build());
-		this.addRenderableWidget(Button.builder(Component.literal("More"), b -> this.minecraft.gui.setScreen(new MoreScreen(this))).bounds(x + 156, y, w, 20).build());
-		this.addRenderableWidget(Button.builder(CommonComponents.GUI_DONE, b -> this.onClose()).bounds(x + 234, y, 74, 20).build());
+		int x = this.width / 2 - 154;
+		nav(x, y, "Sliders", () -> new SlidersScreen(this));
+		nav(x + 158, y, "Volumes", () -> new VolumesScreen(this));
+		y += 24;
+		nav(x, y, "Warnings", () -> new WarningsScreen(this));
+		nav(x + 158, y, "Paths and Echo", () -> new PathsScreen(this));
+		y += 24;
+		nav(x, y, "Keys", () -> new KeysScreen(this));
+		nav(x + 158, y, "Advanced", () -> new AdvancedScreen(this));
+		y += 36;
+		this.addRenderableWidget(Button.builder(CommonComponents.GUI_DONE, b -> this.onClose()).bounds(this.width / 2 - 102, y, 204, 20).build());
+	}
+
+	private void nav(int x, int y, String name, java.util.function.Supplier<Screen> to) {
+		this.addRenderableWidget(Button.builder(Component.literal(name), b -> this.minecraft.gui.setScreen(to.get())).bounds(x, y, 150, 20).build());
 	}
 }

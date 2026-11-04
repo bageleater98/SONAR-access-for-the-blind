@@ -6,7 +6,7 @@ import net.fabricmc.loader.api.FabricLoader;
 import java.nio.file.*;
 
 public class SonarConfig {
-	public int range = 30;
+	public int range = 45;
 	public int frontRange = 48;
 	public int maxSounds = 24;
 	public float volume = 1.0f;
@@ -58,6 +58,7 @@ public class SonarConfig {
 	public int ledgeRange = 12;
 	public int layersPerTick = 8;
 	public boolean debug = false;
+	public boolean enabled = true; // master switch: false turns every Sonar sound and effect off
 
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 	private static final Path FILE = FabricLoader.getInstance().getConfigDir().resolve("sonar.json");
@@ -82,6 +83,7 @@ public class SonarConfig {
 
 	public static void save() throws java.io.IOException {
 		Files.writeString(FILE, GSON.toJson(cur));
+		try { stamp = Files.getLastModifiedTime(FILE).toMillis(); } catch (Exception ignored) {} // our own save must not trigger a reload that swaps the object screens hold
 	}
 
 	private void clamp() {

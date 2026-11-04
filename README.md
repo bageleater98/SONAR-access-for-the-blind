@@ -47,7 +47,7 @@ SONAR runs only on your own computer, so nothing needs to be installed on the se
 | 📡 **Sonar ping** | One key press scans everything within your range, up to 60 blocks. |
 | 🔄 **Auto-ping** | SONAR keeps pinging on its own at a steady rhythm, so your hands stay free. |
 | ⚠️ **Ledge warning** | A tone that speeds up as you get closer to a drop, a steep slope or lava. The warning matches the danger: a 3-block drop is a soft, low tone, a 4-block drop a little louder and higher, and 5 blocks or more (or lava) is full strength. Ordinary stairs and fenced edges are ignored, edges on ground well above you (the top of a wall beside you) stay silent, and it stays quiet while you sneak. On a path with the guide bell on, it switches to a path mode that tells you which side of the path you are drifting towards. |
-| 🛑 **Edge brake** | A safety net, on by default: if you run at a real drop, SONAR slows you down for half a second. Sneaking, stopping or turning away cancels it at once, so it can never trap you. You can turn it off under **More** in Sonar Settings. |
+| 🛑 **Edge brake** | A safety net, on by default: if you run at a real drop, SONAR slows you down for half a second. Sneaking, stopping or turning away cancels it at once, so it can never trap you. You can turn it off under **Warnings** in Sonar Access. |
 | 🌊 **Echo guide** | The echo shows you the way out of a building, like a sound coming out of each door. Inside a room it plays one tick from each door or opening to the outside that you can see, and one from each staircase up or down. Plain walls and glass never echo, and the main way out always plays last. Outside, it still marks cave mouths and big covered openings. A roof alone (a covered deck or porch) does not count as a room. |
 | 🛤️ **Path guide** | A bell rings from the path 8 to 11 blocks ahead so you can follow roads and corridors. It follows dirt path blocks and also sparse trails of separate blocks, up to 6 blocks apart in a roughly straight line, such as stepping stones climbing a hill. It stays quiet inside buildings, on wide plazas, and on paths shorter than 8 blocks. |
 | 〰️ **Path ripple** | On a path, a short ripple of sound starts 3 blocks ahead on the path and runs out to 12 blocks, one quick tick per block, in the sound of each block it passes. It follows stairs and slopes, works in the air, and on sparse trails it ripples along the actual blocks. Where a path begins ahead of you, you hear it too. |
@@ -70,7 +70,7 @@ SONAR runs only on your own computer, so nothing needs to be installed on the se
 | **H** | Echo | Turn the echo guide on or off. |
 | **J** | Ledge warning | Turn the ledge warning on or off. |
 
-Every key can be changed: open the pause menu, choose **Sonar Settings**, then **Keys**, click an action and press the key you want.
+Every key can be changed: open the pause menu, choose **Sonar Access**, then **Keys**, click an action and press the key you want.
 
 ---
 
@@ -100,7 +100,7 @@ The ping also keeps some noise down: grass and dirt behind you are skipped, anim
 
 ## 🎛️ Make it yours
 
-Open the pause menu and choose **Sonar Settings**. Everything is there, on separate screens for **Volumes**, **Keys** and **More**.
+Open the pause menu and choose **Sonar Access**. The **ON/OFF** button at its right end switches the whole mod on or off. Everything else is on separate screens: **Sliders**, **Volumes**, **Warnings**, **Paths and Echo**, **Keys** and **Advanced** (debug and reset).
 
 | Setting | What it does |
 |---|---|
@@ -149,7 +149,7 @@ They are strongly recommended. Stereo headphones are what let you tell which dir
 It is designed not to. The scan is split into small pieces spread over many game ticks, so the game does not freeze or stutter.
 
 **It is too loud, too busy or too quiet. What can I do?**
-Open **Sonar Settings**. You can change the volumes and range, and switch off any cue you do not want.
+Open **Sonar Access**. You can change the volumes and range, and switch off any cue you do not want.
 
 **How do I report a problem or suggest an idea?**
 Open an issue on this repository. SONAR is built for blind players, so feedback from the people using it matters most.

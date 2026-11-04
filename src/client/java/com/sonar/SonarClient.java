@@ -28,14 +28,24 @@ public class SonarClient implements ClientModInitializer {
 			for (var ch : screen.children()) {
 				if (ch instanceof net.minecraft.client.gui.components.AbstractWidget aw && aw.getY() > rowY) aw.setY(aw.getY() + 24);
 			}
-			var btn = net.minecraft.client.gui.components.Button.builder(Component.literal("Sonar Settings"),
-				bb -> mc.gui.setScreen(new SettingsScreen(screen))).bounds(w / 2 - 102, rowY + 24, 204, 20).build();
+			// one bar: "Sonar Access" opens the settings, the ON/OFF part on its right end is the master switch
+			var btn = net.minecraft.client.gui.components.Button.builder(Component.literal("Sonar Access"),
+				bb -> mc.gui.setScreen(new SettingsScreen(screen))).bounds(w / 2 - 102, rowY + 24, 150, 20).build();
+			java.util.function.Supplier<Component> lbl = () -> Component.literal(SonarConfig.cur.enabled ? "ON" : "OFF")
+				.withStyle(SonarConfig.cur.enabled ? net.minecraft.ChatFormatting.GREEN : net.minecraft.ChatFormatting.RED);
+			var sw = net.minecraft.client.gui.components.Button.builder(lbl.get(), bb -> {
+				SonarConfig.cur.enabled = !SonarConfig.cur.enabled;
+				try { SonarConfig.save(); } catch (Exception ignored) {}
+				bb.setMessage(lbl.get());
+			}).bounds(w / 2 + 50, rowY + 24, 52, 20).build();
 			net.fabricmc.fabric.api.client.screen.v1.Screens.getWidgets(screen).add(btn);
+			net.fabricmc.fabric.api.client.screen.v1.Screens.getWidgets(screen).add(sw);
 		});
 	}
 
 	static int ledgeTimer, ledgeInterval = 10, stillTicks, rHeld, autoTick;
 	static double px0, pz0;
+	static int rippleTick;
 
 	@Override
 	public void onInitializeClient() {
@@ -69,6 +79,11 @@ public class SonarClient implements ClientModInitializer {
 		if (mc.player == null || mc.level == null) { scan = null; return; }
 		if (++tick % 20 == 0) SonarConfig.reloadIfChanged();
 		SonarConfig cfg = SonarConfig.cur;
+		if (!cfg.enabled) { // master switch off: silence everything that loops and skip all cues
+			LedgeTone.fade(); Cues.loopSound = null; Cues.ledgeActive = false; brakeTicks = 0; rHeld = 0;
+			PathGuide.tick(mc, cfg);
+			return;
+		}
 		sinceScan++;
 		double mdx = mc.player.getX() - px0, mdz = mc.player.getZ() - pz0;
 		px0 = mc.player.getX(); pz0 = mc.player.getZ();
@@ -95,6 +110,10 @@ public class SonarClient implements ClientModInitializer {
 		LedgeTone.tick(mc);
 		PlayerChime.tick(mc, cfg);
 		PathGuide.tick(mc, cfg);
+		// path ripple: while you are on a guided path it repeats by itself at the auto-scan interval (with auto scan on, each auto ping already carries it)
+		if (cfg.floorEdge && !cfg.autoScan && PathGuide.active() && rHeld == 0) {
+			if (++rippleTick >= Math.max(6, Math.round(cfg.autoPing * 20))) { rippleTick = 0; FloorEdge.ping(mc, cfg); }
+		} else rippleTick = 0;
 		if (pressed(ledgeKey)) {
 			cfg.autoLedge = !cfg.autoLedge;
 			try { SonarConfig.save(); } catch (Exception ignored) {}
@@ -117,11 +136,13 @@ public class SonarClient implements ClientModInitializer {
 		if (releasedTap) s = true;
 		if (pressed(frontKey)) f = true;
 		if (pressed(summaryKey)) { pendingSummary = true; s = true; }
-		boolean held = cfg.holdToRepeat && (scanKey.isDown() || frontKey.isDown()) && sinceScan >= cfg.repeatTicks;
+		boolean held = cfg.holdToRepeat && !cfg.autoScan && (scanKey.isDown() || frontKey.isDown()) && sinceScan >= cfg.repeatTicks; // in auto mode a hold never pings: holding R is how you switch auto off
+		if ((s || f) && scan != null && scan.auto) scan = null; // a key press during auto cancels the auto scan in progress and gives you your own
 		if (scan == null && (s || f || held || autoScanNow)) {
 			boolean front = f || (!s && frontKey.isDown());
 			scan = new Scan(mc, cfg, front);
 			scan.withEcho = !(autoScanNow && !s && !f && !held); // auto sonar leaves the echo to its own slot
+			scan.auto = autoScanNow && !s && !f && !held;
 			sinceScan = 0;
 		}
 		if (scan != null) {

@@ -57,14 +57,25 @@ public class Cues {
 		}
 	}
 
+	/** Distance to the first solid block along a ray. Doors and trapdoors never stop it (the echo passes through them), and leaves do not when ignoreLeaves is set. */
 	static double rayLen(Minecraft mc, Vec3 from, double dx, double dy, double dz, double len, boolean ignoreLeaves) {
-		Vec3 to = from.add(dx * len, dy * len, dz * len);
-		BlockHitResult hit = mc.level.clip(new ClipContext(from, to, Block.COLLIDER, Fluid.NONE, mc.player));
-		if (hit.getType() == Type.MISS) {
-			return len;
-		} else {
-			return ignoreLeaves && mc.level.getBlockState(hit.getBlockPos()).is(BlockTags.LEAVES) ? len : from.distanceTo(hit.getLocation());
+		return rayLen(mc, from, dx, dy, dz, len, ignoreLeaves, true);
+	}
+
+	/** passDoors false: closed doors and trapdoors are walls (the room test). */
+	static double rayLen(Minecraft mc, Vec3 from, double dx, double dy, double dz, double len, boolean ignoreLeaves, boolean passDoors) {
+		Vec3 end = from.add(dx * len, dy * len, dz * len), start = from;
+		for (int i = 0; i < 16; i++) {
+			BlockHitResult hit = mc.level.clip(new ClipContext(start, end, Block.COLLIDER, Fluid.NONE, mc.player));
+			if (hit.getType() == Type.MISS) return len;
+			BlockState bs = mc.level.getBlockState(hit.getBlockPos());
+			if (!((passDoors && (bs.is(BlockTags.DOORS) || bs.is(BlockTags.TRAPDOORS))) || (ignoreLeaves && bs.is(BlockTags.LEAVES)))) return from.distanceTo(hit.getLocation());
+			Vec3 d = end.subtract(start), step = d.normalize().scale(0.02);
+			start = hit.getLocation().add(step);
+			if (start.distanceToSqr(end) < 1e-4) return len;
+			// leaves/doors are skipped only for the cell they occupy; the next clip starts just past the hit point
 		}
+		return len;
 	}
 
 	static float ledgeVol(Ledge l) {
@@ -92,26 +103,60 @@ public class Cues {
 		return s.inside;
 	}
 
+	/** Something solid within `h` blocks straight above `pt` that is a real roof: leaves never count, and neither do natural logs that have leaves around them (a tree's trunk and branches). Doors and trapdoors never count either. */
+	static boolean solidRoof(Minecraft mc, Vec3 pt, int h) {
+		var pos = new net.minecraft.core.BlockPos.MutableBlockPos();
+		int x = (int) Math.floor(pt.x), y = (int) Math.floor(pt.y), z = (int) Math.floor(pt.z);
+		for (int dy = 1; dy <= h; dy++) {
+			BlockState bs = mc.level.getBlockState(pos.set(x, y + dy, z));
+			if (bs.getCollisionShape(mc.level, pos).isEmpty() || bs.is(BlockTags.LEAVES) || bs.is(BlockTags.DOORS) || bs.is(BlockTags.TRAPDOORS)) continue;
+			if (bs.is(BlockTags.OVERWORLD_NATURAL_LOGS)) {
+				// a tree: a real canopy around the log (6+ leaves within 2 blocks) and nothing built touching it. A log roof has built blocks (planks, stairs, slabs, glass...) next to its logs.
+				int leaves = 0;
+				boolean built = false;
+				for (int ax = -2; ax <= 2; ax++) for (int ay = -2; ay <= 2; ay++) for (int az = -2; az <= 2; az++) {
+					BlockState n = mc.level.getBlockState(pos.set(x + ax, y + dy + ay, z + az));
+					if (n.is(BlockTags.LEAVES)) leaves++;
+					else if (Math.abs(ax) <= 1 && Math.abs(ay) <= 1 && Math.abs(az) <= 1 && !FloorEdge.natural(n) && !n.getCollisionShape(mc.level, pos).isEmpty()) built = true;
+				}
+				boolean tree = leaves >= 6 && !built;
+				if (tree) continue;
+			}
+			return true;
+		}
+		return false;
+	}
+
+	private static String lastRoomMsg = "";
+
 	static boolean enclosed(Minecraft mc, Scan s) {
-		Vec3 from = new Vec3(s.ex, s.ey, s.ez);
+		return enclosed(mc, new Vec3(s.ex, s.ey, s.ez));
+	}
+
+	/** The room test (roof overhead plus walls around you), shared by the echo, the sonar and the path bell. */
+	static boolean enclosed(Minecraft mc, Vec3 from) {
 		double k = Math.sqrt(0.5);
 		double[][] up = new double[][]{{0.0, 1.0, 0.0}, {k, k, 0.0}, {-k, k, 0.0}, {0.0, k, k}, {0.0, k, -k}};
 		int roof = 0;
 
 		for (double[] v : up) {
-			if (rayLen(mc, from, v[0], v[1], v[2], 16.0, true) < 16.0) {
+			if (rayLen(mc, from, v[0], v[1], v[2], 16.0, true, false) < 16.0) {
 				roof++;
 			}
 		}
 
 		if (roof < 3) return false;
-		// a roof alone is not a room (a covered deck, a porch, a carport): it also needs walls around you, in most directions within 10 blocks
+		// a roof alone is not a room (a covered deck, a porch, a carport): it also needs walls around you, in most directions within 14 blocks
 		int walls = 0;
 		for (int i = 0; i < 8; i++) {
 			double a = i * Math.PI / 4;
-			if (rayLen(mc, from, Math.cos(a), 0.0, Math.sin(a), 10.0, true) < 10.0) walls++;
+			if (rayLen(mc, from, Math.cos(a), 0.0, Math.sin(a), 14.0, true, false) < 14.0) walls++;
 		}
-		return walls >= 6;
+		if (SonarConfig.cur.debug && mc.player != null) {
+			String rm = "room test: roof " + roof + "/5, walls " + walls + "/8 within 14 blocks (need " + (roof >= 5 ? 5 : 6) + " walls and 3 roof)";
+			if (!rm.equals(lastRoomMsg)) { lastRoomMsg = rm; mc.player.sendSystemMessage(Component.literal(rm)); }
+		}
+		return walls >= (roof >= 5 ? 5 : 6); // fully roofed (every overhead ray hit something): big open-plan houses count with one wall fewer
 	}
 
 	static void tagTree(Map<com.sonar.Cues.Cue, Integer> kinds, com.sonar.Cues.Cue c, BlockState st) {
@@ -142,7 +187,8 @@ public class Cues {
 
 		for (int i = 0; i < n; i++) {
 			base[i] = Math.min(r[(i + n - 3) % n], r[(i + 3) % n]);
-			open[i] = base[i] < 0.85 * s.range && r[i] > 1.8 * base[i] && r[i] - base[i] > 6.0;
+			// a wall anywhere inside the sonar range can have an opening: much deeper than the wall (1.8x), or clearly deeper (1.35x and 8+ blocks), which is what a door in a house front looks like from far off
+			open[i] = base[i] < 0.98 * s.range && r[i] - base[i] > 6.0 && (r[i] > 1.8 * base[i] || (r[i] > 1.35 * base[i] && r[i] - base[i] >= 8.0));
 		}
 
 		double c25 = Math.cos(Math.toRadians(25.0));
@@ -167,12 +213,13 @@ public class Cues {
 				int cnt = j - i;
 				double mid = (i + j - 1) / 2.0 * 2.0 * Math.PI / n;
 				double avgB = sumB / cnt;
-				// roof must cover the far stretch of the opening (a real cave), not just an overhang or a mountainside seen from outside
+				// roof must cover the stretch just inside the opening (a real cave), not just an overhang, a mountainside, or a roof far behind a gap
 				double dc = Math.cos(mid), ds = Math.sin(mid), dm = sumD / cnt;
 				int roofs = 0;
-				for (double f : new double[]{0.6, 0.75, 0.9}) {
-					Vec3 pt = from.add(dc * dm * f, 0.0, ds * dm * f);
-					if (rayLen(mc, pt, 0.0, 1.0, 0.0, 8.0, true) < 8.0) {
+				for (double dd : new double[]{avgB + 1.5, avgB + 3.5, avgB + 5.5}) { // the roof must start right at the opening (a cave ceiling, a hall), not only far behind it (a gap between trees looking at a distant roof)
+					double dist = Math.min(dd, dm * 0.95);
+					Vec3 pt = from.add(dc * dist, 0.0, ds * dist);
+					if (solidRoof(mc, pt, 8)) {
 						roofs++;
 					}
 				}
@@ -182,6 +229,10 @@ public class Cues {
 					var hit = mc.level.clip(new ClipContext(from, far, Block.COLLIDER, Fluid.NONE, mc.player));
 					mc.player.sendSystemMessage(Component.literal(String.format("mouth: bearing %.0f deg, reach %.1f, wall before it %.1f, %d rays wide, roofs %d/3, ray hits %s at %.1f", Math.toDegrees(mid), dm, avgB, cnt, roofs,
 						hit.getType() == Type.MISS ? "nothing" : mc.level.getBlockState(hit.getBlockPos()).getBlock().getDescriptionId(), hit.getType() == Type.MISS ? 40.0 : from.distanceTo(hit.getLocation()))));
+				}
+				if (roofs < 3) { // a door is an entrance by itself: if the first thing along this bearing is a door, no roof is needed (the ray goes on through it, so the roof samples would land past the back of the building)
+					var dh = mc.level.clip(new ClipContext(from, from.add(dc * s.range, 0.0, ds * s.range), Block.COLLIDER, Fluid.NONE, mc.player));
+					if (dh.getType() != Type.MISS && mc.level.getBlockState(dh.getBlockPos()).is(BlockTags.DOORS)) roofs = 3;
 				}
 				if (roofs >= 3) {
 					out.add(new double[]{mid, dm, cnt, avgB}); // bearing, depth, width in rays, distance to the opening itself
@@ -213,6 +264,42 @@ public class Cues {
 		}
 	}
 
+	/** The doors in sight as echoes {bearing, distance, volume}: nearby ones merged (a double door is one), nearest 4, and none where another opening echo already points the same way. */
+	static List<double[]> visibleDoors(Scan s, List<double[]> gaps) {
+		if (s.doors.isEmpty() && !s.doorsSearched) { s.doorsSearched = true; s.findDoors(); }
+		List<double[]> sorted = new ArrayList<>(s.doors);
+		sorted.sort(Comparator.comparingDouble(d -> d[1]));
+		double fwd = Math.atan2(Math.cos(Math.toRadians(s.yaw)), -Math.sin(Math.toRadians(s.yaw)));
+		List<double[]> out = new ArrayList<>();
+		outer:
+		for (double[] d : sorted) {
+			for (double[] g : gaps) if (Math.abs(Math.atan2(Math.sin(d[0] - g[0]), Math.cos(d[0] - g[0]))) < Math.toRadians(12)) continue outer;
+			for (double[] o : out) if (Math.abs(Math.atan2(Math.sin(d[0] - o[0]), Math.cos(d[0] - o[0]))) < Math.toRadians(10) && Math.abs(d[1] - o[1]) < 3.0) continue outer;
+			double rel = Math.abs(Math.atan2(Math.sin(d[0] - fwd), Math.cos(d[0] - fwd)));
+			out.add(new double[]{d[0], d[1], rel < Math.PI / 4 ? 1.0 : (rel > Math.PI * 3.0 / 4.0 ? 0.5 : 0.75)});
+			if (out.size() >= 4) break;
+		}
+		return out;
+	}
+
+	/** Plays the echoes of one ping in a single sequence: the main echoes first (least important first), then the doors, and the NEAREST ENTRANCE (nearest door, or a room's exit door) always last. A whole ping is at most 4 echoes (always room for the nearest door) so it ends well before the next auto cycle. Entrances sound 2 ticks after the one before, the rest 3: one quick burst, about a third of a second. */
+	private static void playAll(Scan s, SonarConfig cfg, List<double[]> mainsInOrder, List<double[]> doorEchoes) {
+		int n = mainsInOrder.size();
+		List<double[]> seq = new ArrayList<>(); // {angle, distance, volume, entrance 0/1}
+		for (int i = n - 1; i >= 0; i--) { double[] e = mainsInOrder.get(i); seq.add(new double[]{e[0], e[1], e[2], e[3] == 1 ? 1 : 0}); }
+		int room = Math.max(1, 4 - n);
+		for (int k = 0; k < Math.min(room, doorEchoes.size()); k++) { double[] d = doorEchoes.get(k); seq.add(new double[]{d[0], d[1], d[2], 1}); }
+		int near = -1; // the nearest entrance goes last
+		for (int i = 0; i < seq.size(); i++) if (seq.get(i)[3] == 1 && (near < 0 || seq.get(i)[1] < seq.get(near)[1])) near = i;
+		if (near >= 0) seq.add(seq.remove(near));
+		int t = 1;
+		for (int i = 0; i < seq.size(); i++) {
+			double[] e = seq.get(i);
+			scheduleEcho(s, cfg, e[0], e[1], (float) e[2], t);
+			if (i + 1 < seq.size()) t += seq.get(i + 1)[3] == 1 ? 2 : 3;
+		}
+	}
+
 	static void echo(Minecraft mc, Scan s, SonarConfig cfg) {
 		if (cfg.echoCount == 0) {
 			return;
@@ -234,7 +321,8 @@ public class Cues {
 		boolean room = enclosed(mc, s);
 		List<double[]> gaps = mouths(mc, s);
 		if (room) gaps = new ArrayList<>(); // inside a building the walkable exit guide does the work; the ray-based openings also fired for a staircase and a window gap, giving extra echoes
-		if (gaps.isEmpty() && !room) { // outside a building with no cave or hall opening in sight: nothing to point at
+		List<double[]> doorEchoes = visibleDoors(s, gaps); // every door in sight gets its own echo, inside or outside
+		if (gaps.isEmpty() && !room && doorEchoes.isEmpty()) { // outside a building with no cave or hall opening or door in sight: nothing to point at
 			return;
 		}
 
@@ -270,9 +358,14 @@ public class Cues {
 		if (cfg.debug && mc.player != null) {
 			StringBuilder sb = new StringBuilder();
 			for (double[] e : echoes) sb.append(String.format("[%.0f deg, %.1f blocks, prio %.0f] ", Math.toDegrees(e[0]), e[1], e[3]));
-			mc.player.sendSystemMessage(Component.literal("echo: room " + room + ", entrances " + gaps.size() + " | " + sb));
+			for (double[] de : doorEchoes) sb.append(String.format("[DOOR %.0f deg, %.1f blocks] ", Math.toDegrees(de[0]), de[1]));
+			mc.player.sendSystemMessage(Component.literal("echo: room " + room + ", entrances " + gaps.size() + " | doors seen " + s.doors.size() + " | " + sb));
 		}
-		if (echoes.isEmpty()) return; // nothing to point at: stay silent
+		doorEchoes.removeIf(de -> { // the exit guide may already point at this door: no second echo in the same direction
+			for (double[] e : echoes) if (Math.abs(Math.atan2(Math.sin(de[0] - e[0]), Math.cos(de[0] - e[0]))) < Math.toRadians(12)) return true;
+			return false;
+		});
+		if (echoes.isEmpty()) { playAll(s, cfg, new ArrayList<>(), doorEchoes); return; } // no room or opening echoes: just the doors
 		echoes.sort(Comparator.<double[]>comparingDouble(e -> e[3]).thenComparingDouble(e -> -e[2]).thenComparingDouble(e -> e[1]));
 		int count = cfg.echoCount;
 		if (count < 0) {
@@ -299,10 +392,7 @@ public class Cues {
 		}
 
 		int n = Math.min(count, echoes.size());
-		for (int i = 0; i < n; i++) { // the list is in order of importance (main way out first): it plays in reverse, so the main echo lands last, after the others
-			double[] e = echoes.get(i);
-			scheduleEcho(s, cfg, e[0], e[1], (float)e[2], 1 + (n - 1 - i) * 6);
-		}
+		playAll(s, cfg, new ArrayList<>(echoes.subList(0, n)), doorEchoes);
 	}
 
 	/** One continuous tone tracking the nearest edge ahead (louder/higher when closer; tall drops louder and lower). Returns ticks until the next check. */
@@ -787,7 +877,8 @@ public class Cues {
 		}
 
 		// inside a cave or building (where the echo would play): the sonar's block sounds would just be a wall of stone, so only the echo, hazards, water, mobs and ledges sound
-		boolean quiet = cfg.echoReplacesSonar && cfg.echoCue && cfg.echoCount != 0 && !s.front && insideSpace(mc, s);
+		boolean inRoom = cfg.echoReplacesSonar && cfg.echoCue && cfg.echoCount != 0 && !s.front && insideSpace(mc, s);
+		boolean quiet = inRoom && s.auto; // only the AUTO sonar goes quiet inside; a key press (R) always gives the full block sounds
 		long nowTick = mc.level.getGameTime();
 		boolean lavaDue = nowTick - lastLava >= 50; // lava sounds at most every 2.5 s, however fast you ping (repeat / fast auto scan)
 		boolean lavaPlayed = false;
@@ -885,7 +976,7 @@ public class Cues {
 			lastLava = nowTick;
 		}
 
-		boolean path = FloorEdge.ping(mc, cfg);
+		boolean path = !inRoom && FloorEdge.ping(mc, cfg); // no path ripple inside a room
 		if (cfg.ceilingCue && !s.front && rayLen(mc, new Vec3(s.ex, s.ey, s.ez), 0.0, 1.0, 0.0, 3.0, true) < 1.1) {
 			play(mc, (SoundEvent)SoundEvents.NOTE_BLOCK_BASS.value(), cfg.volume * 0.5F, 1.3F, s.ex, s.ey + 1.5, s.ez); // low ceiling overhead
 		}
