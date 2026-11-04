@@ -6,7 +6,7 @@
 
 **A Fabric mod that turns Minecraft into 3D sound, so blind and low-vision players can explore by ear.**
 
-<a href="https://github.com/bageleater98/SONAR-access-for-the-blind/releases/latest"><img src="assets/download-button.svg" alt="Download SONAR, latest release" width="480"></a>
+<a href="https://github.com/bageleater98/SONAR-access-for-the-blind/releases/latest"><img src="assets/download-button-2.svg" alt="Download SONAR, latest release" width="480"></a>
 
 By **BagelEater**
 
