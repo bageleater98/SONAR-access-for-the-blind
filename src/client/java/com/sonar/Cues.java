@@ -87,7 +87,7 @@ public class Cues {
 	/** Where the echo would play: an enclosed room, or a cave mouth in sight. Worked out once per scan. */
 	static boolean insideSpace(Minecraft mc, Scan s) {
 		if (s.inside == null) {
-			s.inside = enclosed(mc, s) || !mouths(mc, s).isEmpty();
+			s.inside = enclosed(mc, s); // inside a room the echo replaces the block sounds; outside (even next to a visible opening) the sonar keeps playing
 		}
 		return s.inside;
 	}
@@ -104,7 +104,14 @@ public class Cues {
 			}
 		}
 
-		return roof >= 3;
+		if (roof < 3) return false;
+		// a roof alone is not a room (a covered deck, a porch, a carport): it also needs walls around you, in most directions within 10 blocks
+		int walls = 0;
+		for (int i = 0; i < 8; i++) {
+			double a = i * Math.PI / 4;
+			if (rayLen(mc, from, Math.cos(a), 0.0, Math.sin(a), 10.0, true) < 10.0) walls++;
+		}
+		return walls >= 6;
 	}
 
 	static void tagTree(Map<com.sonar.Cues.Cue, Integer> kinds, com.sonar.Cues.Cue c, BlockState st) {
@@ -170,6 +177,12 @@ public class Cues {
 					}
 				}
 
+				if (SonarConfig.cur.debug && mc.player != null) {
+					Vec3 far = from.add(dc * 40.0, 0.0, ds * 40.0);
+					var hit = mc.level.clip(new ClipContext(from, far, Block.COLLIDER, Fluid.NONE, mc.player));
+					mc.player.sendSystemMessage(Component.literal(String.format("mouth: bearing %.0f deg, reach %.1f, wall before it %.1f, %d rays wide, roofs %d/3, ray hits %s at %.1f", Math.toDegrees(mid), dm, avgB, cnt, roofs,
+						hit.getType() == Type.MISS ? "nothing" : mc.level.getBlockState(hit.getBlockPos()).getBlock().getDescriptionId(), hit.getType() == Type.MISS ? 40.0 : from.distanceTo(hit.getLocation()))));
+				}
 				if (roofs >= 3) {
 					out.add(new double[]{mid, dm, cnt, avgB}); // bearing, depth, width in rays, distance to the opening itself
 				}
@@ -183,20 +196,20 @@ public class Cues {
 		return out.size() > 3 ? new ArrayList<>(out.subList(0, 3)) : out;
 	}
 
-	private static void scheduleEcho(Scan s, SonarConfig cfg, double ang, double dist, float mul) {
+	private static void scheduleEcho(Scan s, SonarConfig cfg, double ang, double dist, float mul, int delay) {
 		double dx = Math.cos(ang);
 		double dz = Math.sin(ang);
-		int delay = Math.max(1, (int)Math.round((s.range - dist) * 0.3)); // farthest echo first, nearest last
-		float vol = cfg.volume * cfg.echoVolume * 1.06F * mul * (1.0F - 0.5F * (float)(dist / s.range));
+				float vol = cfg.volume * cfg.echoVolume * 1.06F * mul * (1.0F - 0.5F * (float)(dist / s.range));
 		float pitch = 1.4F - 0.7F * (float)Math.min(1.0, dist / s.range);
 		if (dist < s.range * 0.2) {
 			pitch = Math.min(2.0F, pitch + 0.2F); // tight space: a short, high click
 		}
 
 		SoundEvent hat = (SoundEvent)SoundEvents.NOTE_BLOCK_HAT.value();
-		pending.add(new com.sonar.Cues.Pending(hat, vol, pitch, s.ex + dx * 4.0, s.ey, s.ez + dz * 4.0, new int[]{delay}));
+		double[] lag = lag(s);
+		pending.add(new com.sonar.Cues.Pending(hat, vol, pitch, s.ex + lag[0] + dx * 4.0, s.ey + lag[1], s.ez + lag[2] + dz * 4.0, new int[]{delay}));
 		if (dist > s.range * 0.45) { // big space: a softer, lower tail after the echo
-			pending.add(new com.sonar.Cues.Pending(hat, vol * 0.45F, pitch * 0.8F, s.ex + dx * 4.0, s.ey, s.ez + dz * 4.0, new int[]{delay + 3}));
+			pending.add(new com.sonar.Cues.Pending(hat, vol * 0.45F, pitch * 0.8F, s.ex + lag[0] + dx * 4.0, s.ey + lag[1], s.ez + lag[2] + dz * 4.0, new int[]{delay + 3}));
 		}
 	}
 
@@ -205,13 +218,26 @@ public class Cues {
 			return;
 		}
 
+		if (cfg.debug && mc.player != null) { // what is straight ahead: does a collision ray stop at it, does an outline ray, and which blocks are there
+			double yr = Math.toRadians(s.yaw), ax = -Math.sin(yr), az = Math.cos(yr);
+			Vec3 o = new Vec3(s.ex, s.ey, s.ez), far = o.add(ax * 20.0, 0.0, az * 20.0);
+			var hc = mc.level.clip(new ClipContext(o, far, Block.COLLIDER, Fluid.NONE, mc.player));
+			var ho = mc.level.clip(new ClipContext(o, far, Block.OUTLINE, Fluid.NONE, mc.player));
+			StringBuilder sb = new StringBuilder();
+			for (int d = 1; d <= 6; d++) {
+				var bp = net.minecraft.core.BlockPos.containing(s.ex + ax * d, s.ey, s.ez + az * d);
+				sb.append(d).append('=').append(mc.level.getBlockState(bp).getBlock().getDescriptionId().replace("block.minecraft.", "")).append(' ');
+			}
+			mc.player.sendSystemMessage(Component.literal(String.format("ahead probe: collider %s at %.1f, outline %s at %.1f | %s", hc.getType() == Type.MISS ? "nothing" : mc.level.getBlockState(hc.getBlockPos()).getBlock().getDescriptionId(), hc.getType() == Type.MISS ? 20.0 : o.distanceTo(hc.getLocation()),
+				ho.getType() == Type.MISS ? "nothing" : mc.level.getBlockState(ho.getBlockPos()).getBlock().getDescriptionId(), ho.getType() == Type.MISS ? 20.0 : o.distanceTo(ho.getLocation()), sb)));
+		}
 		boolean room = enclosed(mc, s);
 		List<double[]> gaps = mouths(mc, s);
-		if (!room && gaps.isEmpty()) {
+		if (room) gaps = new ArrayList<>(); // inside a building the walkable exit guide does the work; the ray-based openings also fired for a staircase and a window gap, giving extra echoes
+		if (gaps.isEmpty() && !room) { // outside a building with no cave or hall opening in sight: nothing to point at
 			return;
 		}
 
-		play(mc, (SoundEvent)SoundEvents.NOTE_BLOCK_HAT.value(), cfg.volume * 0.7F, 1.3F, s.ex, s.ey, s.ez);
 		Vec3 from = new Vec3(s.ex, s.ey, s.ez);
 		double fwd = Math.atan2(Math.cos(Math.toRadians(s.yaw)), -Math.sin(Math.toRadians(s.yaw)));
 		// priority 0 = the main part of the space (its longest reach), 1 = the nearest big opening (entrance / door), 2 = everything else
@@ -225,27 +251,9 @@ public class Cues {
 			}
 		}
 
-		if (room) {
-			double[] main = null;
-			int rays = cfg.echoCount < 0 ? 8 : 4; // auto mode listens in 8 directions for more detail
-			for (int k = 0; k < rays; k++) {
-				double ang = fwd + k * 2.0 * Math.PI / rays;
-				double dist = rayLen(mc, from, Math.cos(ang), 0.0, Math.sin(ang), s.range, true);
-				if (dist < s.range) {
-					double rel = Math.abs(Math.atan2(Math.sin(ang - fwd), Math.cos(ang - fwd)));
-					double[] e = {ang, dist, 1.0 - 0.5 * rel / Math.PI, 2}; // ahead 1.0, sides 0.75, behind 0.5
-					echoes.add(e);
-					roomRays.add(dist);
-					if (main == null || dist > main[1]) {
-						main = e;
-					}
-				}
-			}
-
-			if (main != null) {
-				main[3] = 0;
-				mainReach = main[1];
-			}
+		if (room) { // inside a building: guide to its doors, ways out and staircases (walls, glass included, never echo)
+			echoes.addAll(ExitGuide.find(mc, s));
+			for (double[] e : echoes) if (e[3] == 0) mainReach = Math.max(mainReach, e[1]);
 		}
 
 		for (double[] g : gaps) {
@@ -259,6 +267,12 @@ public class Cues {
 			}
 		}
 
+		if (cfg.debug && mc.player != null) {
+			StringBuilder sb = new StringBuilder();
+			for (double[] e : echoes) sb.append(String.format("[%.0f deg, %.1f blocks, prio %.0f] ", Math.toDegrees(e[0]), e[1], e[3]));
+			mc.player.sendSystemMessage(Component.literal("echo: room " + room + ", entrances " + gaps.size() + " | " + sb));
+		}
+		if (echoes.isEmpty()) return; // nothing to point at: stay silent
 		echoes.sort(Comparator.<double[]>comparingDouble(e -> e[3]).thenComparingDouble(e -> -e[2]).thenComparingDouble(e -> e[1]));
 		int count = cfg.echoCount;
 		if (count < 0) {
@@ -281,12 +295,13 @@ public class Cues {
 				}
 			}
 
-			count = Math.min(5, count);
+			count = Math.min(5, Math.max(count, Math.min(4, echoes.size()))); // every way out and staircase found gets its echo
 		}
 
-		for (int i = 0; i < Math.min(count, echoes.size()); i++) {
+		int n = Math.min(count, echoes.size());
+		for (int i = 0; i < n; i++) { // the list is in order of importance (main way out first): it plays in reverse, so the main echo lands last, after the others
 			double[] e = echoes.get(i);
-			scheduleEcho(s, cfg, e[0], e[1], (float)e[2]);
+			scheduleEcho(s, cfg, e[0], e[1], (float)e[2], 1 + (n - 1 - i) * 6);
 		}
 	}
 
@@ -345,8 +360,8 @@ public class Cues {
 				double dn = k == 0 ? corrLeft : corrRight, df = k == 0 ? corrRight : corrLeft;
 				if (dn <= 0.8 && dn < df * 0.6) {
 					float c = 1.0F - (float)(dn / 0.8);
-					float vol = Math.min(1.0F, 0.72F * (0.45F + 0.55F * c) * cfg.volume / 0.6F * cfg.ledgeVolume);
-					float pitch = 0.75F + 0.7F * c;
+					float vol = Math.min(1.0F, 0.72F * (0.45F + 0.55F * c) * dropFactor(k == 0 ? corrLeftDrop : corrRightDrop) * cfg.volume / 0.6F * cfg.ledgeVolume);
+					float pitch = (0.75F + 0.7F * c) * dropPitch(k == 0 ? corrLeftDrop : corrRightDrop);
 					double a = (k == 0 ? -1.0 : 1.0) * 1.2;
 					LedgeTone.update(mc, ledgeSound(cfg), k + 1, vol, pitch, s.ex + 4.0 * (Math.cos(a) * fx + Math.sin(a) * rx), s.feetY - 1.0, s.ez + 4.0 * (Math.cos(a) * fz + Math.sin(a) * rz));
 					anyC = true;
@@ -366,9 +381,9 @@ public class Cues {
 			}
 			any = true;
 			float c = Math.max(0.0F, Math.min(1.0F, 1.0F - (float)Math.max(0.0, l.d - lead) / cfg.ledgeWarnRange));
-			float dropF = 0.65F + 0.35F * Math.min(1.0F, Math.max(0, l.drop - 4) / 10.0F);
+			float dropF = dropFactor(l.drop);
 			float vol = Math.min(1.0F, 0.6F * 0.72F * (0.4F + 0.6F * c) * dropF * cfg.volume / 0.6F * cfg.ledgeVolume);
-			float pitch = Math.max(0.5F, Math.min(2.0F, 0.75F + 0.7F * c));
+			float pitch = Math.max(0.4F, Math.min(2.0F, (0.75F + 0.7F * c) * dropPitch(l.drop)));
 			// placed hard to that side: the sideways angle is exaggerated and the source sits well out (8 blocks), so it reads as coming from that direction
 			double a = Math.signum(rad[k]) * Math.min(1.4, Math.abs(rad[k]) * 1.5);
 			double dist = 8.0;
@@ -393,6 +408,7 @@ public class Cues {
 	static boolean ledgeActive;
 	private static boolean corridor, wasCorridor;
 	private static double corrLeft, corrRight;
+	private static int corrLeftDrop = 99, corrRightDrop = 99;
 
 	public static int watchLedges(Minecraft mc, Scan s, SonarConfig cfg, double vx, double vz) {
 		double sp = Math.max(1.0E-6, Math.hypot(vx, vz));
@@ -447,6 +463,7 @@ public class Cues {
 		double cyaw = Math.toRadians(s.yaw);
 		double cfx = -Math.sin(cyaw), cfz = Math.cos(cyaw), crx = -Math.cos(cyaw), crz = -Math.sin(cyaw);
 		double dLeft = Double.MAX_VALUE, dRight = Double.MAX_VALUE;
+		int dropL = 99, dropR = 99; // how deep the nearest edge on each side is (the path guide does not know, so it counts as a full warning)
 		for (Ledge l : s.ledges) {
 			if (l.d > 5.0F || l.d == Float.MAX_VALUE) {
 				continue;
@@ -457,9 +474,9 @@ public class Cues {
 				continue; // far ahead or behind: not a side edge
 			}
 			if (lat < 0) {
-				dLeft = Math.min(dLeft, -lat);
+				if (-lat < dLeft) { dLeft = -lat; dropL = l.drop; }
 			} else {
-				dRight = Math.min(dRight, lat);
+				if (lat < dRight) { dRight = lat; dropR = l.drop; }
 			}
 		}
 		int nLeft = 0, nRight = 0;
@@ -492,8 +509,11 @@ public class Cues {
 				bndR = pe[3];
 			}
 		}
+		if (guided) { dropL = 99; dropR = 99; }
 		corrLeft = dLeft;
 		corrRight = dRight;
+		corrLeftDrop = dropL;
+		corrRightDrop = dropR;
 		if (corridor && !wasCorridor) {
 			LedgeTone.hush(0); // stepped onto a path: the island's edge tone must not ring on for a second
 			LedgeTone.hush(1);
@@ -511,9 +531,9 @@ public class Cues {
 			ledgeMiss = 0;
 			ledgeActive = true;
 			float c = Math.max(0.0F, Math.min(1.0F, 1.0F - (float)Math.max(0.0, nearest - lead) / cfg.ledgeWarnRange));
-			float dropF = 0.65F + 0.35F * Math.min(1.0F, Math.max(0, deepest - 4) / 10.0F);
+			float dropF = dropFactor(deepest);
 			float vol = Math.min(1.0F, 0.72F * (0.4F + 0.6F * c) * dropF * cfg.volume / 0.6F * cfg.ledgeVolume);
-			float pitch = Math.max(0.5F, Math.min(2.0F, 0.75F + 0.7F * c));
+			float pitch = Math.max(0.4F, Math.min(2.0F, (0.75F + 0.7F * c) * dropPitch(deepest)));
 			LedgeTone.quiet(1);
 			LedgeTone.quiet(2);
 			LedgeTone.update(mc, ledgeSound(cfg), 0, vol, pitch, cx / holeCount, s.feetY - Math.min(deepest, 6) * 0.7 - 0.5, cz / holeCount);
@@ -615,9 +635,9 @@ public class Cues {
 		}
 
 		float c = Math.max(0.0F, Math.min(1.0F, 1.0F - (float)Math.max(0.0, l.d - lead) / cfg.ledgeWarnRange));
-		float dropF = 0.65F + 0.35F * Math.min(1.0F, Math.max(0, l.drop - 4) / 10.0F);
+		float dropF = dropFactor(l.drop);
 		float vol = Math.min(1.0F, 0.72F * (0.4F + 0.6F * c) * dropF * cfg.volume / 0.6F * cfg.ledgeVolume);
-		float pitch = Math.max(0.5F, Math.min(2.0F, 0.75F + 0.7F * c - (l.deep ? 0.15F : 0.0F)));
+		float pitch = Math.max(0.4F, Math.min(2.0F, (0.75F + 0.7F * c - (l.deep ? 0.15F : 0.0F)) * dropPitch(l.drop)));
 		if (cfg.debug) {
 			double dx0 = l.x + 0.5 - s.ex, dz0 = l.z + 0.5 - s.ez;
 			mc.player.sendSystemMessage(Component.literal(String.format("TONE: main from edge fwd %.1f lat %.1f drop %d d %.1f vol %.2f | guided %b corridor %b bnd L %.1f R %.1f", dx0 * cfx + dz0 * cfz, dx0 * crx + dz0 * crz, l.drop, l.d, vol, guided, corridor, bndL > 1e6 ? -1.0 : bndL, bndR > 1e6 ? -1.0 : bndR)));
@@ -629,6 +649,20 @@ public class Cues {
 		edgeAheadZ = l.z + 0.5;
 
 		return 3; // check often while an edge is near so the tone tracks it closely
+	}
+
+	/** The warning's loudness follows the danger: a 3-block drop is a stumble (soft), 4 is a little louder, and 5 or more (a real fall, or lava, which counts as 99) is full strength. */
+	static float dropFactor(int drop) {
+		if (drop >= 5) return 1.0F;
+		if (drop == 4) return 0.45F;
+		return 0.15F;
+	}
+
+	/** Small drops sound lower; the tone rises to the normal pitch as the drop reaches 5 blocks. */
+	static float dropPitch(int drop) {
+		if (drop >= 5) return 1.0F;
+		if (drop == 4) return 0.68F;
+		return 0.5F;
 	}
 
 	static void play(Minecraft mc, SoundEvent e, float vol, float pitch, double x, double y, double z) {
@@ -698,7 +732,14 @@ public class Cues {
 			len = Math.max(1.0E-6, Math.sqrt(vx * vx + vy * vy + vz * vz));
 		}
 
-		return new com.sonar.Cues.Cue(d, e, vol, pitch, s.ex + vx / len * ad, s.ey + vy / len * ad, s.ez + vz / len * ad, pri);
+		double[] lag = lag(s);
+		return new com.sonar.Cues.Cue(d, e, vol, pitch, s.ex + lag[0] + vx / len * ad, s.ey + lag[1] + vy / len * ad, s.ez + lag[2] + vz / len * ad, pri);
+	}
+
+	/** How far you moved since the scan began. The sounds are placed around where you are now, not where you were, so they do not trail behind when you run. */
+	static double[] lag(Scan s) {
+		var p = Minecraft.getInstance().player;
+		return p == null ? new double[3] : new double[]{p.getX() - s.ex, p.getEyeY() - s.ey, p.getZ() - s.ez};
 	}
 
 	static SoundEvent blockSound(BlockState st, SonarConfig cfg) {
@@ -834,7 +875,7 @@ public class Cues {
 					if (amb != null) {
 						mobSeen.put(m.getId(), now);
 						mobCount++;
-						cues.add(at(s, cfg, s.mobD[i], m.getX(), m.getY() + m.getBbHeight() / 2.0F, m.getZ(), amb, 0.9F, 1.0F, 1));
+						cues.add(at(s, cfg, s.mobD[i], m.getX(), m.getY() + m.getBbHeight() / 2.0F, m.getZ(), amb, 0.9F * (s.mobD[i] <= 2.0F ? 1.0F : Math.max(0.04F, (float)Math.pow(0.5, (s.mobD[i] - 2.0) / 4.0))), 1.0F, 1)); // full volume only right next to it, then it halves every 4 blocks
 					}
 				}
 			}
@@ -879,7 +920,11 @@ public class Cues {
 		for (int i = 0; i < cues.size(); i++) {
 			com.sonar.Cues.Cue c = cues.get(i);
 			if (c.pri() != 0 && isTerrainSound(c.snd())) {
-				if (++terrain > 4) {
+				double tdx = c.x() - s.ex, tdz = c.z() - s.ez, tl = Math.max(1.0E-6, Math.hypot(tdx, tdz));
+				double tyaw = Math.toRadians(s.yaw);
+				if ((tdx * -Math.sin(tyaw) + tdz * Math.cos(tyaw)) / tl < -0.2) { // grass and dirt behind you are not needed: they only crowd the sounds ahead
+					cues.remove(i--);
+				} else if (++terrain > 16) {
 					cues.remove(i--);
 				} else {
 					cues.set(i, new com.sonar.Cues.Cue(c.d(), c.snd(), c.vol() * 0.6F, c.pitch(), c.x(), c.y(), c.z(), c.pri()));

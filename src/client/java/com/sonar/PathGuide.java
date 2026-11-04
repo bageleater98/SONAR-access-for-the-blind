@@ -11,6 +11,7 @@ import java.util.ArrayDeque;
 /** On or near a narrow built path (not in buildings, not on big platforms), a steady bell sounds from the path about 10 blocks ahead of you, so you can follow it. */
 public class PathGuide {
 	private static final int R = 14;
+	private static final double MIN_REACH = 8.0; // the connected path must extend at least this many blocks from you
 	/** Short, sharp tick (the start of the vanilla ice chime with its ring cut off) so it is easy to follow. */
 	private static final net.minecraft.sounds.SoundEvent GUIDE = net.minecraft.sounds.SoundEvent.createVariableRangeEvent(
 		net.minecraft.resources.Identifier.fromNamespaceAndPath("sonar", "guide"));
@@ -37,6 +38,12 @@ public class PathGuide {
 		if (cells == null) return null;
 		Integer here = cells.get(key((int) Math.floor(ex), (int) Math.floor(ez)));
 		if (here == null || Math.abs(here - fy) > 1) return null;
+		int hx = (int) Math.floor(ex), hz = (int) Math.floor(ez), linked = 0; // a sparse trail (stepping stones) has no sides to measure: the normal ledge warning applies instead of path mode
+		for (int k = 0; k < 4; k++) {
+			Integer ny = cells.get(key(hx + (k == 0 ? 1 : k == 1 ? -1 : 0), hz + (k == 2 ? 1 : k == 3 ? -1 : 0)));
+			if (ny != null && Math.abs(ny - here) <= 1) linked++;
+		}
+		if (linked < 2) return null;
 		double[] out = {Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE}; // [2],[3] = distance to where the path ends sideways (drop or not)
 		var pos = new BlockPos.MutableBlockPos();
 		for (int side = 0; side < 2; side++) {
@@ -57,6 +64,43 @@ public class PathGuide {
 		return out;
 	}
 
+	/** The cells of a SPARSE trail (stepping stones, scattered path blocks) 3 to 12 blocks ahead of you, nearest first, as {x, floor y, z, distance}; null when there is no guided path or it is a normal solid path. */
+	public static String trailWhy = "";
+
+	public static java.util.List<double[]> sparseTrail(double px, double pz, double yawRad, boolean force) {
+		var cells = guideCells;
+		if (cells == null || !active()) return null;
+		double fx = -Math.sin(yawRad), fz = Math.cos(yawRad);
+		java.util.List<double[]> out = new java.util.ArrayList<>();
+		double links = 0;
+		for (var e : cells.entrySet()) {
+			long k = e.getKey();
+			int x = (int) (k >> 32), z = (int) k;
+			double dx = x + 0.5 - px, dz = z + 0.5 - pz, d = Math.hypot(dx, dz);
+			if (d < 3.0 || d > 12.5 || (dx * fx + dz * fz) / d < 0.5) continue; // ahead of you, within about 60 degrees (a trail up terraces zigzags)
+			int n = 0;
+			if (cells.containsKey(key(x + 1, z))) n++;
+			if (cells.containsKey(key(x - 1, z))) n++;
+			if (cells.containsKey(key(x, z + 1))) n++;
+			if (cells.containsKey(key(x, z - 1))) n++;
+			links += n;
+			out.add(new double[]{x, e.getValue(), z, d});
+		}
+		trailWhy = out.isEmpty() ? "no trail blocks 3-12 ahead within 60 degrees" : String.format("%d blocks ahead, %.1f touching neighbours each", out.size(), links / out.size());
+		if (out.isEmpty() || (!force && links / out.size() >= 1.8)) return null; // cells that mostly touch each other are a real solid path: the ripple uses its three lines there
+		out.sort((a, b) -> Double.compare(a[3], b[3]));
+		if (!force) return out;
+		java.util.Map<Integer, double[]> band = new java.util.TreeMap<>(); // forced: one block per distance step, the one closest to straight ahead
+		double rx = -Math.cos(yawRad), rz = -Math.sin(yawRad);
+		for (double[] c : out) {
+			int b = (int) Math.round(c[3]);
+			double lat = Math.abs((c[0] + 0.5 - px) * rx + (c[2] + 0.5 - pz) * rz);
+			double[] cur = band.get(b);
+			if (cur == null || lat < Math.abs((cur[0] + 0.5 - px) * rx + (cur[2] + 0.5 - pz) * rz)) band.put(b, c);
+		}
+		return new java.util.ArrayList<>(band.values());
+	}
+
 	/** y of the first solid block at x,z scanning down `depth` blocks from y, or MIN_VALUE. */
 	private static int floorY(Minecraft mc, int x, int z, int y, int depth, BlockPos.MutableBlockPos pos) {
 		for (int yy = y; yy >= y - depth; yy--) {
@@ -70,6 +114,12 @@ public class PathGuide {
 	private static boolean built(Minecraft mc, int x, int y, int z, BlockPos.MutableBlockPos pos) {
 		BlockState s = mc.level.getBlockState(pos.set(x, y, z));
 		return !FloorEdge.natural(s) || s.is(net.minecraft.world.level.block.Blocks.DIRT_PATH);
+	}
+
+	/** Something you could stand on: needs two free blocks above it, so the side of a house or a wall is never mistaken for path. */
+	private static boolean headroom(Minecraft mc, int x, int y, int z, BlockPos.MutableBlockPos pos) {
+		return mc.level.getBlockState(pos.set(x, y + 1, z)).getCollisionShape(mc.level, pos).isEmpty()
+			&& mc.level.getBlockState(pos.set(x, y + 2, z)).getCollisionShape(mc.level, pos).isEmpty();
 	}
 
 	private static boolean isRailOrPath(BlockState s) {
@@ -112,7 +162,7 @@ public class PathGuide {
 		for (int dx = -3; dx <= 3; dx++) {
 			for (int dz = -3; dz <= 3; dz++) {
 				int y = floorY(mc, px + dx, pz + dz, fy + 2, 6, pos);
-				if (y == Integer.MIN_VALUE || Math.abs(y - fy) > 2 || !built(mc, px + dx, y, pz + dz, pos)) continue;
+				if (y == Integer.MIN_VALUE || Math.abs(y - fy) > 2 || !built(mc, px + dx, y, pz + dz, pos) || !headroom(mc, px + dx, y, pz + dz, pos)) continue;
 				int d = dx * dx + dz * dz;
 				int sec = (dx == 0 && dz == 0) ? 8 : Math.floorMod((int) Math.round(Math.atan2(dz, dx) / (Math.PI / 4)), 8);
 				if (d < candD[sec]) { candD[sec] = d; cand[sec] = new int[]{px + dx, pz + dz, y}; }
@@ -151,6 +201,7 @@ public class PathGuide {
 		int px = p.getBlockX(), pz = p.getBlockZ();
 		int W = 2 * R + 1;
 		int[] dist = new int[W * W], ys = new int[W * W];
+		double[] dirx = new double[W * W], dirz = new double[W * W]; // the way the trail is heading at each cell
 		java.util.Arrays.fill(dist, -1);
 		var q = new ArrayDeque<int[]>();
 		int si = (sz - pz + R) * W + (sx - px + R);
@@ -161,29 +212,58 @@ public class PathGuide {
 		seen.put(key(sx, sz), sy);
 		q.add(new int[]{sx, sz});
 		double yaw = Math.toRadians(p.getYRot()), fx = -Math.sin(yaw), fz = Math.cos(yaw);
+		dirx[si] = fx; dirz[si] = fz;
 		double sumX = 0, sumZ = 0, sumY = 0;
 		int n = 0;
+		double reach = 0; // how far from you the connected built floor extends, in any direction
 		double fbX = 0, fbY = 0, fbZ = 0, fbD = 0; // farthest path cell ahead, used when the path ends before the normal 8-11 block window
 		while (!q.isEmpty()) {
 			int[] c = q.poll();
 			int ci = (c[1] - pz + R) * W + (c[0] - px + R), cy = ys[ci];
 			double ddx = c[0] + 0.5 - p.getX(), ddz = c[1] + 0.5 - p.getZ(), dl = Math.hypot(ddx, ddz);
-			if (dl >= 4.0 && dl > fbD && (ddx * fx + ddz * fz) / dl > 0.7) { fbD = dl; fbX = c[0] + 0.5; fbY = cy + 1; fbZ = c[1] + 0.5; }
+			if (dl > reach) reach = dl;
+				if (dl >= 4.0 && dl > fbD && (ddx * fx + ddz * fz) / dl > 0.7) { fbD = dl; fbX = c[0] + 0.5; fbY = cy + 1; fbZ = c[1] + 0.5; }
 			if (dl >= 8.0 && dl <= 11.0 && (ddx * fx + ddz * fz) / dl > 0.7) { sumX += c[0] + 0.5; sumZ += c[1] + 0.5; sumY += cy + 1; n++; }
+			int nbuilt = 0; // built neighbours of this cell: a sparse trail (stepping stones, scattered path blocks) has few
 			for (int k = 0; k < 4; k++) {
 				int nx = c[0] + (k == 0 ? 1 : k == 1 ? -1 : 0), nz = c[1] + (k == 2 ? 1 : k == 3 ? -1 : 0);
 				int ddx2 = nx - px, ddz2 = nz - pz;
 				if (Math.abs(ddx2) > R || Math.abs(ddz2) > R) continue;
 				int ni = (ddz2 + R) * W + (ddx2 + R);
-				if (dist[ni] != -1) continue;
+				if (dist[ni] >= 0) { nbuilt++; continue; }
+				if (dist[ni] == -2) continue;
 				int y = floorY(mc, nx, nz, cy + 1, 3, pos);
-				if (y == Integer.MIN_VALUE || Math.abs(y - cy) > 1 || !built(mc, nx, y, nz, pos)) { dist[ni] = -2; continue; }
-				dist[ni] = dist[ci] + 1; ys[ni] = y;
+				if (y == Integer.MIN_VALUE || Math.abs(y - cy) > 1 || !built(mc, nx, y, nz, pos) || !headroom(mc, nx, y, nz, pos)) { dist[ni] = -2; continue; }
+				nbuilt++;
+				dist[ni] = dist[ci] + 1; ys[ni] = y; dirx[ni] = nx - c[0]; dirz[ni] = nz - c[1];
 				seen.put(key(nx, nz), y);
 				q.add(new int[]{nx, nz});
 			}
+			if (nbuilt <= 2) { // sparse trail: also reach the next built blocks up to 6 away, in the direction the trail is heading (within about 40 degrees), across plain ground
+				int added = 0;
+				for (int r = 2; r <= 6 && added < 2; r++) {
+					for (int bx = -r; bx <= r && added < 2; bx++) {
+						for (int bz = -r; bz <= r && added < 2; bz++) {
+							if (Math.max(Math.abs(bx), Math.abs(bz)) != r) continue;
+							double bl = Math.hypot(bx, bz);
+							if (bl > 6.5 || (bx * dirx[ci] + bz * dirz[ci]) / bl < 0.77) continue;
+							int tx = c[0] + bx, tz = c[1] + bz, tdx = tx - px, tdz = tz - pz;
+							if (Math.abs(tdx) > R || Math.abs(tdz) > R) continue;
+							int ti = (tdz + R) * W + (tdx + R);
+							if (dist[ti] != -1) continue;
+							int ty = floorY(mc, tx, tz, cy + 2, 6, pos);
+							if (ty == Integer.MIN_VALUE || Math.abs(ty - cy) > 2 || !built(mc, tx, ty, tz, pos) || !headroom(mc, tx, ty, tz, pos)) continue;
+							dist[ti] = dist[ci] + r; ys[ti] = ty; dirx[ti] = bx / bl; dirz[ti] = bz / bl;
+							seen.put(key(tx, tz), ty);
+							q.add(new int[]{tx, tz});
+							added++;
+						}
+					}
+				}
+			}
 		}
 		double cx = n > 0 ? sumX / n : fbX, cz = n > 0 ? sumZ / n : fbZ, ox = cx - p.getX(), oz = cz - p.getZ(), ol = Math.max(1e-6, Math.hypot(ox, oz));
+		if (reach < MIN_REACH) return null; // too short to be a path (a doorstep, a patch of floor, the foot of a wall); a long path you are near the end of still reaches back past this
 		if (n == 0 && fbD == 0) return null; // the path ends right here: nothing ahead to guide to
 		return new double[]{cx, n > 0 ? sumY / n : fbY, cz, (ox * fx + oz * fz) / ol, n > 0 ? 0 : 1};
 	}

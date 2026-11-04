@@ -26,7 +26,7 @@ public class MoreScreen extends SonarScreen {
 		toggle(1, y, "Debug (names in chat)", () -> c.debug, () -> c.debug = !c.debug);
 		y += 24;
 		toggle(0, y, "Edge brake (slows you)", () -> c.edgeBrake, () -> c.edgeBrake = !c.edgeBrake);
-		toggle(1, y, "Floor material edges", () -> c.floorEdge, () -> c.floorEdge = !c.floorEdge);
+		toggle(1, y, "Path ripple", () -> c.floorEdge, () -> c.floorEdge = !c.floorEdge);
 		y += 24;
 		toggle(0, y, "Path guide bell", () -> c.pathGuide, () -> c.pathGuide = !c.pathGuide);
 		toggle(1, y, "Sonar off inside", () -> c.echoReplacesSonar, () -> c.echoReplacesSonar = !c.echoReplacesSonar);

@@ -155,7 +155,9 @@ public class Scan {
 		long t0 = System.nanoTime();
 		int bx = (int) Math.floor(ex), bz = (int) Math.floor(ez), by = (int) Math.floor(ey);
 		int r2 = range * range;
-		for (int n = 0; n < cfg.layersPerTick && dy <= range; n++, dy++) {
+		var mv = viewer.getDeltaMovement();
+		int layers = cfg.layersPerTick * (mv.x * mv.x + mv.z * mv.z > 0.0144 ? 2 : 1); // moving: scan twice as fast so the picture is not stale when it plays
+		for (int n = 0; n < layers && dy <= range; n++, dy++) {
 			int y = by + dy;
 			for (int dx = -range; dx <= range; dx++) {
 				for (int dz = -range; dz <= range; dz++) {
@@ -179,7 +181,6 @@ public class Scan {
 		double vx = x + 0.5 - ex, vy = y + 0.5 - ey, vz = z + 0.5 - ez;
 		double d = Math.sqrt(vx * vx + vy * vy + vz * vz);
 		if (d < 0.8 || d > range) return;
-		if (d > 6 && FloorEdge.ground(s)) return; // grass/dirt hillsides are background: only hear them up close
 		if (front) {
 			double h = Math.sqrt(vx * vx + vz * vz);
 			if (h > 0.5 && (vx * fx + vz * fz) / h < 0.64) return;
@@ -299,7 +300,7 @@ public class Scan {
 						Ledge dl = drops[yawSector(sx, sz)];
 						if (sd < dl.d) { dl.d = sd; dl.x = cx; dl.y = f; dl.z = cz; dl.drop = f - nf; }
 					}
-					if (nf < f) { // steep continuous slope: 3+ blocks lost within 3 cells in a straight line
+					if (nf < f && f <= f0 + 2) { // (an edge on ground well above you, like the top of a wall or terrace beside you, is not your edge) steep continuous slope: 3+ blocks lost within 3 cells in a straight line
 						int cur = f;
 						boolean big = false; // a plain staircase (1 block per step) is not a ledge
 						for (int j = 1; j <= 3; j++) {
@@ -318,6 +319,7 @@ public class Scan {
 					continue;
 				}
 				if (!passable(nx, f + 1, nz) || !passable(nx, f + 2, nz)) continue; // wall, not an edge
+					if (f > f0 + 2) continue; // an edge on ground 3+ blocks above you (top of a wall or terrace beside you) does not warn until you are nearly level with it
 				int landed = Integer.MIN_VALUE;
 				boolean lava = false, water = false, unknown = false;
 				for (int y = f; y >= f - 14; y--) {

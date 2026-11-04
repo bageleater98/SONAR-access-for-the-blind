@@ -15,6 +15,7 @@ public class SonarConfig {
 	public boolean playerChime = true; // constant amethyst jingle from other players
 	public int playerChimeRange = 90;
 	public boolean echoCue = true;
+	public boolean roomEchoes = true; // true: inside a room the echo shows where the space leads (stairs, corridors, doors, the room's size); false: only doors and big openings
 	public String ledgeSound = "sonar:ledge_loop"; // dry synthesized ratchet buzz, looped
 	public boolean autoScan = false; // hold R for 2 seconds to toggle
 	public int speechRate = 3; // -10 slow .. 10 fast (Windows system voice)
