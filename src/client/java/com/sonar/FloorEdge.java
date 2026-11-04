@@ -9,9 +9,9 @@ import net.minecraft.world.level.block.state.BlockState;
 public class FloorEdge {
 	private static final int[] RAYS = {0, -40, 40}; // degrees relative to where you face (ahead only, never sideways)
 
-	/** The sound a path block makes in the ripple: the dirt path's step sound is very faint, so it plays its louder block-breaking sound; everything else uses its step sound. */
+	/** The sound a path block makes in the ripple: the dirt path's step sound is very faint, so it plays the sound of placing a dirt block; everything else uses its step sound. */
 	private static SoundEvent rippleSound(BlockState s) {
-		return s.is(net.minecraft.world.level.block.Blocks.DIRT_PATH) ? s.getSoundType().getBreakSound() : s.getSoundType().getStepSound();
+		return s.is(net.minecraft.world.level.block.Blocks.DIRT_PATH) ? net.minecraft.world.level.block.Blocks.DIRT.defaultBlockState().getSoundType().getPlaceSound() : s.getSoundType().getStepSound();
 	}
 
 	private static int foundY; // height of the floor block the last floorAt() call found
