@@ -60,7 +60,7 @@ public class ExitGuide {
 		return hit.getType() == net.minecraft.world.phys.HitResult.Type.MISS;
 	}
 
-	/** Echoes {bearing, distance, volume factor, priority 0 = nearest way out, 1 = staircase, 2 = other ways out}, at most about 5. */
+	/** Echoes {bearing, distance, volume factor, priority 0 = nearest way out, 1 = staircase, 2 = other ways out, entrance 0/1, elevation}: every way out you can see (up to 8) plus the nearest stairs up and down. */
 	static List<double[]> find(Minecraft mc, Scan s) {
 		List<double[]> out = new ArrayList<>();
 		var pos = new BlockPos.MutableBlockPos();
@@ -75,7 +75,7 @@ public class ExitGuide {
 		dist[si] = 0; floor[si] = f0;
 		q.add(new int[]{px, pz});
 		double yaw = Math.toRadians(s.yaw), fwdA = Math.atan2(Math.cos(yaw), -Math.sin(yaw));
-		double[][] exitBySector = new double[8][]; // nearest way out per 45 degree sector: {x, z, steps, isDoor}
+		List<double[]> exitCells = new ArrayList<>(); // every way-out cell you can see: {x, z, steps, floor y}
 		double[] up = null, down = null; // nearest staircase going up / down: {x, z, steps}
 		while (!q.isEmpty()) {
 			int[] c = q.poll();
@@ -84,8 +84,7 @@ public class ExitGuide {
 				boolean isDoor = door(mc.level.getBlockState(pos.set(c[0], cy + 1, c[1])));
 				boolean sky = inside && open(mc, c[0], cy, c[1], pos);
 				if ((isDoor || sky) && visible(mc, s, c[0], cy, c[1], pos)) { // only ways out you could see from here: no ticks from behind walls
-					int sec = Math.floorMod((int) Math.round(Math.atan2(c[1] + 0.5 - s.ez, c[0] + 0.5 - s.ex) / (Math.PI / 4)), 8);
-					if (exitBySector[sec] == null) exitBySector[sec] = new double[]{c[0], c[1], steps, isDoor ? 1 : 0};
+					exitCells.add(new double[]{c[0], c[1], steps, cy});
 				}
 				if (inside && Math.abs(cy - f0) >= 3 && visible(mc, s, c[0], cy, c[1], pos)) {
 					if (cy > f0 && up == null) up = new double[]{c[0], c[1], steps};
@@ -105,24 +104,24 @@ public class ExitGuide {
 				q.add(new int[]{nx, nz});
 			}
 		}
-		// the nearest few ways out (by walking distance), each from its own direction
-		List<double[]> exits = new ArrayList<>();
-		for (double[] e : exitBySector) if (e != null) exits.add(e);
-		exits.sort((a, b) -> Double.compare(a[2], b[2]));
-		List<double[]> kept = new ArrayList<>(); // one echo per way out: openings within 50 degrees of a nearer one are the same opening (a wide door spans two sectors)
-		for (double[] e : exits) {
-			double a = Math.atan2(e[1] + 0.5 - s.ez, e[0] + 0.5 - s.ex);
-			boolean same = false;
-			for (double[] k : kept) {
-				double b = Math.atan2(k[1] + 0.5 - s.ez, k[0] + 0.5 - s.ex);
-				if (Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b))) < Math.toRadians(50)) { same = true; break; }
+		// group the way-out cells into openings: cells within 2 blocks of each other are one opening (a double door, a wide open side). Each opening echoes once, from its nearest cell.
+		// Two doors in the same wall are two openings however close their directions are; there is no cap of 3 any more: up to 8, nearest (by walking) first.
+		exitCells.sort((a, b) -> Double.compare(a[2], b[2]));
+		List<List<double[]>> openings = new ArrayList<>();
+		for (double[] e : exitCells) {
+			List<double[]> home = null;
+			for (List<double[]> o : openings) {
+				for (double[] m : o) if (Math.abs(m[0] - e[0]) <= 2 && Math.abs(m[1] - e[1]) <= 2 && Math.abs(m[3] - e[3]) <= 2) { home = o; break; }
+				if (home != null) break;
 			}
-			if (!same) kept.add(e);
-			if (kept.size() >= 3) break;
+			if (home == null) { home = new ArrayList<>(); openings.add(home); }
+			home.add(e);
 		}
-		for (int i = 0; i < kept.size(); i++) {
-			double[] e = kept.get(i);
-			out.add(entry(s, fwdA, e[0] + 0.5, e[1] + 0.5, i == 0 ? 0 : 2));
+		for (int i = 0; i < openings.size() && i < Cues.MAX_ECHOES; i++) {
+			double[] e = openings.get(i).get(0); // cells were added nearest first
+			double[] en = entry(s, fwdA, e[0] + 0.5, e[1] + 0.5, i == 0 ? 0 : 2);
+			en[4] = 1; // a way out is an entrance: the nearest one plays last
+			out.add(en);
 		}
 		if (up != null) out.add(entry(s, fwdA, up[0] + 0.5, up[1] + 0.5, 1));
 		if (down != null) out.add(entry(s, fwdA, down[0] + 0.5, down[1] + 0.5, 1));
@@ -132,6 +131,6 @@ public class ExitGuide {
 	private static double[] entry(Scan s, double fwdA, double x, double z, int prio) {
 		double dx = x - s.ex, dz = z - s.ez, ang = Math.atan2(dz, dx);
 		double rel = Math.abs(Math.atan2(Math.sin(ang - fwdA), Math.cos(ang - fwdA)));
-		return new double[]{ang, Math.hypot(dx, dz), 1.0 - 0.5 * rel / Math.PI, prio}; // ahead 1.0, sides 0.75, behind 0.5
+		return new double[]{ang, Math.hypot(dx, dz), 1.0 - 0.5 * rel / Math.PI, prio, 0, 0}; // {angle, distance, volume (ahead 1.0, sides 0.75, behind 0.5), priority, entrance, elevation}
 	}
 }

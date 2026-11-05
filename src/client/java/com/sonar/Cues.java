@@ -95,10 +95,10 @@ public class Cues {
 		return ledgeEv;
 	}
 
-	/** Where the echo would play: an enclosed room, or a cave mouth in sight. Worked out once per scan. */
+	/** Where the echo replaces the sonar: underground (cave mode) or inside an enclosed room. Worked out once per scan. */
 	static boolean insideSpace(Minecraft mc, Scan s) {
 		if (s.inside == null) {
-			s.inside = enclosed(mc, s); // inside a room the echo replaces the block sounds; outside (even next to a visible opening) the sonar keeps playing
+			s.inside = cave(mc, s) || enclosed(mc, s); // underground or inside a room the echo replaces the block sounds; outside (even next to a visible opening) the sonar keeps playing
 		}
 		return s.inside;
 	}
@@ -245,60 +245,89 @@ public class Cues {
 
 		double fwd = Math.atan2(Math.cos(Math.toRadians(s.yaw)), -Math.sin(Math.toRadians(s.yaw)));
 		out.sort(Comparator.comparingDouble(m -> Math.abs(Math.atan2(Math.sin(m[0] - fwd), Math.cos(m[0] - fwd)))));
-		return out.size() > 3 ? new ArrayList<>(out.subList(0, 3)) : out;
+		return out.size() > MAX_ECHOES ? new ArrayList<>(out.subList(0, MAX_ECHOES)) : out;
 	}
 
-	private static void scheduleEcho(Scan s, SonarConfig cfg, double ang, double dist, float mul, int delay) {
+	/** One echo click. Its loudness and pitch tell the distance relative to `range` (the sonar range, or the cave echo range underground); `elev` tilts it up or down (a route that climbs or descends). */
+	private static void scheduleEcho(Scan s, SonarConfig cfg, double ang, double dist, float mul, int delay, double range, double elev) {
 		double dx = Math.cos(ang);
 		double dz = Math.sin(ang);
-				float vol = cfg.volume * cfg.echoVolume * 1.06F * mul * (1.0F - 0.5F * (float)(dist / s.range));
-		float pitch = 1.4F - 0.7F * (float)Math.min(1.0, dist / s.range);
-		if (dist < s.range * 0.2) {
+		float vol = cfg.volume * cfg.echoVolume * 1.06F * mul * (1.0F - 0.5F * (float)Math.min(1.0, dist / range));
+		float pitch = 1.4F - 0.7F * (float)Math.min(1.0, dist / range);
+		if (dist < range * 0.2) {
 			pitch = Math.min(2.0F, pitch + 0.2F); // tight space: a short, high click
 		}
 
 		SoundEvent hat = (SoundEvent)SoundEvents.NOTE_BLOCK_HAT.value();
 		double[] lag = lag(s);
-		pending.add(new com.sonar.Cues.Pending(hat, vol, pitch, s.ex + lag[0] + dx * 4.0, s.ey + lag[1], s.ez + lag[2] + dz * 4.0, new int[]{delay}));
-		if (dist > s.range * 0.45) { // big space: a softer, lower tail after the echo
-			pending.add(new com.sonar.Cues.Pending(hat, vol * 0.45F, pitch * 0.8F, s.ex + lag[0] + dx * 4.0, s.ey + lag[1], s.ez + lag[2] + dz * 4.0, new int[]{delay + 3}));
+		double y = s.ey + lag[1] + 4.0 * Math.sin(elev);
+		pending.add(new com.sonar.Cues.Pending(hat, vol, pitch, s.ex + lag[0] + dx * 4.0, y, s.ez + lag[2] + dz * 4.0, new int[]{delay}));
+		if (dist > range * 0.45) { // big space: a softer, lower tail after the echo
+			pending.add(new com.sonar.Cues.Pending(hat, vol * 0.45F, pitch * 0.8F, s.ex + lag[0] + dx * 4.0, y, s.ez + lag[2] + dz * 4.0, new int[]{delay + 3}));
 		}
 	}
 
-	/** The doors in sight as echoes {bearing, distance, volume}: nearby ones merged (a double door is one), nearest 4, and none where another opening echo already points the same way. */
-	static List<double[]> visibleDoors(Scan s, List<double[]> gaps) {
+	/** Most echoes in one ping. */
+	static final int MAX_ECHOES = 8;
+
+	/** Volume factor by where it is: ahead 1.0, to the side 0.75, behind 0.5. */
+	static double facingVol(Scan s, double ang) {
+		double fwd = Math.atan2(Math.cos(Math.toRadians(s.yaw)), -Math.sin(Math.toRadians(s.yaw)));
+		double rel = Math.abs(Math.atan2(Math.sin(ang - fwd), Math.cos(ang - fwd)));
+		return rel < Math.PI / 4 ? 1.0 : (rel > Math.PI * 3.0 / 4.0 ? 0.5 : 0.75);
+	}
+
+	/** The doors in sight as echoes {bearing, distance, volume, prio 3, entrance 1, elevation 0}: nearby ones merged (a double door is one), nearest 8, and none where another echo already points the same way. */
+	static List<double[]> visibleDoors(Scan s, List<double[]> others) {
 		if (s.doors.isEmpty() && !s.doorsSearched) { s.doorsSearched = true; s.findDoors(); }
 		List<double[]> sorted = new ArrayList<>(s.doors);
 		sorted.sort(Comparator.comparingDouble(d -> d[1]));
-		double fwd = Math.atan2(Math.cos(Math.toRadians(s.yaw)), -Math.sin(Math.toRadians(s.yaw)));
 		List<double[]> out = new ArrayList<>();
 		outer:
 		for (double[] d : sorted) {
-			for (double[] g : gaps) if (Math.abs(Math.atan2(Math.sin(d[0] - g[0]), Math.cos(d[0] - g[0]))) < Math.toRadians(12)) continue outer;
+			for (double[] g : others) if (Math.abs(Math.atan2(Math.sin(d[0] - g[0]), Math.cos(d[0] - g[0]))) < Math.toRadians(12)) continue outer;
 			for (double[] o : out) if (Math.abs(Math.atan2(Math.sin(d[0] - o[0]), Math.cos(d[0] - o[0]))) < Math.toRadians(10) && Math.abs(d[1] - o[1]) < 3.0) continue outer;
-			double rel = Math.abs(Math.atan2(Math.sin(d[0] - fwd), Math.cos(d[0] - fwd)));
-			out.add(new double[]{d[0], d[1], rel < Math.PI / 4 ? 1.0 : (rel > Math.PI * 3.0 / 4.0 ? 0.5 : 0.75)});
-			if (out.size() >= 4) break;
+			out.add(new double[]{d[0], d[1], facingVol(s, d[0]), 3, 1, 0});
+			if (out.size() >= MAX_ECHOES) break;
 		}
 		return out;
 	}
 
-	/** Plays the echoes of one ping in a single sequence: the main echoes first (least important first), then the doors, and the NEAREST ENTRANCE (nearest door, or a room's exit door) always last. A whole ping is at most 4 echoes (always room for the nearest door) so it ends well before the next auto cycle. Entrances sound 2 ticks after the one before, the rest 3: one quick burst, about a third of a second. */
-	private static void playAll(Scan s, SonarConfig cfg, List<double[]> mainsInOrder, List<double[]> doorEchoes) {
-		int n = mainsInOrder.size();
-		List<double[]> seq = new ArrayList<>(); // {angle, distance, volume, entrance 0/1}
-		for (int i = n - 1; i >= 0; i--) { double[] e = mainsInOrder.get(i); seq.add(new double[]{e[0], e[1], e[2], e[3] == 1 ? 1 : 0}); }
-		int room = Math.max(1, 4 - n);
-		for (int k = 0; k < Math.min(room, doorEchoes.size()); k++) { double[] d = doorEchoes.get(k); seq.add(new double[]{d[0], d[1], d[2], 1}); }
-		int near = -1; // the nearest entrance goes last
-		for (int i = 0; i < seq.size(); i++) if (seq.get(i)[3] == 1 && (near < 0 || seq.get(i)[1] < seq.get(near)[1])) near = i;
+	/**
+	 * Plays one ping's echoes as a single quick sequence. `echoes` = {angle, distance, volume, priority (lower = more important), entrance 0/1, elevation}.
+	 * The `count` most important are kept, then they play least important first, and the NEAREST ENTRANCE (door, way out, cave route) always plays last.
+	 * Up to 8 echoes; the spacing (3 ticks, 2 before an entrance) tightens when needed so the whole sequence ends before the next auto ping.
+	 */
+	private static void playAll(Scan s, SonarConfig cfg, List<double[]> echoes, int count, double range) {
+		if (echoes.isEmpty() || count <= 0) return;
+		echoes.sort(Comparator.<double[]>comparingDouble(e -> e[3]).thenComparingDouble(e -> -e[2]).thenComparingDouble(e -> e[1]));
+		List<double[]> seq = new ArrayList<>(echoes.subList(0, Math.min(Math.min(count, MAX_ECHOES), echoes.size())));
+		java.util.Collections.reverse(seq); // least important first
+		int near = -1;
+		for (int i = 0; i < seq.size(); i++) if (seq.get(i)[4] == 1 && (near < 0 || seq.get(i)[1] < seq.get(near)[1])) near = i;
 		if (near >= 0) seq.add(seq.remove(near));
+		int period = Math.max(6, Math.round(cfg.autoPing * 20));
+		int echoAt = 1 + Math.min(6, Math.max(2, period / 2));
+		int avail = Math.max(seq.size() - 1, period - echoAt - 3); // ticks the sequence may take
+		int gap = seq.size() <= 1 ? 3 : Math.max(1, Math.min(3, avail / (seq.size() - 1)));
 		int t = 1;
 		for (int i = 0; i < seq.size(); i++) {
 			double[] e = seq.get(i);
-			scheduleEcho(s, cfg, e[0], e[1], (float) e[2], t);
-			if (i + 1 < seq.size()) t += seq.get(i + 1)[3] == 1 ? 2 : 3;
+			scheduleEcho(s, cfg, e[0], e[1], (float) e[2], t, range, e[5]);
+			if (i + 1 < seq.size()) t += seq.get(i + 1)[4] == 1 ? Math.max(1, gap - 1) : gap;
 		}
+		if (cfg.debug && Minecraft.getInstance().player != null) {
+			double fwd = Math.atan2(Math.cos(Math.toRadians(s.yaw)), -Math.sin(Math.toRadians(s.yaw)));
+			StringBuilder sb = new StringBuilder();
+			for (double[] e : seq) sb.append(String.format("[%s%.0f deg %.0f bl] ", e[4] == 1 ? "ENTR " : "", Math.toDegrees(Math.atan2(Math.sin(e[0] - fwd), Math.cos(e[0] - fwd))), e[1]));
+			Minecraft.getInstance().player.sendSystemMessage(Component.literal("echo plays " + seq.size() + " (gap " + gap + "): " + sb));
+		}
+	}
+
+	/** Underground (rock all around): the cave echo. Cached per scan. */
+	static boolean cave(Minecraft mc, Scan s) {
+		if (s.cave == null) s.cave = CaveEcho.inCave(mc, new Vec3(s.ex, s.ey, s.ez));
+		return s.cave;
 	}
 
 	static void echo(Minecraft mc, Scan s, SonarConfig cfg) {
@@ -319,81 +348,34 @@ public class Cues {
 			mc.player.sendSystemMessage(Component.literal(String.format("ahead probe: collider %s at %.1f, outline %s at %.1f | %s", hc.getType() == Type.MISS ? "nothing" : mc.level.getBlockState(hc.getBlockPos()).getBlock().getDescriptionId(), hc.getType() == Type.MISS ? 20.0 : o.distanceTo(hc.getLocation()),
 				ho.getType() == Type.MISS ? "nothing" : mc.level.getBlockState(ho.getBlockPos()).getBlock().getDescriptionId(), ho.getType() == Type.MISS ? 20.0 : o.distanceTo(ho.getLocation()), sb)));
 		}
-		boolean room = enclosed(mc, s);
-		List<double[]> gaps = mouths(mc, s);
-		if (room) gaps = new ArrayList<>(); // inside a building the walkable exit guide does the work; the ray-based openings also fired for a staircase and a window gap, giving extra echoes
-		List<double[]> doorEchoes = visibleDoors(s, gaps); // every door in sight gets its own echo, inside or outside
-		if (gaps.isEmpty() && !room && doorEchoes.isEmpty()) { // outside a building with no cave or hall opening or door in sight: nothing to point at
+		int count = cfg.echoCount < 0 ? MAX_ECHOES : cfg.echoCount; // auto: every way out that was found, up to 8
+		List<double[]> echoes = new ArrayList<>(); // {angle, distance, volume, priority, entrance 0/1, elevation}
+
+		if (cave(mc, s)) { // underground: every route leading away, listened for out to the cave echo range
+			List<double[]> routes = CaveEcho.routes(mc, s, cfg.caveRange);
+			for (int i = 0; i < routes.size(); i++) {
+				double[] r = routes.get(i);
+				echoes.add(new double[]{r[0], r[1], facingVol(s, r[0]), i, 1, r[4]}); // priority = how clearly it stands out
+			}
+			echoes.addAll(visibleDoors(s, echoes)); // a door down here (a base, a vault) is a way too
+			if (cfg.debug && mc.player != null) mc.player.sendSystemMessage(Component.literal("echo: CAVE mode, " + routes.size() + " routes, doors seen " + s.doors.size()));
+			playAll(s, cfg, echoes, count, cfg.caveRange);
 			return;
 		}
 
-		Vec3 from = new Vec3(s.ex, s.ey, s.ez);
-		double fwd = Math.atan2(Math.cos(Math.toRadians(s.yaw)), -Math.sin(Math.toRadians(s.yaw)));
-		// priority 0 = the main part of the space (its longest reach), 1 = the nearest big opening (entrance / door), 2 = everything else
-		List<double[]> echoes = new ArrayList<>(); // {angle, distance, volume factor, priority}
-		double[] door = null;
-		double mainReach = 0.0;
-		List<Double> roomRays = new ArrayList<>();
-		for (double[] g : gaps) {
-			if (door == null || g[2] > door[2] || (g[2] == door[2] && g[3] < door[3])) {
-				door = g; // widest opening, nearest among equals
-			}
-		}
-
-		if (room) { // inside a building: guide to its doors, ways out and staircases (walls, glass included, never echo)
+		boolean room = enclosed(mc, s);
+		if (room) { // inside a building: its ways out (doors, open sides) and staircases, found by walking the floor; walls, glass included, never echo
 			echoes.addAll(ExitGuide.find(mc, s));
-			for (double[] e : echoes) if (e[3] == 0) mainReach = Math.max(mainReach, e[1]);
+		} else { // outside: cave mouths and big openings in sight
+			for (double[] g : mouths(mc, s)) echoes.add(new double[]{g[0], g[1], facingVol(s, g[0]), 1, 1, 0});
 		}
-
-		for (double[] g : gaps) {
-			double rel = Math.abs(Math.atan2(Math.sin(g[0] - fwd), Math.cos(g[0] - fwd)));
-			float vol = rel < Math.PI / 4 ? 1.0F : (rel > Math.PI * 3.0 / 4.0 ? 0.5F : 0.75F);
-			if (g == door) {
-				// the entrance sounds from the opening itself; seen from outside, the cave's depth is the main part
-				echoes.add(new double[]{g[0], room ? g[3] : g[1], vol, room ? 1 : 0});
-			} else {
-				echoes.add(new double[]{g[0], g[1], vol, 2});
-			}
-		}
-
+		echoes.addAll(visibleDoors(s, echoes)); // every door in sight gets its own echo, unless one already points that way
 		if (cfg.debug && mc.player != null) {
 			StringBuilder sb = new StringBuilder();
-			for (double[] e : echoes) sb.append(String.format("[%.0f deg, %.1f blocks, prio %.0f] ", Math.toDegrees(e[0]), e[1], e[3]));
-			for (double[] de : doorEchoes) sb.append(String.format("[DOOR %.0f deg, %.1f blocks] ", Math.toDegrees(de[0]), de[1]));
-			mc.player.sendSystemMessage(Component.literal("echo: room " + room + ", entrances " + gaps.size() + " | doors seen " + s.doors.size() + " | " + sb));
+			for (double[] e : echoes) sb.append(String.format("[%.0f deg, %.1f blocks, prio %.0f%s] ", Math.toDegrees(e[0]), e[1], e[3], e[4] == 1 ? ", entrance" : ""));
+			mc.player.sendSystemMessage(Component.literal("echo: " + (room ? "ROOM" : "OUTSIDE") + " mode | doors seen " + s.doors.size() + " | " + sb));
 		}
-		doorEchoes.removeIf(de -> { // the exit guide may already point at this door: no second echo in the same direction
-			for (double[] e : echoes) if (Math.abs(Math.atan2(Math.sin(de[0] - e[0]), Math.cos(de[0] - e[0]))) < Math.toRadians(12)) return true;
-			return false;
-		});
-		if (echoes.isEmpty()) { playAll(s, cfg, new ArrayList<>(), doorEchoes); return; } // no room or opening echoes: just the doors
-		echoes.sort(Comparator.<double[]>comparingDouble(e -> e[3]).thenComparingDouble(e -> -e[2]).thenComparingDouble(e -> e[1]));
-		int count = cfg.echoCount;
-		if (count < 0) {
-			// auto: 2 (main space + entrance), plus one for each extra entrance, one for a big space, one for an irregular shape (alcoves, side rooms)
-			count = 2 + Math.max(0, gaps.size() - 1);
-			if (Math.max(mainReach, door == null ? 0.0 : door[1]) > s.range * 0.6) {
-				count++;
-			}
-
-			if (roomRays.size() >= 4) {
-				double lo = Double.MAX_VALUE;
-				double hi = 0.0;
-				for (double r : roomRays) {
-					lo = Math.min(lo, r);
-					hi = Math.max(hi, r);
-				}
-
-				if (hi > lo * 2.5) {
-					count++;
-				}
-			}
-
-			count = Math.min(5, Math.max(count, Math.min(4, echoes.size()))); // every way out and staircase found gets its echo
-		}
-
-		int n = Math.min(count, echoes.size());
-		playAll(s, cfg, new ArrayList<>(echoes.subList(0, n)), doorEchoes);
+		playAll(s, cfg, echoes, count, s.range);
 	}
 
 	/** One continuous tone tracking the nearest edge ahead (louder/higher when closer; tall drops louder and lower). Returns ticks until the next check. */
@@ -411,7 +393,7 @@ public class Cues {
 			for (Ledge l : s.ledges) {
 				if (l.d <= cfg.ledgeWarnRange && l.d != Float.MAX_VALUE) {
 					double ex = l.x + 0.5 - s.ex, ez = l.z + 0.5 - s.ez;
-					if (Math.abs(Math.toDegrees(Math.atan2(ex * rx + ez * rz, ex * fx + ez * fz))) < 45.0) {
+					if (Math.abs(Math.toDegrees(Math.atan2(ex * rx + ez * rz, ex * fx + ez * fz))) < 45.0 && !sideways(l, fx, fz)) {
 						aheadEdge = true;
 						break;
 					}
@@ -424,9 +406,11 @@ public class Cues {
 				double ex = l.x + 0.5 - s.ex;
 				double ez = l.z + 0.5 - s.ez;
 				double r = Math.atan2(ex * rx + ez * rz, ex * fx + ez * fz);
-				if (Math.abs(Math.toDegrees(r)) < 45.0) {
+				if (sideways(l, fx, fz)) {
+					r = (l.ox * rx + l.oz * rz) < 0 ? -Math.PI / 2 : Math.PI / 2; // the ground falls away to that side (the open side of a staircase or a ridge ahead of you): it sounds from that side, never ahead
+				} else if (Math.abs(Math.toDegrees(r)) < 45.0) {
 					continue; // ahead is handled by the main tone
-					}
+				}
 				if (corridor) { // on a path: only the nearer edge sounds, and only once you are clearly off-centre (so a centred walk is silent)
 					double latd = Math.abs(ex * rx + ez * rz);
 					double od = ex * rx + ez * rz < 0 ? corrRight : corrLeft;
@@ -451,7 +435,7 @@ public class Cues {
 				double dn = k == 0 ? corrLeft : corrRight, df = k == 0 ? corrRight : corrLeft;
 				if (dn <= 0.8 && dn < df * 0.6) {
 					float c = 1.0F - (float)(dn / 0.8);
-					float vol = Math.min(1.0F, 0.72F * (0.45F + 0.55F * c) * dropFactor(k == 0 ? corrLeftDrop : corrRightDrop) * cfg.volume / 0.6F * cfg.ledgeVolume);
+					float vol = Math.min(1.0F, 0.72F * ledgeCurve(c) * dropFactor(k == 0 ? corrLeftDrop : corrRightDrop) * cfg.volume / 0.6F * cfg.ledgeVolume);
 					float pitch = (0.75F + 0.7F * c) * dropPitch(k == 0 ? corrLeftDrop : corrRightDrop);
 					double a = (k == 0 ? -1.0 : 1.0) * 1.2;
 					LedgeTone.update(mc, ledgeSound(cfg), k + 1, vol, pitch, s.ex + 4.0 * (Math.cos(a) * fx + Math.sin(a) * rx), s.feetY - 1.0, s.ez + 4.0 * (Math.cos(a) * fz + Math.sin(a) * rz));
@@ -473,7 +457,7 @@ public class Cues {
 			any = true;
 			float c = Math.max(0.0F, Math.min(1.0F, 1.0F - (float)Math.max(0.0, l.d - lead) / cfg.ledgeWarnRange));
 			float dropF = dropFactor(l.drop);
-			float vol = Math.min(1.0F, 0.6F * 0.72F * (0.4F + 0.6F * c) * dropF * cfg.volume / 0.6F * cfg.ledgeVolume);
+			float vol = Math.min(1.0F, 0.6F * 0.72F * ledgeCurve(c) * dropF * cfg.volume / 0.6F * cfg.ledgeVolume);
 			float pitch = Math.max(0.4F, Math.min(2.0F, (0.75F + 0.7F * c) * dropPitch(l.drop)));
 			// placed hard to that side: the sideways angle is exaggerated and the source sits well out (8 blocks), so it reads as coming from that direction
 			double a = Math.signum(rad[k]) * Math.min(1.4, Math.abs(rad[k]) * 1.5);
@@ -624,7 +608,7 @@ public class Cues {
 			ledgeActive = true;
 			float c = Math.max(0.0F, Math.min(1.0F, 1.0F - (float)Math.max(0.0, nearest - lead) / cfg.ledgeWarnRange));
 			float dropF = dropFactor(deepest);
-			float vol = Math.min(1.0F, 0.72F * (0.4F + 0.6F * c) * dropF * cfg.volume / 0.6F * cfg.ledgeVolume);
+			float vol = Math.min(1.0F, 0.72F * ledgeCurve(c) * dropF * cfg.volume / 0.6F * cfg.ledgeVolume);
 			float pitch = Math.max(0.4F, Math.min(2.0F, (0.75F + 0.7F * c) * dropPitch(deepest)));
 			LedgeTone.quiet(1);
 			LedgeTone.quiet(2);
@@ -669,8 +653,10 @@ public class Cues {
 			double ex = l.x + 0.5 - s.ex;
 			double ez = l.z + 0.5 - s.ez;
 			double el = Math.max(1.0E-6, Math.hypot(ex, ez));
-			if ((ex * vx + ez * vz) / (el * sp) < 0.7 && el > 1.0) { // el = the real distance: l.d can be shrunk to 0.5 by the stair-approach logic, which must not let an edge far behind you count as "right at your feet"
-				continue; // only edges within ~45 degrees of where you are heading count (open sides of a staircase or bridge stay quiet)
+			// only edges within ~45 degrees of where you are heading count, AND the ground must fall away in the direction you are going: a drop beside a staircase or ridge ahead of you
+			// is a side edge (sideTones plays it from that side). el = the real distance: l.d can be shrunk by the stair-approach logic, which must not make a far edge count as "at your feet".
+			if (el > 1.0 && ((ex * vx + ez * vz) / (el * sp) < 0.7 || (l.ox * vx + l.oz * vz) / sp < 0.5)) {
+				continue;
 			}
 			if (guided) { // on the guided path: terrain beyond its sides (a cliff, terraces, the island next to it) is not on your way, so it stays silent until you are back on the main land
 				double lat = ex * crx + ez * crz;
@@ -728,13 +714,13 @@ public class Cues {
 
 		float c = Math.max(0.0F, Math.min(1.0F, 1.0F - (float)Math.max(0.0, l.d - lead) / cfg.ledgeWarnRange));
 		float dropF = dropFactor(l.drop);
-		float vol = Math.min(1.0F, 0.72F * (0.4F + 0.6F * c) * dropF * cfg.volume / 0.6F * cfg.ledgeVolume);
+		float vol = Math.min(1.0F, 0.72F * ledgeCurve(c) * dropF * cfg.volume / 0.6F * cfg.ledgeVolume);
 		float pitch = Math.max(0.4F, Math.min(2.0F, (0.75F + 0.7F * c - (l.deep ? 0.15F : 0.0F)) * dropPitch(l.drop)));
 		if (cfg.debug) {
 			double dx0 = l.x + 0.5 - s.ex, dz0 = l.z + 0.5 - s.ez;
 			mc.player.sendSystemMessage(Component.literal(String.format("TONE: main from edge fwd %.1f lat %.1f drop %d d %.1f vol %.2f | guided %b corridor %b bnd L %.1f R %.1f", dx0 * cfx + dz0 * cfz, dx0 * crx + dz0 * crz, l.drop, l.d, vol, guided, corridor, bndL > 1e6 ? -1.0 : bndL, bndR > 1e6 ? -1.0 : bndR)));
 		}
-		LedgeTone.update(mc, ledgeSound(cfg), 0, vol, pitch, l.x + 0.5, l.y - 0.5, l.z + 0.5);
+		LedgeTone.update(mc, ledgeSound(cfg), 0, vol, pitch, l.x + 0.5 + l.ox * 0.7, l.y - 0.5, l.z + 0.5 + l.oz * 0.7); // from just past the lip, where the ground falls away
 		edgeAheadD = l.d;
 		edgeAheadDrop = l.drop;
 		edgeAheadX = l.x + 0.5;
@@ -744,10 +730,21 @@ public class Cues {
 	}
 
 	/** The warning's loudness follows the danger: a 3-block drop is a stumble (soft), 4 is a little louder, and 5 or more (a real fall, or lava, which counts as 99) is full strength. */
+	/** Loudness of an edge tone by closeness c (0 = at the edge of the warning range, 1 = at the lip): starts very quiet and climbs steeply as you close in, so it is a sharp,
+	 *  clear warning when it matters, not a constant drone while you walk near a ledge. */
+	static float ledgeCurve(float c) {
+		return 0.08F + 0.92F * (float) Math.pow(Math.max(0F, Math.min(1F, c)), 1.6);
+	}
+
+	/** The ground falls away sideways relative to where you face (not ahead): the open side of a staircase, a ridge or a path. */
+	static boolean sideways(Ledge l, double fx, double fz) {
+		return (l.ox != 0 || l.oz != 0) && Math.abs(l.ox * fx + l.oz * fz) < 0.5;
+	}
+
 	static float dropFactor(int drop) {
 		if (drop >= 5) return 1.0F;
-		if (drop == 4) return 0.45F;
-		return 0.15F;
+		if (drop == 4) return 0.25F;
+		return 0.08F;
 	}
 
 	/** Small drops sound lower; the tone rises to the normal pitch as the drop reaches 5 blocks. */
@@ -934,7 +931,7 @@ public class Cues {
 				for (int i = 0; i < Math.min(2, near.size()); i++) {
 					Ledge l = near.get(i);
 					float c = Math.max(0.0F, Math.min(1.0F, 1.0F - l.d / cfg.ledgeWarnRange));
-					float vol = Math.min(1.0F, 0.72F * (0.4F + 0.6F * c) * dropFactor(l.drop) * cfg.volume / 0.6F * cfg.ledgeVolume);
+					float vol = Math.min(1.0F, 0.72F * ledgeCurve(c) * dropFactor(l.drop) * cfg.volume / 0.6F * cfg.ledgeVolume);
 					float pitch = Math.max(0.4F, Math.min(2.0F, (0.75F + 0.7F * c) * dropPitch(l.drop)));
 					ledgeCues.add(at(s, cfg, l.d, l.x + 0.5, l.y, l.z + 0.5, ledgeSound(cfg), vol, pitch, 0));
 				}

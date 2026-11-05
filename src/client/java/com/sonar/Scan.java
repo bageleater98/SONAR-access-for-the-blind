@@ -40,7 +40,7 @@ public class Scan {
 		yaw = p.getYRot();
 		double r = Math.toRadians(yaw);
 		fx = -Math.sin(r); fz = Math.cos(r);
-		for (Ledge l : ledges) { l.d = Float.MAX_VALUE; l.deep = false; l.drop = 0; }
+		for (Ledge l : ledges) { l.d = Float.MAX_VALUE; l.deep = false; l.drop = 0; l.ox = 0; l.oz = 0; }
 		for (Ledge l : drops) { l.d = Float.MAX_VALUE; l.drop = 0; }
 		chunkKey = Long.MIN_VALUE;
 		chunk = null;
@@ -58,6 +58,7 @@ public class Scan {
 		public int x, y, z;
 		public boolean deep;
 		public int drop;
+		public int ox, oz; // the way the ground falls away (from the standing cell toward the drop)
 	}
 
 	public final Cand[][] best = new Cand[4][SECTORS];
@@ -73,6 +74,7 @@ public class Scan {
 	public boolean withEcho = true;
 	public boolean auto; // started by the auto-scan timer, not by a key press
 	public Boolean inside; // cached by Cues.insideSpace
+	public Boolean cave; // cached by Cues.cave
 	public boolean doorsSearched;
 	public final java.util.List<double[]> doors = new java.util.ArrayList<>(); // doors in sight within range: {bearing (atan2 z,x), distance}
 	public long nanos;
@@ -365,11 +367,11 @@ public class Scan {
 							if (cur - c >= 2) big = true;
 							cur = c;
 						}
-						if ((big && f - cur >= cfg.slopeMinDrop) || f - cur >= 4) {
+						if (f - cur >= Math.max(cfg.slopeMinDrop, cfg.ledgeMinDrop) && (big || f - cur >= 4)) { // a slope never warns for less than a plain drop would: walking down uneven ground is not a ledge
 							double ax = cx + 0.5 + ox * 0.5 - ex, az = cz + 0.5 + oz * 0.5 - ez;
 							float d = Math.max(0.5f, (float) Math.sqrt(ax * ax + az * az) - approach(cx, cz, ox, oz, f, floor, seen, W, R));
 							Ledge l = ledges[yawSector(ax, az)];
-							if (d < l.d) { l.d = d; l.x = cx; l.y = f; l.z = cz; l.deep = false; l.drop = f - cur; }
+							if (d < l.d) { l.d = d; l.x = cx; l.y = f; l.z = cz; l.deep = false; l.drop = f - cur; l.ox = ox; l.oz = oz; }
 						}
 					}
 					continue;
@@ -394,16 +396,17 @@ public class Scan {
 				int run = approach(cx, cz, ox, oz, f, floor, seen, W, R);
 				d = Math.max(0.5f, d - run);
 				Ledge l = ledges[yawSector(ax, az)];
-				if (d < l.d) { l.d = d; l.x = cx; l.y = f; l.z = cz; l.deep = lava || drop > 6; l.drop = lava ? 99 : drop; }
+				if (d < l.d) { l.d = d; l.x = cx; l.y = f; l.z = cz; l.deep = lava || drop > 6; l.drop = lava ? 99 : drop; l.ox = ox; l.oz = oz; }
 			}
 		}
 	}
 
-	/** Cells of stepped ground (rising 1-2 blocks per step, at most one flat cell in between) leading back from an edge cell, up to 8. Warning starts that much sooner. */
+	/** How much sooner to warn because of a staircase leading down to this edge (you come down a staircase fast). Built stair and slab steps count in full (up to 8);
+	 *  natural ground that happens to step down (a cave floor, terraced hillside) counts half, at most 2: those uneven floors used to make a far edge sound as if it were right at your feet. */
 	private int approach(int cx, int cz, int ox, int oz, int f, int[] floor, boolean[] seen, int W, int R) {
-		int run = 0, prevFloor = f, flats = 0;
+		int built = 0, natural = 0, prevFloor = f, flats = 0;
 		for (int j = 1; j <= 8; j++) {
-			int bdx = cx - ox * j - px, bdz = cz - oz * j - pz;
+			int bx = cx - ox * j, bz = cz - oz * j, bdx = bx - px, bdz = bz - pz;
 			if (Math.abs(bdx) > R || Math.abs(bdz) > R) break;
 			int bi = (bdz + R) * W + (bdx + R);
 			int bf = floor[bi];
@@ -412,10 +415,12 @@ public class Scan {
 			if (rise == 0 && flats == 0) flats++;
 			else if (rise < 1 || rise > 2) break;
 			else flats = 0;
-			run++;
+			BlockState st = get(bx, bf, bz);
+			if (st != null && (st.is(BlockTags.STAIRS) || st.is(BlockTags.SLABS))) built++;
+			else natural++;
 			prevFloor = bf;
 		}
-		return run;
+		return built + Math.min(2, natural / 2);
 	}
 
 	/** Nearest mob per sector within entityRange. */

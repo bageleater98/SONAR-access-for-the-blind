@@ -15,9 +15,11 @@ public class SlidersScreen extends SonarScreen {
 		SonarConfig c = SonarConfig.cur;
 		heading();
 		int y = 34;
-		slider(y, 308, "Echoes per ping", -1, 4, 1, c.echoCount, v -> (int) v < 0 ? "auto" : (int) v == 0 ? "off" : String.valueOf((int) v), v -> c.echoCount = (int) v);
+		slider(y, 308, "Echoes per ping", -1, 8, 1, c.echoCount, v -> (int) v < 0 ? "auto" : (int) v == 0 ? "off" : String.valueOf((int) v), v -> c.echoCount = (int) v);
 		y += 24;
 		slider(y, 308, "Auto scan every", 0.3, 6.0, 0.1, c.autoPing, v -> String.format("%.1f s", v), v -> c.autoPing = (float) v);
+		y += 24;
+		slider(y, 308, "Cave echo range", 32, 300, 1, c.caveRange, v -> (int) v + " blocks", v -> c.caveRange = (int) v);
 		y += 24;
 		slider(y, 308, "Sonar range", 15, 60, 5, c.range, v -> (int) v + " blocks", v -> c.range = (int) v);
 		y += 24;

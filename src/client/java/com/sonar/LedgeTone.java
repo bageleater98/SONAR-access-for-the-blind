@@ -22,7 +22,8 @@ public class LedgeTone extends AbstractTickableSoundInstance {
 
 	@Override
 	public void tick() {
-		volume += (tv - volume) * (tv > volume ? 0.55f : 0.06f); // always ramps in (about 0.1 s, never a click-on); the fade-out is slower
+		float target = tv * duck;
+		volume += (target - volume) * (target > volume ? 0.75f : 0.06f); // a quick, sharp ramp in (never a click-on); the fade-out is slower
 		pitch += (tp - pitch) * 0.12f;
 		x += (tx - x) * 0.15;
 		y += (ty - y) * 0.15;
@@ -63,7 +64,12 @@ public class LedgeTone extends AbstractTickableSoundInstance {
 		fade(0);
 	}
 
-	/** Kept so the client tick can call it; the loops animate themselves. */
+	/** Standing still: every ledge tone sinks to a fifth of its loudness until you move again (it fades down over about a second, and comes back at once). */
+	public static float duckTarget = 1f;
+	private static float duck = 1f;
+
+	/** Runs every client tick: moves the shared duck level toward its target; the loops animate themselves. */
 	public static void tick(Minecraft mc) {
+		duck += (duckTarget - duck) * (duckTarget > duck ? 0.5f : 0.06f);
 	}
 }

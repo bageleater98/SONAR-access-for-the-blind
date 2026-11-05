@@ -107,6 +107,7 @@ public class SonarClient implements ClientModInitializer {
 			try { SonarConfig.save(); } catch (Exception ignored) {}
 		}
 		Cues.tickPending(mc);
+		LedgeTone.duckTarget = stillTicks >= 60 ? 0.2f : 1f; // not moved for 3 s: the edge warning mostly quiets until you move again
 		LedgeTone.tick(mc);
 		PlayerChime.tick(mc, cfg);
 		PathGuide.tick(mc, cfg);
@@ -290,15 +291,17 @@ public class SonarClient implements ClientModInitializer {
 		}
 	}
 
-	static int thudAgain;
+	static int thudAgain, thudRun;
 
-	/** Pushing into a block (walking straight in or sliding along it): a thud every second; two thuds when the block is 2+ tall (cannot be jumped). */
+	/** Pushing into a block (walking straight in or sliding along it): a thud every second. Two thuds only when EVERY block you are touching is 2+ tall; if any of them is a single
+	 *  block you could jump onto (a corner where a 1-tall and a 2-tall block meet), it is one thud, so you know you can get up there. Two thuds in a row (still pushing):
+	 *  you are moved to the middle of your block and turned to face straight north, east, south or west, whichever is nearest. */
 	void stuck(Minecraft mc, SonarConfig cfg) {
 		var p = mc.player;
 		if (thudAgain > 0 && --thudAgain == 0) thud(mc, cfg, p);
 		var o = mc.options;
 		double f = (o.keyUp.isDown() ? 1 : 0) - (o.keyDown.isDown() ? 1 : 0), sr = (o.keyRight.isDown() ? 1 : 0) - (o.keyLeft.isDown() ? 1 : 0);
-		if (!cfg.stuckCue || (f == 0 && sr == 0)) { stuckTicks = 0; stuckLatched = false; return; }
+		if (!cfg.stuckCue || (f == 0 && sr == 0)) { stuckTicks = 0; thudRun = 0; stuckLatched = false; return; }
 		if (p.horizontalCollision && ++stuckTicks >= 8 && (stuckTicks - 8) % 20 == 0) {
 			thud(mc, cfg, p);
 			double yaw = Math.toRadians(p.getYRot());
@@ -306,11 +309,36 @@ public class SonarClient implements ClientModInitializer {
 			double len = Math.max(1e-6, Math.hypot(dx, dz));
 			dx /= len; dz /= len;
 			var lv = p.level();
-			boolean low = !lv.getBlockState(net.minecraft.core.BlockPos.containing(p.getX() + dx * 0.7, p.getY() + 0.5, p.getZ() + dz * 0.7)).getCollisionShape(lv, net.minecraft.core.BlockPos.containing(p.getX() + dx * 0.7, p.getY() + 0.5, p.getZ() + dz * 0.7)).isEmpty();
-			var hp = net.minecraft.core.BlockPos.containing(p.getX() + dx * 0.7, p.getY() + 1.5, p.getZ() + dz * 0.7);
-			boolean high = !lv.getBlockState(hp).getCollisionShape(lv, hp).isEmpty();
-			if (low && high) thudAgain = 4; // 2+ blocks tall: second thud
-		} else if (!p.horizontalCollision) stuckTicks = 0;
+			int feet = (int) Math.floor(p.getY() + 0.01);
+			boolean climbable = false, tall = false;
+			for (double off : new double[]{-0.29, 0.0, 0.29}) { // across your width (you are 0.6 wide), just past your front: every block you could be touching
+				double sx = p.getX() + dx * 0.55 - dz * off, sz = p.getZ() + dz * 0.55 + dx * off;
+				int bx = (int) Math.floor(sx), bz = (int) Math.floor(sz);
+				boolean low = blocks(lv, bx, feet, bz, p.getY() + 0.6), high = blocks(lv, bx, feet + 1, bz, -1e9), head = blocks(lv, bx, feet + 2, bz, -1e9);
+				if (low && !high && !head) climbable = true; // one block tall with room above it: jump up
+				if (low && high) tall = true;
+			}
+			if (tall && !climbable) thudAgain = 4; // 2+ blocks tall everywhere you touch: second thud
+			if (++thudRun >= 2 && cfg.centerOnBump) { centerAndSquare(p); thudRun = 0; }
+		} else if (!p.horizontalCollision) { stuckTicks = 0; thudRun = 0; }
+	}
+
+	/** A block at x,y,z that stops you: its collision reaches above the given height (so a slab or carpet you simply step onto does not count). */
+	static boolean blocks(net.minecraft.world.level.Level lv, int x, int y, int z, double above) {
+		var bp = new net.minecraft.core.BlockPos(x, y, z);
+		var shape = lv.getBlockState(bp).getCollisionShape(lv, bp);
+		return !shape.isEmpty() && y + shape.max(net.minecraft.core.Direction.Axis.Y) > above;
+	}
+
+	/** Moves you to the middle of the block you stand on (only if you fit there) and turns you to the nearest of north, east, south, west. Up/down look is kept. */
+	static void centerAndSquare(net.minecraft.client.player.LocalPlayer p) {
+		double cx = Math.floor(p.getX()) + 0.5, cz = Math.floor(p.getZ()) + 0.5;
+		if (p.onGround() && p.level().noCollision(p, p.getBoundingBox().move(cx - p.getX(), 0, cz - p.getZ()))) p.setPos(cx, p.getY(), cz);
+		float yaw = Math.round(p.getYRot() / 90f) * 90f;
+		p.setYRot(yaw);
+		p.yRotO = yaw;
+		p.setYHeadRot(yaw);
+		if (SonarConfig.cur.debug) p.sendSystemMessage(Component.literal("bump: centered and turned to " + Math.round(net.minecraft.util.Mth.wrapDegrees(yaw)) + " deg"));
 	}
 
 	static void thud(Minecraft mc, SonarConfig cfg, net.minecraft.world.entity.player.Player p) {

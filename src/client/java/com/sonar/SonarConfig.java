@@ -25,7 +25,9 @@ public class SonarConfig {
 	public float lavaVolume = 1.0f; // multiplier for every lava sound (the passive loop is already quiet)
 	public boolean stagger = true; // a ping's sounds start a tick or two apart, front first, so they blur less
 	public boolean echoReplacesSonar = true; // inside a cave or building (where the echo plays) the block sounds are turned off
-	public int echoCount = -1; // echoes per ping: -1 = auto (more for big spaces, more entrances, irregular shapes), 0 = none, 1-4 fixed
+	public int echoCount = -1; // echoes per ping: -1 = auto (every way out / route found, up to 8), 0 = none, 1-8 fixed
+	public int caveRange = 175; // how far the cave echo listens for routes (blocks); slider up to 300
+	public boolean centerOnBump = true; // two thuds in a row against a wall: center on your block and face the nearest straight direction
 	public boolean edgeBrake = true; // sprinting straight at a drop: briefly slow you by ~80% so you can stop
 	public boolean sideLedges = true; // quieter tones for edges to your left and right
 	public boolean ignoreSteps = true; // slabs and stairs you can walk onto count as floor, not as walls
@@ -102,7 +104,8 @@ public class SonarConfig {
 		playerChimeRange = Math.max(8, Math.min(playerChimeRange, 256));
 		ledgeRange = Math.max(4, Math.min(ledgeRange, 24));
 		speechRate = Math.max(-10, Math.min(speechRate, 10));
-		echoCount = Math.max(-1, Math.min(echoCount, 4));
+		echoCount = Math.max(-1, Math.min(echoCount, 8));
+		caveRange = Math.max(32, Math.min(caveRange, 300));
 		repeatTicks = Math.max(4, repeatTicks);
 		layersPerTick = Math.max(1, Math.min(layersPerTick, 64));
 	}
