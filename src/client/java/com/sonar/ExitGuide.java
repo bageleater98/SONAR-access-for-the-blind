@@ -123,8 +123,9 @@ public class ExitGuide {
 			en[4] = 1; // a way out is an entrance: the nearest one plays last
 			out.add(en);
 		}
-		if (up != null) out.add(entry(s, fwdA, up[0] + 0.5, up[1] + 0.5, 1));
-		if (down != null) out.add(entry(s, fwdA, down[0] + 0.5, down[1] + 0.5, 1));
+		// a staircase is somewhere you can go too: it competes with the ways out for the last place in the sequence (the nearest of them all plays last)
+		if (up != null) { double[] en = entry(s, fwdA, up[0] + 0.5, up[1] + 0.5, 1); en[4] = 1; out.add(en); }
+		if (down != null) { double[] en = entry(s, fwdA, down[0] + 0.5, down[1] + 0.5, 1); en[4] = 1; out.add(en); }
 		return out;
 	}
 

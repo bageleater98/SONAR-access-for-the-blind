@@ -324,10 +324,10 @@ public class PathGuide {
 		return r;
 	}
 
-	/** Material family of a floor block, by its sound: 0 = dirt path (goes with anything), 1 wood, 2 metal, 3 glass, 4 wool, 5 loose ground, 6 stone and bricks.
+	/** Material family of a floor block, by its sound: 7 = dirt path, 1 wood, 2 metal, 3 glass, 4 wool, 5 loose ground, 6 stone and bricks.
 	 *  A path is one family: a stone path never runs on into the wooden frame of a farm or a wooden porch next to it. */
 	static int family(BlockState s) {
-		if (s.is(net.minecraft.world.level.block.Blocks.DIRT_PATH)) return 0;
+		if (s.is(net.minecraft.world.level.block.Blocks.DIRT_PATH)) return 7; // dirt path is its own material: a dirt path never runs on into a farm's frame or a patio
 		String p = s.getSoundType().getStepSound().location().getPath();
 		if (p.contains("brick")) return 6;
 		if (p.contains("wood") || p.contains("bamboo") || p.contains("stem") || p.contains("hyphae") || p.contains("scaffold")) return 1;
@@ -339,7 +339,7 @@ public class PathGuide {
 	}
 
 	private static boolean sameFamily(int a, int b) {
-		return a == 0 || b == 0 || a == b;
+		return a == b;
 	}
 
 	/** Results of the last trace (kept for the chosen one): how many arms of real path leave the start, and where the start was. */

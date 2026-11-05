@@ -54,8 +54,9 @@ public class SelfTest {
 		check(CaveEcho.peaks(four, el).size() == 4, "four tunnels: four routes, got " + CaveEcho.peaks(four, el).size());
 
 		// ledge loudness: quiet at the far end of the warning range, full at the lip, rising faster near it
-		check(Cues.ledgeCurve(0f) < 0.1f && Math.abs(Cues.ledgeCurve(1f) - 1f) < 1e-6, "ledge curve starts quiet and ends full");
-		check(Cues.ledgeCurve(0.75f) - Cues.ledgeCurve(0.5f) > Cues.ledgeCurve(0.25f) - Cues.ledgeCurve(0f), "ledge curve rises faster near the edge");
+		check(Cues.ledgeCurve(0f, 3) < 0.1f && Math.abs(Cues.ledgeCurve(1f, 3) - 1f) < 1e-6, "ledge curve starts quiet and ends full");
+		check(Math.abs(Cues.ledgeCurve(0f, 6) - 0.4f) < 1e-6, "big drops keep the early warning");
+		check(Cues.ledgeCurve(0.75f, 3) - Cues.ledgeCurve(0.5f, 3) > Cues.ledgeCurve(0.25f, 3) - Cues.ledgeCurve(0f, 3), "ledge curve rises faster near the edge");
 
 		System.out.println(failed == 0 ? "ALL PASSED" : failed + " FAILED");
 		if (failed > 0) System.exit(1);

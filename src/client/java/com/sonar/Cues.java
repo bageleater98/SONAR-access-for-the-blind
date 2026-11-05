@@ -98,7 +98,7 @@ public class Cues {
 	/** Where the echo replaces the sonar: underground (cave mode) or inside an enclosed room. Worked out once per scan. */
 	static boolean insideSpace(Minecraft mc, Scan s) {
 		if (s.inside == null) {
-			s.inside = cave(mc, s) || enclosed(mc, s); // underground or inside a room the echo replaces the block sounds; outside (even next to a visible opening) the sonar keeps playing
+			s.inside = cave(mc, s) || enclosed(mc, s); // (a base dug into rock is both: either way the echo replaces the sonar) // underground or inside a room the echo replaces the block sounds; outside (even next to a visible opening) the sonar keeps playing
 		}
 		return s.inside;
 	}
@@ -324,6 +324,24 @@ public class Cues {
 		}
 	}
 
+	/** You stand on a built floor (planks, bricks, slabs, tiles...), not natural ground: a room dug into rock with a laid floor is a home, not a cave. */
+	static boolean builtFloor(Minecraft mc, Scan s) {
+		var pos = new net.minecraft.core.BlockPos.MutableBlockPos();
+		for (int y = s.feetY; y >= s.feetY - 2; y--) {
+			BlockState bs = mc.level.getBlockState(pos.set(s.px, y, s.pz));
+			if (bs.getCollisionShape(mc.level, pos).isEmpty()) continue;
+			return !FloorEdge.natural(bs) && !CaveEcho.caveRock(bs);
+		}
+		return false;
+	}
+
+	/** A door you can see within 16 blocks. */
+	static boolean doorNear(Scan s) {
+		if (s.doors.isEmpty() && !s.doorsSearched) { s.doorsSearched = true; s.findDoors(); }
+		for (double[] d : s.doors) if (d[1] <= 16) return true;
+		return false;
+	}
+
 	/** Underground (rock all around): the cave echo. Cached per scan. */
 	static boolean cave(Minecraft mc, Scan s) {
 		if (s.cave == null) s.cave = CaveEcho.inCave(mc, new Vec3(s.ex, s.ey, s.ez));
@@ -351,7 +369,8 @@ public class Cues {
 		int count = cfg.echoCount < 0 ? MAX_ECHOES : cfg.echoCount; // auto: every way out that was found, up to 8
 		List<double[]> echoes = new ArrayList<>(); // {angle, distance, volume, priority, entrance 0/1, elevation}
 
-		if (cave(mc, s)) { // underground: every route leading away, listened for out to the cave echo range
+		boolean room = enclosed(mc, s);
+		if (cave(mc, s) && !(room && (doorNear(s) || builtFloor(mc, s)))) { // underground: every route leading away, listened for out to the cave echo range. An enclosed space with a door in sight is a base or a house dug into the rock: house mode
 			List<double[]> routes = CaveEcho.routes(mc, s, cfg.caveRange);
 			for (int i = 0; i < routes.size(); i++) {
 				double[] r = routes.get(i);
@@ -363,7 +382,6 @@ public class Cues {
 			return;
 		}
 
-		boolean room = enclosed(mc, s);
 		if (room) { // inside a building: its ways out (doors, open sides) and staircases, found by walking the floor; walls, glass included, never echo
 			echoes.addAll(ExitGuide.find(mc, s));
 		} else { // outside: cave mouths and big openings in sight
@@ -435,7 +453,7 @@ public class Cues {
 				double dn = k == 0 ? corrLeft : corrRight, df = k == 0 ? corrRight : corrLeft;
 				if (dn <= 0.8 && dn < df * 0.6) {
 					float c = 1.0F - (float)(dn / 0.8);
-					float vol = Math.min(1.0F, 0.72F * ledgeCurve(c) * dropFactor(k == 0 ? corrLeftDrop : corrRightDrop) * cfg.volume / 0.6F * cfg.ledgeVolume);
+					float vol = Math.min(1.0F, 0.72F * ledgeCurve(c, k == 0 ? corrLeftDrop : corrRightDrop) * dropFactor(k == 0 ? corrLeftDrop : corrRightDrop) * cfg.volume / 0.6F * cfg.ledgeVolume);
 					float pitch = (0.75F + 0.7F * c) * dropPitch(k == 0 ? corrLeftDrop : corrRightDrop);
 					double a = (k == 0 ? -1.0 : 1.0) * 1.2;
 					LedgeTone.update(mc, ledgeSound(cfg), k + 1, vol, pitch, s.ex + 4.0 * (Math.cos(a) * fx + Math.sin(a) * rx), s.feetY - 1.0, s.ez + 4.0 * (Math.cos(a) * fz + Math.sin(a) * rz));
@@ -457,7 +475,7 @@ public class Cues {
 			any = true;
 			float c = Math.max(0.0F, Math.min(1.0F, 1.0F - (float)Math.max(0.0, l.d - lead) / cfg.ledgeWarnRange));
 			float dropF = dropFactor(l.drop);
-			float vol = Math.min(1.0F, 0.6F * 0.72F * ledgeCurve(c) * dropF * cfg.volume / 0.6F * cfg.ledgeVolume);
+			float vol = Math.min(1.0F, 0.6F * 0.72F * ledgeCurve(c, l.drop) * dropF * cfg.volume / 0.6F * cfg.ledgeVolume);
 			float pitch = Math.max(0.4F, Math.min(2.0F, (0.75F + 0.7F * c) * dropPitch(l.drop)));
 			// placed hard to that side: the sideways angle is exaggerated and the source sits well out (8 blocks), so it reads as coming from that direction
 			double a = Math.signum(rad[k]) * Math.min(1.4, Math.abs(rad[k]) * 1.5);
@@ -608,7 +626,7 @@ public class Cues {
 			ledgeActive = true;
 			float c = Math.max(0.0F, Math.min(1.0F, 1.0F - (float)Math.max(0.0, nearest - lead) / cfg.ledgeWarnRange));
 			float dropF = dropFactor(deepest);
-			float vol = Math.min(1.0F, 0.72F * ledgeCurve(c) * dropF * cfg.volume / 0.6F * cfg.ledgeVolume);
+			float vol = Math.min(1.0F, 0.72F * ledgeCurve(c, deepest) * dropF * cfg.volume / 0.6F * cfg.ledgeVolume);
 			float pitch = Math.max(0.4F, Math.min(2.0F, (0.75F + 0.7F * c) * dropPitch(deepest)));
 			LedgeTone.quiet(1);
 			LedgeTone.quiet(2);
@@ -714,7 +732,7 @@ public class Cues {
 
 		float c = Math.max(0.0F, Math.min(1.0F, 1.0F - (float)Math.max(0.0, l.d - lead) / cfg.ledgeWarnRange));
 		float dropF = dropFactor(l.drop);
-		float vol = Math.min(1.0F, 0.72F * ledgeCurve(c) * dropF * cfg.volume / 0.6F * cfg.ledgeVolume);
+		float vol = Math.min(1.0F, 0.72F * ledgeCurve(c, l.drop) * dropF * cfg.volume / 0.6F * cfg.ledgeVolume);
 		float pitch = Math.max(0.4F, Math.min(2.0F, (0.75F + 0.7F * c - (l.deep ? 0.15F : 0.0F)) * dropPitch(l.drop)));
 		if (cfg.debug) {
 			double dx0 = l.x + 0.5 - s.ex, dz0 = l.z + 0.5 - s.ez;
@@ -730,10 +748,12 @@ public class Cues {
 	}
 
 	/** The warning's loudness follows the danger: a 3-block drop is a stumble (soft), 4 is a little louder, and 5 or more (a real fall, or lava, which counts as 99) is full strength. */
-	/** Loudness of an edge tone by closeness c (0 = at the edge of the warning range, 1 = at the lip): starts very quiet and climbs steeply as you close in, so it is a sharp,
+	/** Loudness of an edge tone by closeness c (0 = at the edge of the warning range, 1 = at the lip): for small drops (3-4 blocks) it starts very quiet and climbs steeply as you close in, so it is a sharp,
 	 *  clear warning when it matters, not a constant drone while you walk near a ledge. */
-	static float ledgeCurve(float c) {
-		return 0.08F + 0.92F * (float) Math.pow(Math.max(0F, Math.min(1F, c)), 1.6);
+	static float ledgeCurve(float c, int drop) {
+		c = Math.max(0F, Math.min(1F, c));
+		if (drop >= 5) return 0.4F + 0.6F * c; // a real fall (5+ blocks, or lava): the early, steady warning, already clear from the far end of the range
+		return 0.08F + 0.92F * (float) Math.pow(c, 1.6);
 	}
 
 	/** The ground falls away sideways relative to where you face (not ahead): the open side of a staircase, a ridge or a path. */
@@ -931,7 +951,7 @@ public class Cues {
 				for (int i = 0; i < Math.min(2, near.size()); i++) {
 					Ledge l = near.get(i);
 					float c = Math.max(0.0F, Math.min(1.0F, 1.0F - l.d / cfg.ledgeWarnRange));
-					float vol = Math.min(1.0F, 0.72F * ledgeCurve(c) * dropFactor(l.drop) * cfg.volume / 0.6F * cfg.ledgeVolume);
+					float vol = Math.min(1.0F, 0.72F * ledgeCurve(c, l.drop) * dropFactor(l.drop) * cfg.volume / 0.6F * cfg.ledgeVolume);
 					float pitch = Math.max(0.4F, Math.min(2.0F, (0.75F + 0.7F * c) * dropPitch(l.drop)));
 					ledgeCues.add(at(s, cfg, l.d, l.x + 0.5, l.y, l.z + 0.5, ledgeSound(cfg), vol, pitch, 0));
 				}
