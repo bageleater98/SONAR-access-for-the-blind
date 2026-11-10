@@ -10,7 +10,7 @@ public class FloorEdge {
 	private static final int[] RAYS = {0, -40, 40}; // degrees relative to where you face (ahead only, never sideways)
 
 	/** The sound a path block makes in the ripple: the dirt path's step sound is very faint, so it plays the sound of placing a dirt block; everything else uses its step sound. */
-	private static SoundEvent rippleSound(BlockState s) {
+	static SoundEvent rippleSound(BlockState s) {
 		return s.is(net.minecraft.world.level.block.Blocks.DIRT_PATH) ? net.minecraft.world.level.block.Blocks.DIRT.defaultBlockState().getSoundType().getPlaceSound() : s.getSoundType().getStepSound();
 	}
 
@@ -19,8 +19,8 @@ public class FloorEdge {
 	private static BlockState floorAt(Minecraft mc, int x, int z, int feetY) {
 		var pos = new BlockPos.MutableBlockPos();
 		for (int y = feetY; y >= feetY - 3; y--) {
-			BlockState s = mc.level.getBlockState(pos.set(x, y, z));
-			if (!s.getCollisionShape(mc.level, pos).isEmpty()) { foundY = y; return s; }
+			BlockState s = Sense.hear(mc).getBlockState(pos.set(x, y, z));
+			if (!s.getCollisionShape(Sense.hear(mc), pos).isEmpty()) { foundY = y; return s; }
 		}
 		return null;
 	}
@@ -42,7 +42,11 @@ public class FloorEdge {
 			|| s.is(net.minecraft.world.level.block.Blocks.GRAVEL) || s.is(net.minecraft.world.level.block.Blocks.CLAY)
 			|| s.is(net.minecraft.world.level.block.Blocks.SANDSTONE) || s.is(net.minecraft.world.level.block.Blocks.RED_SANDSTONE)
 			|| s.is(net.minecraft.world.level.block.Blocks.SOUL_SAND) || s.is(net.minecraft.world.level.block.Blocks.SOUL_SOIL) || s.is(net.minecraft.world.level.block.Blocks.OBSIDIAN)
-			|| s.is(net.minecraft.world.level.block.Blocks.BEDROCK) || s.is(net.minecraft.world.level.block.Blocks.WATER);
+			|| s.is(net.minecraft.world.level.block.Blocks.BEDROCK) || s.is(net.minecraft.world.level.block.Blocks.WATER)
+			// growing things you can stand on are not built floor (round 17: flowering azalea bushes beside stone stairs passed as path for the bell)
+			|| s.is(net.minecraft.tags.BlockTags.SAPLINGS) || s.is(net.minecraft.world.level.block.Blocks.AZALEA) || s.is(net.minecraft.world.level.block.Blocks.FLOWERING_AZALEA)
+			|| s.is(net.minecraft.world.level.block.Blocks.MOSS_BLOCK) || s.is(net.minecraft.world.level.block.Blocks.BROWN_MUSHROOM_BLOCK) || s.is(net.minecraft.world.level.block.Blocks.RED_MUSHROOM_BLOCK)
+			|| s.is(net.minecraft.world.level.block.Blocks.MUSHROOM_STEM) || s.is(net.minecraft.world.level.block.Blocks.CACTUS) || s.is(net.minecraft.world.level.block.Blocks.BAMBOO);
 	}
 
 	/** How many cells of the 9x9 around (x,z) have a built (non-natural) floor. */
@@ -62,7 +66,7 @@ public class FloorEdge {
 		if (!cfg.floorEdge) return false;
 		var p = mc.player;
 		var trail = PathGuide.sparseTrail(p.getX(), p.getZ(), Math.toRadians(p.getYRot()), false);
-		if (trail == null && cfg.debug && PathGuide.active()) p.sendSystemMessage(net.minecraft.network.chat.Component.literal("ripple: three-line mode (" + PathGuide.trailWhy + ")"));
+		if (trail == null && cfg.debug && PathGuide.active()) Dbg.send(p, net.minecraft.network.chat.Component.literal("ripple: three-line mode (" + PathGuide.trailWhy + ")"));
 		if (trail != null) { // a trail of separate blocks: ripple along the actual blocks (the three-line ripple would miss blocks that are not exactly on a line)
 			playTrail(mc, cfg, p, trail);
 			return true;
@@ -72,7 +76,7 @@ public class FloorEdge {
 		if (hits == 0) { // the three lines found nothing to sound (you are between blocks, or standing off the trail): ripple along the trail blocks themselves instead, one per distance step
 			var forced = PathGuide.sparseTrail(p.getX(), p.getZ(), Math.toRadians(p.getYRot()), true);
 			if (forced != null) {
-				if (cfg.debug) p.sendSystemMessage(net.minecraft.network.chat.Component.literal("ripple: three lines found nothing, using the trail blocks"));
+				if (cfg.debug) Dbg.send(p, net.minecraft.network.chat.Component.literal("ripple: three lines found nothing, using the trail blocks"));
 				playTrail(mc, cfg, p, forced);
 				return true;
 			}
@@ -83,6 +87,15 @@ public class FloorEdge {
 	private static int hits; // rays that found a path block in the last three-line ripple
 
 	/** Ripples along trail blocks {x, floor y, z, distance}, nearest first, one tick per block of distance, fading. */
+	/** One block of the path ripple, `steps` along the path from you: further along is a little quieter, a little lower and a tick later. */
+	static void rippleHit(Minecraft mc, SonarConfig cfg, SoundEvent bsnd, double x, double y, double z, double steps, double mvx, double mvz, int extraDelay) {
+		float v = Math.min(1f, cfg.volume * 1.5f) * (float) Math.pow(0.9, steps - 3.0);
+		float pt = Cues.materialPitch(bsnd) * (float) Math.pow(0.98, steps - 3.0);
+		int delay = (int) Math.round(steps - 3.0) + extraDelay;
+		if (delay <= 0) Cues.play(mc, bsnd, v, pt, x, y, z);
+		else Cues.pending.add(new Cues.Pending(bsnd, v, pt, x + mvx * delay, y, z + mvz * delay, new int[]{delay})); // a delayed hit is shifted by how far you will have run by then, so the ripple stays in front of you
+	}
+
 	private static void playTrail(Minecraft mc, SonarConfig cfg, net.minecraft.client.player.LocalPlayer p, java.util.List<double[]> trail) {
 		var tp = new net.minecraft.core.BlockPos.MutableBlockPos();
 		int played = 0;
@@ -92,20 +105,15 @@ public class FloorEdge {
 			StringBuilder sb = new StringBuilder();
 			for (double[] c : trail) {
 				double dx = c[0] + 0.5 - p.getX(), dz = c[2] + 0.5 - p.getZ();
-				sb.append(String.format("[fwd %.1f lat %.1f dy %.0f] ", dx * tfx + dz * tfz, dx * -Math.cos(yr) + dz * -Math.sin(yr), c[1] + 1 - p.getY()));
+				sb.append(Dbg.fmt("[fwd %.1f lat %.1f dy %.0f] ", dx * tfx + dz * tfz, dx * -Math.cos(yr) + dz * -Math.sin(yr), c[1] + 1 - p.getY()));
 				if (sb.length() > 400) break;
 			}
-			p.sendSystemMessage(net.minecraft.network.chat.Component.literal("ripple: trail, " + trail.size() + " blocks | " + sb));
+			Dbg.send(p, net.minecraft.network.chat.Component.literal("ripple: trail, " + trail.size() + " blocks | " + sb));
 		}
 		for (double[] c : trail) {
 			if (played >= 12) break;
-			BlockState bs = mc.level.getBlockState(tp.set((int) c[0], (int) c[1], (int) c[2]));
-			SoundEvent bsnd = rippleSound(bs);
-			float v = Math.min(1f, cfg.volume * 1.5f) * (float) Math.pow(0.9, c[3] - 3.0);
-			float pt = Cues.materialPitch(bsnd) * (float) Math.pow(0.98, c[3] - 3.0);
-			int delay = (int) Math.round(c[3] - 3.0);
-			if (delay <= 0) Cues.play(mc, bsnd, v, pt, c[0] + 0.5, c[1] + 0.2, c[2] + 0.5);
-			else Cues.pending.add(new Cues.Pending(bsnd, v, pt, c[0] + 0.5 + mv.x * delay, c[1] + 0.2, c[2] + 0.5 + mv.z * delay, new int[]{delay})); // a delayed hit is shifted by how far you will have run by then, so the ripple stays in front of you
+			BlockState bs = Sense.hear(mc).getBlockState(tp.set((int) c[0], (int) c[1], (int) c[2]));
+			rippleHit(mc, cfg, rippleSound(bs), c[0] + 0.5, c[1] + 0.2, c[2] + 0.5, c[3], mv.x, mv.z, 0);
 			played++;
 		}
 	}
@@ -155,7 +163,7 @@ public class FloorEdge {
 				int x = (int) Math.floor(p.getX() + dx * lastD), z = (int) Math.floor(p.getZ() + dz * lastD);
 				SoundEvent snd = last.getSoundType().getStepSound();
 				float vol = Math.min(1f, cfg.volume * 1.5f) * (deg == 0 ? 0.7f : 1f); // the two diagonals lead; straight ahead is softer
-								if (cfg.debug) mc.player.sendSystemMessage(net.minecraft.network.chat.Component.literal("path: " + last.getBlock().getDescriptionId() + " (" + (onPath ? "on path" : "off path") + ", here=" + here.getBlock().getDescriptionId() + ") -> " + snd.location().getPath() + " vol " + vol));
+								if (cfg.debug) Dbg.send(mc.player, net.minecraft.network.chat.Component.literal("path: " + last.getBlock().getDescriptionId() + " (" + (onPath ? "on path" : "off path") + ", here=" + here.getBlock().getDescriptionId() + ") -> " + snd.location().getPath() + " vol " + vol));
 				// a guide echo: one hit just in front of you at floor level, then the same sound runs out along the path (block 1, 2, 3 ... up to 6), a tick or two apart and fading
 					int steps = (int) Math.min(12, Math.floor(lastD + 0.5)); // the ripple starts 3 blocks ahead and runs out to 12
 					int ey = fy;

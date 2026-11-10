@@ -15,10 +15,10 @@ public class Identify {
 		String name = null;
 		double best = reach + 1;
 
-		HitResult h = p.pick(reach, 1f, true);
+		HitResult h = Sense.hear(mc).clip(new net.minecraft.world.level.ClipContext(eye, end, net.minecraft.world.level.ClipContext.Block.OUTLINE, net.minecraft.world.level.ClipContext.Fluid.ANY, p)); // guide blocks (barriers) are not there for Sonar (Sense)
 		if (h.getType() == HitResult.Type.BLOCK) {
 			var bh = (net.minecraft.world.phys.BlockHitResult) h;
-			name = mc.level.getBlockState(bh.getBlockPos()).getBlock().getName().getString();
+			name = Sense.hear(mc).getBlockState(bh.getBlockPos()).getBlock().getName().getString();
 			best = eye.distanceTo(h.getLocation());
 		}
 		for (Entity e : mc.level.entitiesForRendering()) {

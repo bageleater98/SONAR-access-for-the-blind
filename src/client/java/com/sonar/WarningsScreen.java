@@ -22,10 +22,8 @@ public class WarningsScreen extends SonarScreen {
 		toggle(0, y, "Gap and door cues", () -> c.gapCue, () -> c.gapCue = !c.gapCue);
 		toggle(1, y, "Stuck cue", () -> c.stuckCue, () -> c.stuckCue = !c.stuckCue);
 		y += 24;
-		toggle(0, y, "Close-range touch", () -> c.tactileCue, () -> c.tactileCue = !c.tactileCue);
-		toggle(1, y, "Edge brake (slows you)", () -> c.edgeBrake, () -> c.edgeBrake = !c.edgeBrake);
-		y += 24;
 		toggle(0, y, "Center after 2 bumps", () -> c.centerOnBump, () -> c.centerOnBump = !c.centerOnBump);
+		toggle(1, y, "Edge brake (slows you)", () -> c.edgeBrake, () -> c.edgeBrake = !c.edgeBrake);
 		y += 36;
 		this.addRenderableWidget(Button.builder(CommonComponents.GUI_DONE, b -> this.onClose()).bounds(this.width / 2 - 102, y, 204, 20).build());
 	}

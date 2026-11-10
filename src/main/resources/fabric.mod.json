@@ -3,7 +3,7 @@
 	"id": "sonar",
 	"version": "${version}",
 	"name": "Sonar - Access",
-	"description": "Accessibility mod for blind players: press a key to hear the space around you.",
+	"description": "Accessibility mod for blind players: press a key to hear the space around you. Includes a voiced tutorial (narrator voice: Kokoro-82M, af_heart, Apache-2.0; see CREDITS.md).",
 	"authors": ["BagelEater"],
 	"license": "GPL-3.0-only",
 	"icon": "assets/sonar/icon.png",

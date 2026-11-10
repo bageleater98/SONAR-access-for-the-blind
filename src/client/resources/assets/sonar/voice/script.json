@@ -1,0 +1,1631 @@
+{
+  "_about": "Wren's lines: the single source of truth for the tutorial voice. Rendered by tools/voice/render.py (Kokoro af_heart) into sounds/voice/<id>.ogg. {key:NAME} is said with the key's default name; if the player rebound that key, the line is spoken by the system voice instead. priority: 0 safety, 1 instruction, 2 hint, 3 reaction, 4 idle. cooldown in seconds. short = the variant for skip-intros and fast players.",
+  "voice": "af_heart",
+  "speed": 1.0,
+  "keys": {
+    "confusing": "K",
+    "scan": "R",
+    "echo": "H",
+    "ledge": "J"
+  },
+  "lines": [
+    {
+      "id": "sys.building",
+      "category": "transition",
+      "priority": 1,
+      "text": "One moment. I'm building the tutorial world. It's mostly invisible walls, so it won't take long.",
+      "short": "Building the tutorial world."
+    },
+    {
+      "id": "sys.loading",
+      "category": "transition",
+      "priority": 1,
+      "text": "One moment. The next room is still coming into view."
+    },
+    {
+      "id": "sys.reset.fell",
+      "category": "reaction",
+      "priority": 0,
+      "text": "Whoops. Let's put you back where you started."
+    },
+    {
+      "id": "sys.reset.outside",
+      "category": "reaction",
+      "priority": 0,
+      "text": "You wandered off the edge of my map. Back you go."
+    },
+    {
+      "id": "sys.reset.stuck",
+      "category": "reaction",
+      "priority": 0,
+      "text": "You seem to be stuck. I'll move you back to the start of this part."
+    },
+    {
+      "id": "sys.skip",
+      "category": "transition",
+      "priority": 1,
+      "text": "Skipping ahead."
+    },
+    {
+      "id": "sys.restart",
+      "category": "transition",
+      "priority": 1,
+      "text": "Let's start this one again."
+    },
+    {
+      "id": "sys.leave",
+      "category": "transition",
+      "priority": 1,
+      "text": "Leaving the tutorial. Your own settings are back exactly as you left them."
+    },
+    {
+      "id": "sys.resume",
+      "category": "intro",
+      "priority": 1,
+      "text": "Welcome back. Let's carry on where we left off.",
+      "short": "Welcome back."
+    },
+    {
+      "id": "sys.nothing",
+      "category": "reaction",
+      "priority": 3,
+      "text": "Nothing to repeat yet."
+    },
+    {
+      "id": "sys.server",
+      "category": "instruction",
+      "priority": 1,
+      "text": "Leave the server to start the tutorial."
+    },
+    {
+      "id": "sys.button",
+      "category": "instruction",
+      "priority": 1,
+      "text": "Sonar Access Tutorial. Press Enter to start."
+    },
+    {
+      "id": "sys.over",
+      "category": "transition",
+      "priority": 1,
+      "text": "Starting again from the very beginning."
+    },
+    {
+      "id": "menu.open",
+      "category": "instruction",
+      "priority": 1,
+      "text": "Tutorial menu."
+    },
+    {
+      "id": "menu.back",
+      "category": "reaction",
+      "priority": 1,
+      "text": "Back to the game."
+    },
+    {
+      "id": "menu.repeat",
+      "category": "reaction",
+      "priority": 1,
+      "text": "Repeat the last instruction."
+    },
+    {
+      "id": "menu.skip",
+      "category": "reaction",
+      "priority": 1,
+      "text": "Skip this level."
+    },
+    {
+      "id": "menu.restart",
+      "category": "reaction",
+      "priority": 1,
+      "text": "Restart this level."
+    },
+    {
+      "id": "menu.over",
+      "category": "reaction",
+      "priority": 1,
+      "text": "Start over from the beginning."
+    },
+    {
+      "id": "menu.sonar",
+      "category": "reaction",
+      "priority": 1,
+      "text": "Sonar settings."
+    },
+    {
+      "id": "menu.options",
+      "category": "reaction",
+      "priority": 1,
+      "text": "Game options."
+    },
+    {
+      "id": "menu.leave",
+      "category": "reaction",
+      "priority": 1,
+      "text": "Leave the tutorial."
+    },
+    {
+      "id": "pass.1",
+      "category": "success",
+      "priority": 3,
+      "text": "Nicely done."
+    },
+    {
+      "id": "pass.2",
+      "category": "success",
+      "priority": 3,
+      "text": "That's it exactly."
+    },
+    {
+      "id": "pass.3",
+      "category": "success",
+      "priority": 3,
+      "text": "Perfect."
+    },
+    {
+      "id": "next.1",
+      "category": "transition",
+      "priority": 1,
+      "text": "On to the next room."
+    },
+    {
+      "id": "next.2",
+      "category": "transition",
+      "priority": 1,
+      "text": "Right this way. On to the next room."
+    },
+    {
+      "id": "l0.intro",
+      "category": "intro",
+      "priority": 1,
+      "text": "Hello. I'm Wren, and I'll be your guide. This tutorial teaches you to find your way by sound, using Sonar: a tool that turns the world around you into sounds, one small room at a time. Nothing in here can really hurt you, and you can't get it wrong for long.",
+      "short": "Hello again. I'm Wren. Let's begin."
+    },
+    {
+      "id": "l0.controls",
+      "category": "instruction",
+      "priority": 1,
+      "text": "Three things before we start. Press Escape for the tutorial menu: from there you can hear my last instruction again, open the levels, restart this level, or leave. And if something I say confuses you, press {key:confusing}. I'll quietly make a note, so this tutorial can get better.",
+      "short": "Escape opens the tutorial menu. {key:confusing} marks anything confusing."
+    },
+    {
+      "id": "l0.phones",
+      "category": "instruction",
+      "priority": 1,
+      "text": "First, let's check your headphones. I'll play a chime on one side. When you hear it, press the strafe key on that side: A, as in apple, for left, and D, as in dog, for right. Or just turn toward it.",
+      "short": "Headphone check. Press the strafe key on the side of the chime.",
+      "subtitle": "First, let's check your headphones. I'll play a chime on one side. When you hear it, press the strafe key on that side: A for left, D for right. Or just turn toward it."
+    },
+    {
+      "id": "l0.phones.ready",
+      "category": "instruction",
+      "priority": 1,
+      "text": "Here it comes."
+    },
+    {
+      "id": "l0.phones.again",
+      "category": "instruction",
+      "priority": 1,
+      "text": "And once more."
+    },
+    {
+      "id": "l0.phones.ok",
+      "category": "success",
+      "priority": 1,
+      "text": "Left is left and right is right. Your ears and your headphones agree. Excellent start."
+    },
+    {
+      "id": "l0.phones.swapped",
+      "category": "fail",
+      "priority": 1,
+      "text": "Hmm. Both answers were the wrong way round. Your headphones may be on backwards: the side marked L goes on your left ear. It's also worth checking that mono audio is off in your system's sound settings."
+    },
+    {
+      "id": "l0.phones.mono",
+      "category": "fail",
+      "priority": 1,
+      "text": "Hmm. Those answers didn't match the chimes. If both sides sounded the same, your sound may be set to mono. Check that mono audio is off in your system's sound settings, and that Directional Audio is on in Sonar's settings."
+    },
+    {
+      "id": "l0.phones.choice",
+      "category": "instruction",
+      "priority": 1,
+      "text": "To try the check again, press Escape and choose Repeat the last instruction. Or jump to carry on anyway."
+    },
+    {
+      "id": "l0.phones.hint1",
+      "category": "hint1",
+      "priority": 2,
+      "text": "Listen for the chime. Is it on your left, or your right? Press A, as in apple, for left, or D, as in dog, for right.",
+      "subtitle": "Listen for the chime. Is it on your left, or your right? Press A for left, D for right."
+    },
+    {
+      "id": "l0.phones.hint2",
+      "category": "hint2",
+      "priority": 2,
+      "text": "I'll play it again. A, as in apple, for left, D, as in dog, for right. There's no wrong answer, only a wrong headphone.",
+      "subtitle": "I'll play it again. A for left, D for right. There's no wrong answer, only a wrong headphone."
+    },
+    {
+      "id": "l0.done",
+      "category": "transition",
+      "priority": 1,
+      "text": "Right. Let's go and stand somewhere more interesting."
+    },
+    {
+      "id": "l1.intro",
+      "category": "intro",
+      "priority": 1,
+      "text": "This is a walled garden, and you're standing in the middle of it. As you turn, I'll quietly say which way you're facing: north, east, south or west. Only once you settle, not while you spin.",
+      "short": "As you turn, Sonar names the direction once you settle."
+    },
+    {
+      "id": "l1.task",
+      "category": "instruction",
+      "priority": 1,
+      "text": "Turn until you hear north. Then walk forward until you bump into the wall.",
+      "short": "Face north, then walk to the wall."
+    },
+    {
+      "id": "l1.north",
+      "category": "reaction",
+      "priority": 3,
+      "cooldown": 20,
+      "text": "That's north. Now walk straight ahead."
+    },
+    {
+      "id": "l1.away",
+      "category": "reaction",
+      "priority": 3,
+      "cooldown": 15,
+      "text": "You've turned away from north. Turn back until you hear it again."
+    },
+    {
+      "id": "l1.thud.tall",
+      "category": "reaction",
+      "priority": 3,
+      "text": "Two thuds. That means the wall is too tall to jump. One thud would mean you could hop up onto it."
+    },
+    {
+      "id": "l1.square",
+      "category": "reaction",
+      "priority": 3,
+      "text": "Bump a wall twice in a row and Sonar straightens you up: you're moved to the middle of your block, facing straight ahead. Handy for lining up."
+    },
+    {
+      "id": "l1.hint1",
+      "category": "hint1",
+      "priority": 2,
+      "text": "Turn slowly, and pause between turns. North is the word you're listening for."
+    },
+    {
+      "id": "l1.hint2",
+      "category": "hint2",
+      "priority": 2,
+      "text": "If you keep missing it, stop for a moment after each small turn. The direction is only said once you hold still."
+    },
+    {
+      "id": "l1.idle",
+      "category": "idle",
+      "priority": 4,
+      "cooldown": 40,
+      "text": "Take your time. Turn a little, wait, listen."
+    },
+    {
+      "id": "l1.done",
+      "category": "success",
+      "priority": 1,
+      "text": "You found north and walked straight to it. That, officially, is navigation."
+    },
+    {
+      "id": "l2.intro",
+      "category": "intro",
+      "priority": 1,
+      "text": "Now for the main trick. This is Sonar. Think of it as a map made of sound. Press {key:scan} to ping your Sonar, and it plays a sound for everything around you: every wall, tree and block answers with its own sound, from the direction it's in. Close things are loud, far things are soft, and different materials sound different.",
+      "short": "Press {key:scan} to ping your Sonar. It plays a sound for everything around you."
+    },
+    {
+      "id": "l2.after",
+      "category": "instruction",
+      "priority": 1,
+      "text": "Hear that? Every wall answered. Close walls are loud, far walls are soft. There's a wall somewhere in front of you. Walk forward, pressing {key:scan} as you go, until the wall ahead sounds loud.",
+      "short": "Walk forward, pinging your Sonar, until the front wall is loud."
+    },
+    {
+      "id": "l2.closer",
+      "category": "reaction",
+      "priority": 3,
+      "cooldown": 8,
+      "text": "Louder. You're getting closer."
+    },
+    {
+      "id": "l2.bumped",
+      "category": "reaction",
+      "priority": 3,
+      "text": "You found it the direct way. Press {key:scan} to ping your Sonar once more, right up close, and listen to how loud it is."
+    },
+    {
+      "id": "l2.hint1",
+      "category": "hint1",
+      "priority": 2,
+      "text": "Press {key:scan} to ping your Sonar, listen for the loudest sound in front of you, and walk toward it."
+    },
+    {
+      "id": "l2.hint2",
+      "category": "hint2",
+      "priority": 2,
+      "text": "The near wall is straight ahead. Walk forward a few steps and press {key:scan} to ping your Sonar again: it gets louder as you get closer."
+    },
+    {
+      "id": "l2.idle",
+      "category": "idle",
+      "priority": 4,
+      "cooldown": 40,
+      "text": "Press {key:scan} to ping your Sonar whenever you like. It doesn't wear out."
+    },
+    {
+      "id": "l2.done",
+      "category": "success",
+      "priority": 1,
+      "text": "Loud means close. Very loud means you're about to meet it. You've got it."
+    },
+    {
+      "id": "hint.skip",
+      "category": "hint2",
+      "priority": 2,
+      "text": "This one's being stubborn. If you'd like to move on, the pause menu has a skip button. No shame at all."
+    },
+    {
+      "id": "wrong.1",
+      "category": "reaction",
+      "priority": 3,
+      "text": "Hmm. That's taking you further from where you're heading. Press {key:scan} to ping your Sonar, and listen again.",
+      "cooldown": 30
+    },
+    {
+      "id": "first.offer",
+      "category": "instruction",
+      "priority": 1,
+      "text": "New to Sonar? Press Enter to start the tutorial, or Escape for later."
+    },
+    {
+      "id": "menu.lessons",
+      "category": "reaction",
+      "priority": 1,
+      "text": "Levels."
+    },
+    {
+      "id": "menu.intros.on",
+      "category": "reaction",
+      "priority": 1,
+      "text": "Skip intros: on."
+    },
+    {
+      "id": "menu.intros.off",
+      "category": "reaction",
+      "priority": 1,
+      "text": "Skip intros: off."
+    },
+    {
+      "id": "menu.waypoints",
+      "category": "reaction",
+      "priority": 1,
+      "text": "Waypoints."
+    },
+    {
+      "id": "menu.volume",
+      "category": "reaction",
+      "priority": 1,
+      "text": "Narrator volume."
+    },
+    {
+      "id": "lessons.open",
+      "category": "instruction",
+      "priority": 1,
+      "text": "Level menu."
+    },
+    {
+      "id": "end.complete",
+      "category": "transition",
+      "priority": 1,
+      "text": "And that's the whole course. Every room, done. The tutorial is saved as complete, and the level menu is yours whenever you want a refresher. Go and explore. I'll be listening."
+    },
+    {
+      "id": "title.l0",
+      "category": "reaction",
+      "priority": 1,
+      "text": "Level zero. Welcome and headphones."
+    },
+    {
+      "id": "title.l1",
+      "category": "reaction",
+      "priority": 1,
+      "text": "Level one. Walking and turning."
+    },
+    {
+      "id": "title.l2",
+      "category": "reaction",
+      "priority": 1,
+      "text": "Level two. Your first ping."
+    },
+    {
+      "id": "title.l3",
+      "category": "reaction",
+      "priority": 1,
+      "text": "Level three. The sweep."
+    },
+    {
+      "id": "title.l4",
+      "category": "reaction",
+      "priority": 1,
+      "text": "Level four. Materials."
+    },
+    {
+      "id": "title.l5",
+      "category": "reaction",
+      "priority": 1,
+      "text": "Level six. Auto scan."
+    },
+    {
+      "id": "title.l6",
+      "category": "reaction",
+      "priority": 1,
+      "text": "Level eight. Jumps, stairs, ladders and doors."
+    },
+    {
+      "id": "title.l7",
+      "category": "reaction",
+      "priority": 1,
+      "text": "Level nine. Ledges."
+    },
+    {
+      "id": "title.l8",
+      "category": "reaction",
+      "priority": 1,
+      "text": "Level ten. The echo indoors."
+    },
+    {
+      "id": "title.l9",
+      "category": "reaction",
+      "priority": 1,
+      "text": "Level eleven. Round the corner."
+    },
+    {
+      "id": "title.l10",
+      "category": "reaction",
+      "priority": 1,
+      "text": "Level twelve. Finding entrances."
+    },
+    {
+      "id": "title.l11",
+      "category": "reaction",
+      "priority": 1,
+      "text": "Level thirteen. Caves."
+    },
+    {
+      "id": "title.l12",
+      "category": "reaction",
+      "priority": 1,
+      "text": "Level fourteen. The path bell."
+    },
+    {
+      "id": "title.l13",
+      "category": "reaction",
+      "priority": 1,
+      "text": "Level fifteen. Water and lava."
+    },
+    {
+      "id": "title.l14",
+      "category": "reaction",
+      "priority": 1,
+      "text": "Level sixteen. Following a friend."
+    },
+    {
+      "id": "title.l15",
+      "category": "reaction",
+      "priority": 1,
+      "text": "Level seventeen. Waypoints."
+    },
+    {
+      "id": "title.l17",
+      "category": "reaction",
+      "priority": 1,
+      "text": "Level eighteen. Graduation."
+    },
+    {
+      "id": "l3.intro",
+      "category": "intro",
+      "priority": 1,
+      "text": "Every ping plays in four beats: in front of you first, then your right, then your left, and last, behind you. Sounds at an angle are a little quieter, and anything behind you is muffled. After the beats you may hear a click: that's the echo, marking a way in or out.",
+      "short": "Four beats: front, right, left, behind."
+    },
+    {
+      "id": "l3.task",
+      "category": "instruction",
+      "priority": 1,
+      "text": "You're in a courtyard with one way out. Press {key:scan} to ping your Sonar, listen for the side where the wall is missing, and walk out through it.",
+      "short": "Ping your Sonar, find the open side, walk out."
+    },
+    {
+      "id": "l3.gap",
+      "category": "reaction",
+      "priority": 3,
+      "text": "Hear that little chime? That's a gap between walls. Openings get a sound of their own."
+    },
+    {
+      "id": "l3.left",
+      "category": "reaction",
+      "priority": 3,
+      "text": "That was the wall on your left. The beat right after the front one is your right.",
+      "cooldown": 30
+    },
+    {
+      "id": "l3.hint1",
+      "category": "hint1",
+      "priority": 2,
+      "text": "Listen to the second beat, your right. It's quieter than the others, because that wall is far away."
+    },
+    {
+      "id": "l3.hint2",
+      "category": "hint2",
+      "priority": 2,
+      "text": "Turn until you hear east, so the opening is straight ahead, and walk forward."
+    },
+    {
+      "id": "l3.example",
+      "category": "hint1",
+      "priority": 2,
+      "text": "Here's the trick. Ping your Sonar, then count the beats: one, front. Two, right. Three, left. Four, behind. The quietest beat is the way out."
+    },
+    {
+      "id": "l3.done",
+      "category": "success",
+      "priority": 1,
+      "text": "Out you come. Four beats, and you found the door. Well, the hole where a door would be."
+    },
+    {
+      "id": "l4.intro",
+      "category": "intro",
+      "priority": 1,
+      "text": "Everything answers with its own sound. Stone is a sharp, bright click. Wood is deeper and hollow. Soft ground, like grass and dirt, is a dull thud. Similar blocks side by side are grouped, so a long wall is a few sounds, not fifty.",
+      "short": "Every material has its own sound."
+    },
+    {
+      "id": "l4.task",
+      "category": "instruction",
+      "priority": 1,
+      "text": "Somewhere in this yard is a wall made of wood, and a little stone to compare it with. Find the wood, and walk into it.",
+      "short": "Find the wooden wall and touch it."
+    },
+    {
+      "id": "l4.groups",
+      "category": "reaction",
+      "priority": 3,
+      "text": "Most of what you just heard was stone. Listen for the one that sounds different."
+    },
+    {
+      "id": "l4.stone",
+      "category": "reaction",
+      "priority": 3,
+      "text": "That's stone. Wood sounds deeper and hollower. Keep listening.",
+      "cooldown": 20
+    },
+    {
+      "id": "l4.carpet",
+      "category": "reaction",
+      "priority": 3,
+      "text": "That soft little tick by your feet is carpet. Thin things on the floor tick instead of thudding."
+    },
+    {
+      "id": "l4.hint1",
+      "category": "hint1",
+      "priority": 2,
+      "text": "Press {key:scan} to ping your Sonar, and listen for the one sound that isn't a click. It's hollow, like knocking on a door."
+    },
+    {
+      "id": "l4.hint2",
+      "category": "hint2",
+      "priority": 2,
+      "text": "The wooden wall was on your left as you started: to the north. Turn until you hear north, and walk."
+    },
+    {
+      "id": "l4.example",
+      "category": "hint1",
+      "priority": 2,
+      "text": "Try this. Ping your Sonar, turn a quarter, ping again. The way where the hollow sound is loudest is the way to the wood."
+    },
+    {
+      "id": "l4.done",
+      "category": "success",
+      "priority": 1,
+      "text": "Wood. You found it by ear, which is more than most people can say about their furniture."
+    },
+    {
+      "id": "l5.intro",
+      "category": "intro",
+      "priority": 1,
+      "text": "Pressing R at every step gets tiring. Hold R for two seconds, and Sonar pings by itself, again and again, until you hold it again.",
+      "short": "Hold R for two seconds for auto scan."
+    },
+    {
+      "id": "l5.task1",
+      "category": "instruction",
+      "priority": 1,
+      "text": "Hold R now, for two seconds, until you hear auto scan on.",
+      "short": "Hold R until auto scan is on."
+    },
+    {
+      "id": "l5.on",
+      "category": "reaction",
+      "priority": 3,
+      "text": "Auto scan is on. Now it keeps pinging while you walk."
+    },
+    {
+      "id": "l5.task2",
+      "category": "instruction",
+      "priority": 1,
+      "text": "There's a stone pillar in this yard, a good way off, ahead of you and to the left. Walk until you bump into it. Auto scan keeps pinging, so just listen, and walk.",
+      "short": "Walk to the pillar."
+    },
+    {
+      "id": "l5.hint.r",
+      "category": "hint1",
+      "priority": 2,
+      "text": "Hold R down without letting go, for a slow count of two."
+    },
+    {
+      "id": "l5.done",
+      "category": "success",
+      "priority": 1,
+      "text": "Auto scan, sorted. It keeps pinging until you hold R again."
+    },
+    {
+      "id": "l6.intro",
+      "category": "intro",
+      "priority": 1,
+      "text": "Time for some ordinary moves, done by ear: a block to jump onto, some stairs, a ladder, and a door.",
+      "short": "A jump, stairs, a ladder, a door."
+    },
+    {
+      "id": "l6.task1",
+      "category": "instruction",
+      "priority": 1,
+      "text": "Walk east along this lane. If you bump into something with a single thud, it's low enough to jump onto. Hold forward and press space.",
+      "short": "Walk east, and jump onto the low block."
+    },
+    {
+      "id": "l6.one",
+      "category": "reaction",
+      "priority": 3,
+      "text": "One thud. That's low enough to jump. Two thuds would mean find another way."
+    },
+    {
+      "id": "l6.up",
+      "category": "reaction",
+      "priority": 3,
+      "text": "Up you go."
+    },
+    {
+      "id": "l6.task2",
+      "category": "instruction",
+      "priority": 1,
+      "text": "Keep going east. Stairs come next. Just walk up them.",
+      "short": "Walk up the stairs."
+    },
+    {
+      "id": "l6.stairs",
+      "category": "reaction",
+      "priority": 3,
+      "text": "Top of the stairs."
+    },
+    {
+      "id": "l6.task3",
+      "category": "instruction",
+      "priority": 1,
+      "text": "At the east end of this landing, a ladder climbs the wall. Walk into it and you'll hold on. Then hold forward to climb up, and step off at the top.",
+      "short": "Climb the ladder at the east end."
+    },
+    {
+      "id": "l6.ladder",
+      "category": "reaction",
+      "priority": 3,
+      "text": "At the top. Well climbed."
+    },
+    {
+      "id": "l6.task4",
+      "category": "instruction",
+      "priority": 1,
+      "text": "The cottage door is a little further east, up here. Look at it for a moment and Sonar says door ahead. Right-click to open it, then walk in.",
+      "short": "Open the door and go in."
+    },
+    {
+      "id": "l6.hint.jump",
+      "category": "hint1",
+      "priority": 2,
+      "text": "Walk into the block, then press space while you're still holding forward."
+    },
+    {
+      "id": "l6.hint.stairs",
+      "category": "hint1",
+      "priority": 2,
+      "text": "Just keep walking east. Stairs climb themselves."
+    },
+    {
+      "id": "l6.hint.ladder",
+      "category": "hint1",
+      "priority": 2,
+      "text": "Walk east into the ladder, and keep holding forward to climb. If you slip off, walk into it again."
+    },
+    {
+      "id": "l6.hint.door",
+      "category": "hint1",
+      "priority": 2,
+      "text": "The door is straight east. Face it, then right-click: that's the use button."
+    },
+    {
+      "id": "l6.done",
+      "category": "success",
+      "priority": 1,
+      "text": "Jumped, climbed, and walked through a door like a civilised person. Excellent."
+    },
+    {
+      "id": "l7.intro",
+      "category": "intro",
+      "priority": 1,
+      "text": "This terrace has a real drop at its north edge. Sonar can warn you about edges with a steady buzzing tone: the closer you get, the louder and higher it gets.",
+      "short": "Edges buzz. Closer is louder."
+    },
+    {
+      "id": "l7.task0",
+      "category": "instruction",
+      "priority": 1,
+      "text": "First, switch the ledge warning on. Press {key:ledge}.",
+      "short": "Press {key:ledge} for the ledge warning."
+    },
+    {
+      "id": "l7.task1",
+      "category": "instruction",
+      "priority": 1,
+      "text": "Walk north, slowly, until you hear the edge tone.",
+      "short": "Walk north until the edge tone."
+    },
+    {
+      "id": "l7.tone",
+      "category": "reaction",
+      "priority": 3,
+      "text": "That's it. That buzz means an edge ahead. Deeper drops sound fuller."
+    },
+    {
+      "id": "l7.on",
+      "category": "reaction",
+      "priority": 3,
+      "text": "Ledge warning on. Press {key:ledge} again any time to turn it off, handy when you're building near edges."
+    },
+    {
+      "id": "l7.task2",
+      "category": "instruction",
+      "priority": 1,
+      "text": "Now hold shift to sneak. Keep holding it, and creep forward, right up to the edge. While you sneak you can't fall off, and the tone gets quieter, but it's still there.",
+      "short": "Sneak right up to the edge."
+    },
+    {
+      "id": "l7.lip",
+      "category": "reaction",
+      "priority": 3,
+      "text": "Right at the lip. Sneaking is your safety rope."
+    },
+    {
+      "id": "l7.task3",
+      "category": "instruction",
+      "priority": 1,
+      "text": "Now the narrow ridge. It starts a few steps to your right, east of here, and runs north, three blocks wide, with drops on both sides. Find it, and walk along it to the end. The tones on your left and right tell you where the sides are: keep them even.",
+      "short": "Find the narrow ridge, right and north."
+    },
+    {
+      "id": "l7.ridge",
+      "category": "reaction",
+      "priority": 3,
+      "text": "End of the ridge. Nicely balanced."
+    },
+    {
+      "id": "l7.task4",
+      "category": "instruction",
+      "priority": 1,
+      "text": "Last thing. Press J to turn the ledge warning off, then J again to turn it back on. Handy when you're building near edges.",
+      "short": "Press J twice."
+    },
+    {
+      "id": "l7.brake",
+      "category": "reaction",
+      "priority": 3,
+      "text": "Feel that? Sonar slowed you down at the edge. That's the edge brake. It only steps in when you're heading for a real drop."
+    },
+    {
+      "id": "l7.fell",
+      "category": "reaction",
+      "priority": 0,
+      "text": "Ouch. That's what a real drop feels like. Back up you go."
+    },
+    {
+      "id": "l7.hint.tone",
+      "category": "hint1",
+      "priority": 2,
+      "text": "Walk north, a step at a time. The tone starts a few blocks before the edge."
+    },
+    {
+      "id": "l7.hint.lip",
+      "category": "hint1",
+      "priority": 2,
+      "text": "Hold shift the whole time, and keep walking forward until you can't go any further."
+    },
+    {
+      "id": "l7.hint.ridge",
+      "category": "hint1",
+      "priority": 2,
+      "text": "Walk right, east, along the edge, until you hear the edge tone on both sides of you. Then turn north and walk the ridge, keeping the left and right tones even."
+    },
+    {
+      "id": "l7.hint.j",
+      "category": "hint1",
+      "priority": 2,
+      "text": "Press J. It switches the ledge warning on and off."
+    },
+    {
+      "id": "l7.done",
+      "category": "success",
+      "priority": 1,
+      "text": "You can hear edges now. That's the most useful thing in this whole tutorial, so, well done."
+    },
+    {
+      "id": "l8.intro",
+      "category": "intro",
+      "priority": 1,
+      "text": "Indoors, pinging every wall would just be a wall of sound. So inside, Sonar uses the echo: short clicks from the ways out of the room you're in. The echo is already on. H turns it on and off.",
+      "short": "Indoors, the echo clicks from the ways out."
+    },
+    {
+      "id": "l8.last",
+      "category": "reaction",
+      "priority": 3,
+      "text": "The clicks come from doors and openings. The last click is always the nearest way out."
+    },
+    {
+      "id": "l8.task2",
+      "category": "instruction",
+      "priority": 1,
+      "text": "Follow the last click, and go through the nearest door.",
+      "short": "Go through the nearest door."
+    },
+    {
+      "id": "l8.low",
+      "category": "reaction",
+      "priority": 3,
+      "text": "The ceiling just dropped, right over your head. If you jump here, you'll bump it, and Sonar plays a soft, low note from above. Try a jump."
+    },
+    {
+      "id": "l8.bonk",
+      "category": "reaction",
+      "priority": 3,
+      "text": "There it is. That low note from above means you bumped your head."
+    },
+    {
+      "id": "l8.task4",
+      "category": "instruction",
+      "priority": 1,
+      "text": "Now find the way out to the garden. Follow the clicks.",
+      "short": "Find the way out to the garden."
+    },
+    {
+      "id": "l8.hint.door",
+      "category": "hint1",
+      "priority": 2,
+      "text": "The door is in the wall to the east. The last click comes from it."
+    },
+    {
+      "id": "l8.hint.out",
+      "category": "hint1",
+      "priority": 2,
+      "text": "The garden doorway is at the east end of the south wall. Listen for the click that isn't the door you came through."
+    },
+    {
+      "id": "l8.done",
+      "category": "success",
+      "priority": 1,
+      "text": "Out in the garden. Indoors, the clicks are your doors, and the last one is the nearest."
+    },
+    {
+      "id": "l9.intro",
+      "category": "intro",
+      "priority": 1,
+      "text": "A room you can't see, round a corner. Its click is muffled, like a sound from the next room, and it comes from the corner you need to walk to.",
+      "short": "Muffled clicks are round a corner."
+    },
+    {
+      "id": "l9.task",
+      "category": "instruction",
+      "priority": 1,
+      "text": "Follow the muffled click along this corridor to the room at its end.",
+      "short": "Follow the muffled click out."
+    },
+    {
+      "id": "l9.clear",
+      "category": "reaction",
+      "priority": 3,
+      "text": "Hear that? Now the room is in view, its click is clear."
+    },
+    {
+      "id": "l9.hint1",
+      "category": "hint1",
+      "priority": 2,
+      "text": "Walk forward, north. The corridor turns right at the end."
+    },
+    {
+      "id": "l9.hint2",
+      "category": "hint2",
+      "priority": 2,
+      "text": "At the end of the corridor, turn until you hear east, and keep going."
+    },
+    {
+      "id": "l9.done",
+      "category": "success",
+      "priority": 1,
+      "text": "Round the corner and in. You followed a sound you couldn't even see."
+    },
+    {
+      "id": "l10.intro",
+      "category": "intro",
+      "priority": 1,
+      "text": "Outside, the echo listens for buildings instead: a click from every way in nearby.",
+      "short": "Outside, the echo clicks from entrances."
+    },
+    {
+      "id": "l10.gazebo",
+      "category": "reaction",
+      "priority": 3,
+      "text": "This is a gazebo: a roof on wooden posts, but no walls. Listen, and you'll hear the posts and the roof. It isn't a room, so no click comes from it."
+    },
+    {
+      "id": "l10.shed",
+      "category": "reaction",
+      "priority": 3,
+      "text": "That's the shed. Walls all round, and no door, so no click ever comes from it."
+    },
+    {
+      "id": "l10.hint1",
+      "category": "hint1",
+      "priority": 2,
+      "text": "Listen for the click after the sounds. That click is the way in."
+    },
+    {
+      "id": "l10.hint2",
+      "category": "hint2",
+      "priority": 2,
+      "text": "The cottage is behind the shed, to the west. Its doorway is in its north wall, so walk round to the far side."
+    },
+    {
+      "id": "l10.done",
+      "category": "success",
+      "priority": 1,
+      "text": "You found the way in. Outside, clicks are entrances. Inside, they're exits. Same clicks, different job."
+    },
+    {
+      "id": "l11.intro",
+      "category": "intro",
+      "priority": 1,
+      "text": "Underground, the echo changes again. Sonar's own stone sounds are off down here by default: every wall of a cave sounding at once would be an unintelligible mash. You can still press {key:scan} to use it. The echo clicks stay on: every route out of a cave gets one. Big tunnels are louder and fuller, and routes far away sound deeper.",
+      "short": "Caves: stone sounds off, press {key:scan} for them. Every route clicks. Big is loud, far is deep."
+    },
+    {
+      "id": "l11.task1",
+      "category": "instruction",
+      "priority": 1,
+      "text": "Listen for the biggest, loudest route, and follow it.",
+      "short": "Follow the biggest route."
+    },
+    {
+      "id": "l11.tunnel",
+      "category": "reaction",
+      "priority": 3,
+      "text": "This is the big tunnel."
+    },
+    {
+      "id": "l11.alcove",
+      "category": "reaction",
+      "priority": 3,
+      "text": "Just an alcove. No click came from here. Nothing to find."
+    },
+    {
+      "id": "l11.task2",
+      "category": "instruction",
+      "priority": 1,
+      "text": "Somewhere along here a passage turns off round a corner. Its click is muffled. Find it.",
+      "short": "Find the passage round the corner."
+    },
+    {
+      "id": "l11.corner",
+      "category": "reaction",
+      "priority": 3,
+      "text": "Round the corner. Next, a hole. Holes down into caves get a click of their own, from their edge."
+    },
+    {
+      "id": "l11.task3",
+      "category": "instruction",
+      "priority": 1,
+      "text": "At the end of this passage there's a shaft down to a cave below. Find it, and climb down the ladder.",
+      "short": "Climb down the shaft into the lower cave."
+    },
+    {
+      "id": "l11.hint.big",
+      "category": "hint1",
+      "priority": 2,
+      "text": "The big tunnel is east of where you started."
+    },
+    {
+      "id": "l11.hint.corner",
+      "category": "hint1",
+      "priority": 2,
+      "text": "Walk to the end of the big tunnel and turn right, to the south."
+    },
+    {
+      "id": "l11.hint.shaft",
+      "category": "hint1",
+      "priority": 2,
+      "text": "The shaft is at the far south end. Walk onto the ladder and climb down."
+    },
+    {
+      "id": "l11.done",
+      "category": "success",
+      "priority": 1,
+      "text": "Down in the lower cave. You read a whole cave by ear."
+    },
+    {
+      "id": "l12.intro",
+      "category": "intro",
+      "priority": 1,
+      "text": "Built paths have a guide: a soft bell, ringing from the path ahead of you. Follow it and you stay on the path.",
+      "short": "The path bell leads along paths. Follow it."
+    },
+    {
+      "id": "l12.task",
+      "category": "instruction",
+      "priority": 1,
+      "text": "The path starts just ahead of you. Walk forward to find it, then follow the bell along it to the well at the far end.",
+      "short": "Walk forward to find the path, then follow the bell to the well."
+    },
+    {
+      "id": "l12.ripple",
+      "category": "reaction",
+      "priority": 3,
+      "text": "Hear the ripple running away from your feet? That's the path itself. It plays when the ground under you changes to a path, and with your pings."
+    },
+    {
+      "id": "l12.plaza",
+      "category": "reaction",
+      "priority": 3,
+      "text": "This is a stone plaza. Too wide to be a path, so the bell goes quiet. Head back to the path."
+    },
+    {
+      "id": "l12.hint1",
+      "category": "hint1",
+      "priority": 2,
+      "text": "When you're on track, the bell is in front of you. If it drifts to one side, turn toward it."
+    },
+    {
+      "id": "l12.hint2",
+      "category": "hint2",
+      "priority": 2,
+      "text": "The path goes north, then east, then north again, then east to the well."
+    },
+    {
+      "id": "l12.done",
+      "category": "success",
+      "priority": 1,
+      "text": "At the well. The bell did the steering, you did the walking. Fair split."
+    },
+    {
+      "id": "l13.intro",
+      "category": "intro",
+      "priority": 1,
+      "text": "Water and lava have sounds of their own. With auto scan on, water is a steady flowing sound, and lava a deeper bubbling, each from the nearest one.",
+      "short": "Water flows, lava bubbles."
+    },
+    {
+      "id": "l13.task",
+      "category": "instruction",
+      "priority": 1,
+      "text": "Now the pond. It's south of where you started. Walk in, swim across, and climb out on the far bank. Hold space to swim up and stay afloat.",
+      "short": "Swim across the pond."
+    },
+    {
+      "id": "l13.in",
+      "category": "reaction",
+      "priority": 3,
+      "text": "You're in. Keep holding forward and space."
+    },
+    {
+      "id": "l13.lava",
+      "category": "reaction",
+      "priority": 3,
+      "text": "That's lava, just behind the fence. Out in the world it won't be fenced, so when you hear that bubbling, keep your distance."
+    },
+    {
+      "id": "l13.hint1",
+      "category": "hint1",
+      "priority": 2,
+      "text": "Walk south into the water and keep going south."
+    },
+    {
+      "id": "l13.hint2",
+      "category": "hint2",
+      "priority": 2,
+      "text": "At the far side, press space as you swim into the bank, and you'll climb out."
+    },
+    {
+      "id": "l13.done",
+      "category": "success",
+      "priority": 1,
+      "text": "Across and out. Water heard, lava avoided. Only slightly damp."
+    },
+    {
+      "id": "l14.intro",
+      "category": "intro",
+      "priority": 1,
+      "text": "When you play with friends, Sonar gives each of them a little tune: the jingle. It plays from the way you can actually walk to them, round walls and up stairs, not straight through. It gets louder as you get closer.",
+      "short": "Friends have a jingle that leads to them."
+    },
+    {
+      "id": "l14.task",
+      "category": "instruction",
+      "priority": 1,
+      "text": "Someone's waiting beyond that wall, up on a ridge. Well, a pumpkin on a block of coal, standing in for a friend. Follow the jingle to them.",
+      "short": "Follow the jingle."
+    },
+    {
+      "id": "l14.gap",
+      "category": "reaction",
+      "priority": 3,
+      "text": "Through the gap. The jingle moves as the way round changes."
+    },
+    {
+      "id": "l14.climb",
+      "category": "reaction",
+      "priority": 3,
+      "text": "Up the stairs, and now the ridge. It's narrow, with drops on both sides. Keep the edge tones even, and take it slowly."
+    },
+    {
+      "id": "l14.hint1",
+      "category": "hint1",
+      "priority": 2,
+      "text": "Walk toward the jingle. If it moves to one side, it's leading you round something."
+    },
+    {
+      "id": "l14.hint2",
+      "category": "hint2",
+      "priority": 2,
+      "text": "The way round is at the east end of the wall. Then it climbs stairs, and runs west along a narrow ridge."
+    },
+    {
+      "id": "l14.done",
+      "category": "success",
+      "priority": 1,
+      "text": "Found them. The pumpkin is thrilled. You can tell by its face."
+    },
+    {
+      "id": "l15.intro",
+      "category": "intro",
+      "priority": 1,
+      "text": "Waypoints let you save a place, and be guided back to it from anywhere.",
+      "short": "Waypoints guide you back."
+    },
+    {
+      "id": "l15.task1",
+      "category": "instruction",
+      "priority": 1,
+      "text": "You're by a fountain. Let's save this spot. Press Escape, and choose Waypoints.",
+      "short": "Escape, Waypoints, type a name, then Add waypoint."
+    },
+    {
+      "id": "l15.added",
+      "category": "reaction",
+      "priority": 3,
+      "text": "Saved. Now I'll take you to the far corner of the square. When you get there, press Escape, choose Waypoints, and pick the waypoint you just saved."
+    },
+    {
+      "id": "l15.task2",
+      "category": "instruction",
+      "priority": 1,
+      "text": "You're in the far corner now, with a wall between you and the fountain. Press Escape, choose Waypoints, and pick your waypoint.",
+      "short": "Guide yourself back to your waypoint."
+    },
+    {
+      "id": "l15.guiding",
+      "category": "reaction",
+      "priority": 3,
+      "text": "Hear that hum, and the three rising notes? Follow them. They lead you round the wall, and get louder as you get closer."
+    },
+    {
+      "id": "l15.hint.add",
+      "category": "hint1",
+      "priority": 2,
+      "text": "In the Waypoints menu, the name box comes first. Type a name, then Tab to Add waypoint, and press Enter."
+    },
+    {
+      "id": "l15.hint.guide",
+      "category": "hint1",
+      "priority": 2,
+      "text": "Open Waypoints again and choose the one you saved. The menu closes and the guide starts."
+    },
+    {
+      "id": "l15.hint.follow",
+      "category": "hint1",
+      "priority": 2,
+      "text": "Turn until the call is loudest, then walk toward it."
+    },
+    {
+      "id": "l15.done",
+      "category": "success",
+      "priority": 1,
+      "text": "Arrived. Save a place anywhere you like, and you can always find your way back."
+    },
+    {
+      "id": "l17.intro",
+      "category": "intro",
+      "priority": 1,
+      "text": "Graduation. Everything together, all on your own. I'll stay quiet unless you ask. To hear your instructions again, press Escape and choose Repeat.",
+      "short": "Graduation. All on your own."
+    },
+    {
+      "id": "l17.task",
+      "category": "instruction",
+      "priority": 1,
+      "text": "Follow the path north, up the steps and across the raised walk, through the cottage, through the cave in the hill, and find the friend waiting on the far side.",
+      "short": "Find the friend on the far side."
+    },
+    {
+      "id": "l17.house",
+      "category": "reaction",
+      "priority": 3,
+      "text": "In the cottage. Find the other door."
+    },
+    {
+      "id": "l17.cave",
+      "category": "reaction",
+      "priority": 3,
+      "text": "In the cave. Find the way out on the far side."
+    },
+    {
+      "id": "l17.hint1",
+      "category": "hint1",
+      "priority": 2,
+      "text": "The path bell leads to the cottage. Inside, the last click is the nearest door."
+    },
+    {
+      "id": "l17.hint2",
+      "category": "hint2",
+      "priority": 2,
+      "text": "Out of the cottage's back door, go a little east to the tunnel into the hill. In the cave, the route west leads out."
+    },
+    {
+      "id": "sys.closemenu",
+      "category": "instruction",
+      "priority": 1,
+      "text": "Close the menu with Escape when you're ready to carry on.",
+      "cooldown": 20
+    },
+    {
+      "id": "sys.guide",
+      "category": "reaction",
+      "priority": 3,
+      "text": "That way's closed off. Press {key:scan} to ping your Sonar, and listen for where to go.",
+      "cooldown": 20
+    },
+    {
+      "id": "sys.guide.np",
+      "category": "reaction",
+      "priority": 3,
+      "text": "That way's closed off. Turn and try another direction.",
+      "cooldown": 20
+    },
+    {
+      "id": "sys.pushing",
+      "category": "reaction",
+      "priority": 3,
+      "text": "Something's in the way there. Press {key:scan} to ping your Sonar, and listen for a way round it.",
+      "cooldown": 30
+    },
+    {
+      "id": "sys.pushing.np",
+      "category": "reaction",
+      "priority": 3,
+      "text": "Something's in the way there. Turn and try another direction.",
+      "cooldown": 30
+    },
+    {
+      "id": "say.north",
+      "category": "phrase",
+      "priority": 3,
+      "text": "North."
+    },
+    {
+      "id": "say.east",
+      "category": "phrase",
+      "priority": 3,
+      "text": "East."
+    },
+    {
+      "id": "say.south",
+      "category": "phrase",
+      "priority": 3,
+      "text": "South."
+    },
+    {
+      "id": "say.west",
+      "category": "phrase",
+      "priority": 3,
+      "text": "West."
+    },
+    {
+      "id": "say.auto.on",
+      "category": "phrase",
+      "priority": 3,
+      "text": "Auto scan on"
+    },
+    {
+      "id": "say.auto.off",
+      "category": "phrase",
+      "priority": 3,
+      "text": "Auto scan off"
+    },
+    {
+      "id": "say.echo.on",
+      "category": "phrase",
+      "priority": 3,
+      "text": "Echo on"
+    },
+    {
+      "id": "say.echo.off",
+      "category": "phrase",
+      "priority": 3,
+      "text": "Echo off"
+    },
+    {
+      "id": "say.ledge.on",
+      "category": "phrase",
+      "priority": 3,
+      "text": "Ledge warning on"
+    },
+    {
+      "id": "say.ledge.off",
+      "category": "phrase",
+      "priority": 3,
+      "text": "Ledge warning off"
+    },
+    {
+      "id": "say.wp.on",
+      "category": "phrase",
+      "priority": 3,
+      "text": "Waypoints on"
+    },
+    {
+      "id": "say.wp.off",
+      "category": "phrase",
+      "priority": 3,
+      "text": "Waypoints off"
+    },
+    {
+      "id": "say.door",
+      "category": "phrase",
+      "priority": 3,
+      "text": "door ahead"
+    },
+    {
+      "id": "say.trapdoor",
+      "category": "phrase",
+      "priority": 3,
+      "text": "trapdoor ahead"
+    },
+    {
+      "id": "say.stopped",
+      "category": "phrase",
+      "priority": 3,
+      "text": "Stopped guiding"
+    },
+    {
+      "id": "say.typename",
+      "category": "phrase",
+      "priority": 3,
+      "text": "Type a name first"
+    },
+    {
+      "id": "say.crossing",
+      "category": "phrase",
+      "priority": 3,
+      "text": "path intersection"
+    },
+    {
+      "id": "l3.click",
+      "category": "reaction",
+      "priority": 3,
+      "text": "That click, after the beats, came from the opening. Clicks mark ways in and out. More about them later."
+    },
+    {
+      "id": "tree.intro",
+      "category": "intro",
+      "priority": 1,
+      "text": "Time to use your hands. I've given you an iron axe. Somewhere in this yard stands a tree."
+    },
+    {
+      "id": "tree.task",
+      "category": "instruction",
+      "priority": 1,
+      "text": "Find the tree, walk up to its trunk until you bump into it, then hold the left mouse button to chop. Chop the whole trunk down."
+    },
+    {
+      "id": "tree.one",
+      "category": "reaction",
+      "priority": 2,
+      "text": "One log down. There's more trunk above and below it. Move your mouse a little up, or a little down, and keep chopping until the whole trunk is gone."
+    },
+    {
+      "id": "tree.bush",
+      "category": "reaction",
+      "priority": 3,
+      "text": "That's a bush: leaves, but no trunk. Nothing to chop here. Listen for the wood."
+    },
+    {
+      "id": "tree.at",
+      "category": "reaction",
+      "priority": 3,
+      "text": "You're right at the trunk. Hold the left mouse button."
+    },
+    {
+      "id": "tree.hint1",
+      "category": "hint1",
+      "priority": 2,
+      "text": "Press {key:scan} to ping your Sonar, and listen for leaves with a hollow, wooden sound among them. That's the tree. Walk toward it."
+    },
+    {
+      "id": "tree.hint2",
+      "category": "hint2",
+      "priority": 2,
+      "text": "The tree is ahead of you and to the right. Walk until you bump the trunk, then hold the left mouse button. If nothing breaks, look down a little."
+    },
+    {
+      "id": "tree.done",
+      "category": "success",
+      "priority": 1,
+      "text": "Timber. Well, quietly. You found a tree by ear and chopped it down."
+    },
+    {
+      "id": "l5.hint.pillar",
+      "category": "hint1",
+      "priority": 2,
+      "text": "The pillar is the stone sound that gets louder as you walk. Turn toward it, and keep walking until you bump into it."
+    },
+    {
+      "id": "hedges.intro",
+      "category": "intro",
+      "priority": 1,
+      "text": "This is a garden walk between hedges, and auto scan is already on. Hedges rustle like leaves. Keep them equally loud on both sides, and you'll stay in the middle."
+    },
+    {
+      "id": "hedges.task",
+      "category": "instruction",
+      "priority": 1,
+      "text": "Follow the walk between the hedges. It turns once. Walk to the gate at the end."
+    },
+    {
+      "id": "hedges.hint.walk",
+      "category": "hint1",
+      "priority": 2,
+      "text": "The hedges are on both sides of you. Keep them equally loud and you'll stay in the middle."
+    },
+    {
+      "id": "hedges.hint.turn",
+      "category": "hint2",
+      "priority": 2,
+      "text": "At the end the walk bends right. When the hedge ahead gets loud, turn until you hear east."
+    },
+    {
+      "id": "hedges.done",
+      "category": "success",
+      "priority": 1,
+      "text": "Through to the gate. You walked a winding path by ear alone. Indoors, auto scan goes quiet and lets the echo do the talking. That's a few levels from now."
+    },
+    {
+      "id": "l10.task1",
+      "category": "instruction",
+      "priority": 1,
+      "text": "There are three buildings on this lawn. Listen to your Sonar, and walk to the nearest one, straight ahead, until you bump into it."
+    },
+    {
+      "id": "l10.hint.shed",
+      "category": "hint1",
+      "priority": 2,
+      "text": "The shed is straight ahead, north. Walk until you bump into it."
+    },
+    {
+      "id": "l10.task2",
+      "category": "instruction",
+      "priority": 1,
+      "text": "Another building stands off to your right. Find it, and step in under its roof."
+    },
+    {
+      "id": "l10.hint.gazebo",
+      "category": "hint1",
+      "priority": 2,
+      "text": "The gazebo is east of the shed. Its four wooden posts answer your pings. Walk in between them."
+    },
+    {
+      "id": "l10.task3",
+      "category": "instruction",
+      "priority": 1,
+      "text": "Only one building has a way in. Listen for the click after the sounds. It's muffled, because the way in is round the far side. Follow it, and step inside."
+    },
+    {
+      "id": "l10.round",
+      "category": "reaction",
+      "priority": 3,
+      "text": "Round the far side. Hear how the click is clear now?"
+    },
+    {
+      "id": "l13.task1",
+      "category": "instruction",
+      "priority": 1,
+      "text": "Somewhere on your left is a pit of lava. Follow its bubbling as it gets louder, and walk right up to the fence around it. The fence keeps you safe."
+    },
+    {
+      "id": "l13.hint.lava",
+      "category": "hint1",
+      "priority": 2,
+      "text": "Turn left, east, and walk toward the bubbling until you bump into the fence."
+    },
+    {
+      "id": "l15.task1b",
+      "category": "instruction",
+      "priority": 1,
+      "text": "This is the Waypoints menu. The name box comes first: type a name, fountain will do. Then press Tab to reach Add waypoint, and press Enter."
+    },
+    {
+      "id": "l15.task2b",
+      "category": "instruction",
+      "priority": 1,
+      "text": "Your waypoint is in the list, below Add waypoint. Press Tab until you hear fountain, and press Enter. The menu closes and the guide starts."
+    },
+    {
+      "id": "l15.hint.open",
+      "category": "hint1",
+      "priority": 2,
+      "text": "Press Escape, then Tab until you hear Waypoints, and press Enter."
+    },
+    {
+      "id": "l17.walk",
+      "category": "reaction",
+      "priority": 3,
+      "text": "On the raised walk. Drops on both sides: keep the edge tones even."
+    },
+    {
+      "id": "l17.done",
+      "category": "success",
+      "priority": 1,
+      "text": "You found them. Every sound, every room, all on your own. Congratulations: you've graduated!"
+    },
+    {
+      "id": "title.tree",
+      "category": "reaction",
+      "priority": 1,
+      "text": "Level five. Chopping a tree."
+    },
+    {
+      "id": "title.hedges",
+      "category": "reaction",
+      "priority": 1,
+      "text": "Level seven. The hedge walk."
+    },
+    {
+      "id": "menu.sonar.title",
+      "category": "reaction",
+      "priority": 1,
+      "text": "Sonar Access settings."
+    }
+  ]
+}

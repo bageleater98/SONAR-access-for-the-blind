@@ -75,6 +75,8 @@ block.nether_wood.break
 block.nether_wood_hanging_sign.break
 block.netherite_block.break
 block.netherrack.break
+block.note_block.basedrum
+block.note_block.hat
 block.nylium.break
 block.packed_mud.break
 block.pink_petals.break

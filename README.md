@@ -15,7 +15,7 @@ By **BagelEater**
 ![Java](https://img.shields.io/badge/Java-25%2B-F89820?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-GPL--3.0-blue?style=for-the-badge)
 
-[What is SONAR](#what-is-sonar) | [Features](#-features) | [Controls](#-controls) | [How it works](#-how-it-works) | [Install](#-installation) | [FAQ](#-faq)
+[What is SONAR](#what-is-sonar) | [Features](#-features) | [Tutorial](#-the-tutorial) | [Controls](#-controls) | [How it works](#-how-it-works) | [Install](#-installation) | [FAQ](#-faq)
 
 </div>
 
@@ -30,6 +30,8 @@ Press a key and the mod sends out a sonar ping. Walls, drops, water, paths and o
 With a pair of headphones, that is enough to find your way around: you can hear where the walls are, where a drop begins, where the water and lava are, which way a path runs, and how big a room is.
 
 SONAR runs only on your own computer, so nothing needs to be installed on the server. Put on headphones and press **R**.
+
+New to SONAR? Start with the **[voiced tutorial](#-the-tutorial)**: 19 short levels, narrated by a guide called Wren, that teach every part of the mod by ear. It is on the title screen, above Singleplayer.
 
 <div align="center">
 
@@ -46,16 +48,58 @@ SONAR runs only on your own computer, so nothing needs to be installed on the se
 | 🎧 **True 3D sound** | Every sound comes from the direction of the thing that made it. |
 | 📡 **Sonar ping** | One key press scans everything within your range, up to 60 blocks. |
 | 🔄 **Auto-ping** | SONAR keeps pinging on its own at a steady rhythm, so your hands stay free. |
-| ⚠️ **Ledge warning** | A tone that speeds up as you get closer to a drop, a steep slope or lava. The warning matches the danger: a 3-block drop is a soft, low tone, a 4-block drop a little louder and higher, and 5 blocks or more (or lava) is full strength. Ordinary stairs and fenced edges are ignored, edges on ground well above you (the top of a wall beside you) stay silent, and it stays quiet while you sneak. A drop beside a staircase or ridge sounds from that side, not from ahead. The tone starts very quiet and rises sharply as you close in, and it drops to a whisper after you stand still for 3 seconds. On a path with the guide bell on, it switches to a path mode that tells you which side of the path you are drifting towards. |
+| ⚠️ **Ledge warning** | A tone that speeds up as you get closer to a drop, a steep slope or lava. The warning matches the danger: a 3-block drop is a soft, low tone, a 4-block drop a little louder and higher, and 5 blocks or more (or lava) is full strength. Ordinary stairs and fenced edges are ignored, edges on ground well above you (the top of a wall beside you) stay silent, and it stays quiet while you sneak. A drop beside a staircase or ridge sounds from that side, not from ahead. The tone starts very quiet and rises sharply as you close in, and it drops to a whisper after you stand still for half a second. On a path with the guide bell on, it switches to a path mode that tells you which side of the path you are drifting towards. |
 | 🛑 **Edge brake** | A safety net, on by default: if you run at a real drop, SONAR slows you down for half a second. Sneaking, stopping or turning away cancels it at once, so it can never trap you. You can turn it off under **Warnings** in Sonar Access. |
-| 🌊 **Echo guide** | The echo shows you the way out of a building, like a sound coming out of each door. Inside a room it plays one tick from each door or opening to the outside that you can see, and one from each staircase up or down. Plain walls and glass never echo, and the main way out always plays last. Outside, it still marks cave mouths and big covered openings. A roof alone (a covered deck or porch) does not count as a room. Underground it switches to **cave mode**: it listens up to 175 blocks out (Cave echo range slider, up to 300) and plays one echo for every route leading away, such as tunnels off a cavern or both ends of a ravine. Up to 8 echoes per ping. |
-| 🛤️ **Path guide** | A bell rings from the path 8 to 11 blocks ahead so you can follow roads and corridors. It follows dirt path blocks and also sparse trails of separate blocks, up to 6 blocks apart in a roughly straight line, such as stepping stones climbing a hill. It follows the path by walking distance, so it stays on the path through bends, and it says "path intersection" where three or more paths meet. It sticks to one material (a stone path will not run on into a wooden farm), and it stays quiet inside buildings, on patios and plazas, on small patches of path blocks, and on paths shorter than 8 blocks. |
+| 🌊 **Echo guide** | The echo shows you the way out of a building, like a sound coming out of each door. Inside a room it plays one tick from each door or opening to the outside that you can see, and one from each staircase up or down. Plain walls and glass never echo, and the main way out always plays last. Outside, it still marks cave mouths and big covered openings, and the entrances of buildings near you, found by walking in along the floor even when you cannot see inside. A roof alone (a covered deck or porch) does not count as a room. Underground it switches to **cave mode**: it listens up to 175 blocks out (Cave echo range slider, up to 300) and plays one echo for every route leading away, such as tunnels off a cavern, both ends of a ravine, or the floor of a ravine you look down into. A small hole is a quiet, light tick and a wide tunnel a bigger, fuller one; a far route sounds deeper rather than quieter. Big halls and glass domes count as rooms too. Up to 8 echoes per ping. |
+| 🛤️ **Path guide** | A bell rings from the path 8 to 11 blocks ahead so you can follow roads and corridors. It follows dirt path blocks and also sparse trails of separate blocks, up to 6 blocks apart in a roughly straight line, such as stepping stones climbing a hill. It follows the path by walking distance, so it stays on the path through bends, and it says "path intersection" where three or more paths meet and "path turns left" or "right" when you reach a sharp corner (not on gentle bends or curving stairs). Crossings count whatever the paths are made of. Crossings are announced even when you stand just off the path (on a gazebo floor, say). It picks up a path from up to 4 blocks away and leads you onto it first. It sticks to one material (a stone path will not run on into a wooden farm), and it stays quiet inside buildings, on patios and plazas, on farm edging, on fence tops, on small patches of path blocks (or a strip of cobblestone set into a stone floor), and on paths shorter than 12 blocks end to end. A tree canopy over a garden stairway does not count as a roof. |
 | 〰️ **Path ripple** | On a path, a short ripple of sound starts 3 blocks ahead on the path and runs out to 12 blocks, one quick tick per block, in the sound of each block it passes. It follows stairs and slopes, works in the air, and on sparse trails it ripples along the actual blocks. Where a path begins ahead of you, you hear it too. |
 | 💧 **Water and lava** | Within a few blocks of either, SONAR repeats its sound every couple of seconds so you always know it is there. |
-| 💥 **Wall thud** | Walk into a wall and you hear a thud. Two thuds in a row mean the wall is two or more blocks tall, so you cannot jump it; if any block you are touching is only one tall, you hear one thud. Keep pushing for a second thud and you are moved to the middle of your block and turned to face straight north, east, south or west (switch: Center after 2 bumps). |
+| 💥 **Wall thud** | Walk into a wall and you hear a thud. Two thuds in a row mean the wall is taller than you can jump (anything over one block, such as a block with a slab on top); if any block you are touching is only one tall, you hear one thud. Tapping W into a wall works too: the second tap thuds right away. Keep pushing for a second thud and you are moved to the middle of your block and turned to face straight north, east, south or west (switch: Center after 2 bumps). |
 | 🗣️ **Spoken help** | Hear the name and distance of whatever you are looking at, or a short summary of your surroundings. |
-| 🧍 **Player chime** | Other players give off a steady jingle, so you can find each other. It leads you along the route you can walk (round corners, through doors, to the bottom of the stairs first), sounding from the farthest point of that route you can see. It is bright in front, a little lower and duller to the sides, and lower and duller behind you. |
+| 🧍 **Player chime** | Other players give off a steady jingle, so you can find each other. It leads you along the route you can walk (round corners, through doors, to the bottom of the stairs first, and up them until you are on their level), sounding from the farthest point of that route you can see. Ladders are only used when there is no walking way at all. A friend close by stays clearly audible even when the walking route is long. It is bright in front, a little lower and duller to the sides, and lower and duller behind you. |
+| 🎓 **Voiced tutorial** | Nineteen small levels with a spoken guide, from "which ear is left" to finding a friend across a hill. See [the tutorial](#-the-tutorial). |
+| 📍 **Waypoints** | Save a place from the pause menu (**Sonar Access**, then **Waypoints**) and be guided back to it from anywhere: a steady hum and three rising notes lead you round walls, louder as you get closer. |
 | 🎛️ **Fully adjustable** | Volumes, range, key bindings and every cue can be changed in game. |
+
+---
+
+## 🎓 The tutorial
+
+SONAR comes with a tutorial you can play entirely by ear. Click **Sonar Access Tutorial** on the title screen (above Singleplayer) and a narrator called **Wren** takes you through nineteen levels, one small room at a time. Nothing in there can hurt you, and you cannot get it wrong for long.
+
+| | |
+|---|---|
+| 🗣️ **Spoken by Wren** | About 21 minutes of narration, recorded in advance with a text-to-speech model, so it works offline and sounds the same on every computer. Menus and buttons in the tutorial are spoken too. |
+| 🧱 **Real Minecraft** | Each level is a little room built from ordinary blocks (stone, wood, leaves, water, lava, ladders, doors), because the way a material sounds is part of what you are learning. The rooms live in their own private save, with invisible silent walls round the edges. |
+| 🧭 **Adapts to you** | Wren waits for you to finish before she speaks again, reacts to what you actually do, gives a hint if you have not made progress for a while, and keeps it short on levels you have done before. A level ends the moment you reach its goal, even if you got there your own way. |
+| 💾 **Remembers** | Your place is saved. Open the **Levels** menu to jump to any level, or to restart one. |
+| 🔒 **Leaves your settings alone** | Each level sets up only what it teaches, and your own settings and brightness come back when you leave. |
+
+**The levels**
+
+| # | Level | You learn |
+|:-:|---|---|
+| 0 | Welcome and headphones | A left-and-right headphone check. |
+| 1 | Walking and turning | The spoken direction (north, east, south, west) and what a thud means. |
+| 2 | Your first ping | What SONAR is and how to ping it with **R**. |
+| 3 | The sweep | The four beats of a ping: front, right, left, behind. |
+| 4 | Materials | Wood, stone and carpet all sound different. |
+| 5 | Chopping a tree | Finding a tree by ear and cutting down its trunk. |
+| 6 | Auto scan | Hold **R** for two seconds and SONAR pings by itself. |
+| 7 | The hedge walk | Walking a winding path between hedges by ear. |
+| 8 | Jumps, stairs, ladders and doors | One thud means you can jump it; stairs, ladders and doors. |
+| 9 | Ledges | The edge tone, sneaking to a lip, the narrow ridge. |
+| 10 | The echo indoors | The clicks that mark the ways out of a room. |
+| 11 | Round the corner | A muffled click means the way out is round a corner. |
+| 12 | Finding entrances | Outside, clicks are the ways *into* buildings. |
+| 13 | Caves | Underground, every route out of a cave clicks. |
+| 14 | The path bell | Following a built path by its bell. |
+| 15 | Water and lava | Their looping sounds, and keeping away from lava. |
+| 16 | Following a friend | The player jingle leads you along the route you can walk. |
+| 17 | Waypoints | Saving a place and being guided back to it. |
+| 18 | Graduation | A long course that uses everything, with no help unless you ask. |
+
+In the tutorial, press **Escape** for the tutorial menu: hear the last instruction again, open the levels, restart the level, or leave. If anything Wren says confuses you, press **K** and the tutorial quietly makes a note, so it can be improved.
 
 ---
 
@@ -69,6 +113,7 @@ SONAR runs only on your own computer, so nothing needs to be installed on the se
 | **N** | Identify | Speak the name and distance of whatever your crosshair is pointing at, block or creature. |
 | **H** | Echo | Turn the echo guide on or off. |
 | **J** | Ledge warning | Turn the ledge warning on or off. |
+| **K** | Mark as confusing | Tutorial only: make a note that what Wren just said was confusing. |
 
 Every key can be changed: open the pause menu, choose **Sonar Access**, then **Keys**, click an action and press the key you want.
 
@@ -92,7 +137,7 @@ Minecraft's sound system fades distant sounds out quickly, so SONAR squeezes dis
 
 ### 3. 🌊 Echo
 
-Inside a building, SONAR adds an echo that works as a guide, not a reflection. It follows the floor you can actually walk on, up to 16 blocks around you, and finds the doors, the ways out to open sky, and the staircases up and down. Only the ones you have a clear line of sight to sound. Each one answers from its own direction, the least important first and your main way out last. Walls and glass never echo. Outside, the echo marks cave mouths and big covered openings. Underground (rock all around you) it uses cave mode, which marks every route leading away from where you stand, out to the cave echo range.
+Inside a building, SONAR adds an echo that works as a guide, not a reflection. It follows the floor you can actually walk on, up to 24 blocks around you, and finds the doors, the ways out to open sky, and the staircases up and down. The ones you can see sound, and so do ways out just round a corner (a short walk away), a little quieter. Each one answers from its own direction, the least important first and your main way out last. Walls and glass never echo. Outside, the echo marks cave mouths and big covered openings. Underground (rock all around you) it uses cave mode, which marks every route leading away from where you stand, out to the cave echo range.
 
 The ping also keeps some noise down: grass and dirt behind you are skipped, animal noises fade quickly with distance (full volume only within 2 blocks), and the sonar keeps playing when you are outside, even under a partial roof.
 
@@ -166,15 +211,24 @@ cd SONAR-access-for-the-blind
 ./gradlew build
 ```
 
-The finished jar appears in `build/libs/`. You need JDK 25 or newer.
+The finished jar appears in `build/libs/`. You need JDK 25 or newer. Every build also runs the self-test, which builds each tutorial room in a fake world and checks what SONAR hears there, and it fails the build if anything is off.
+
+To change what Wren says, edit `src/client/resources/assets/sonar/voice/script.json` and run `tools/voice/render.py` (see [CREDITS.md](CREDITS.md) for the tools it needs).
 
 ### Project layout
 
 ```
-src/client/java/com/sonar/    The mod: Scan, Cues, helpers, and the settings screens
-src/main/resources/           fabric.mod.json and assets
+src/client/java/com/sonar/    The mod: Scan, Echo, Cues, helpers, the settings screens,
+                              and the tutorial (Director, Lessons, TutorialRooms, Narrator)
+src/selftest/                 The self-test that runs with every build
+src/client/resources/
   assets/sonar/sounds/m/      Muffled copies of vanilla block sounds
+  assets/sonar/sounds/voice/  The tutorial narrator's recorded lines
+  assets/sonar/voice/         The narrator's script (script.json)
+  assets/sonar/tutorial/      Hand edits to the tutorial rooms (edits.json)
+tools/voice/                  Renders the narrator's lines from the script
 DESIGN.md                     Technical design notes
+CHANGELOG.md                  What changed in each version
 ```
 
 For the full technical details, see [DESIGN.md](DESIGN.md).
@@ -194,6 +248,8 @@ It needs the GitHub CLI (`gh`) signed in with write access to the repository.
 ## 👏 Credits
 
 Created by **BagelEater**. Built with [Fabric](https://fabricmc.net/).
+
+The tutorial's narrator voice was made with the [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) text-to-speech model by hexgrad (voice af_heart, Apache-2.0). Full details are in [CREDITS.md](CREDITS.md).
 
 ## 📜 License
 

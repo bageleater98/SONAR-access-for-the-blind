@@ -31,19 +31,22 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.HitResult.Type;
 
+import static com.sonar.Rooms.*;
+import static com.sonar.Echo.*;
+import static com.sonar.Ledges.*;
+
 public class Cues {
 	static final Map<Integer, Long> mobSeen = new HashMap<>();
 	static final List<com.sonar.Cues.Pending> pending = new ArrayList<>();
-	public static double loopX;
-	public static double loopY;
-	public static double loopZ;
-	public static SoundEvent loopSound;
-	private static long lastLava = -1000;
+	static long lastLava = -1000;
 	/** Short clips of the vanilla lava/water ambience (the vanilla lava sound is 8 s long and kept playing from where you used to stand). */
-	static final SoundEvent LAVA_SHORT = SoundEvent.createVariableRangeEvent(net.minecraft.resources.Identifier.fromNamespaceAndPath("sonar", "lava"));
 	static final SoundEvent WATER_SHORT = SoundEvent.createVariableRangeEvent(net.minecraft.resources.Identifier.fromNamespaceAndPath("sonar", "water"));
-	public static float loopVol;
-	public static float loopPitch;
+
+	/** Queues a sound to play in a few ticks (a staggered sonar sound, an echo click), booking its tick on the timeline so guide sounds wait for it. */
+	static void queue(Pending p) {
+		Timeline.book(p.ticks()[0]);
+		pending.add(p);
+	}
 
 	public static void tickPending(Minecraft mc) {
 		Iterator<com.sonar.Cues.Pending> it = pending.iterator();
@@ -57,724 +60,32 @@ public class Cues {
 		}
 	}
 
-	/** Distance to the first solid block along a ray. Doors and trapdoors never stop it (the echo passes through them), and leaves do not when ignoreLeaves is set. */
-	static double rayLen(Minecraft mc, Vec3 from, double dx, double dy, double dz, double len, boolean ignoreLeaves) {
-		return rayLen(mc, from, dx, dy, dz, len, ignoreLeaves, true);
-	}
-
-	/** passDoors false: closed doors and trapdoors are walls (the room test). */
-	static double rayLen(Minecraft mc, Vec3 from, double dx, double dy, double dz, double len, boolean ignoreLeaves, boolean passDoors) {
-		Vec3 end = from.add(dx * len, dy * len, dz * len), start = from;
-		for (int i = 0; i < 16; i++) {
-			BlockHitResult hit = mc.level.clip(new ClipContext(start, end, Block.COLLIDER, Fluid.NONE, mc.player));
-			if (hit.getType() == Type.MISS) return len;
-			BlockState bs = mc.level.getBlockState(hit.getBlockPos());
-			if (!((passDoors && (bs.is(BlockTags.DOORS) || bs.is(BlockTags.TRAPDOORS))) || (ignoreLeaves && bs.is(BlockTags.LEAVES)))) return from.distanceTo(hit.getLocation());
-			Vec3 d = end.subtract(start), step = d.normalize().scale(0.02);
-			start = hit.getLocation().add(step);
-			if (start.distanceToSqr(end) < 1e-4) return len;
-			// leaves/doors are skipped only for the cell they occupy; the next clip starts just past the hit point
-		}
-		return len;
-	}
-
-	static float ledgeVol(Ledge l) {
-		return Math.max(0.8F, Math.min(1.8F, 0.8F + 0.1F * (l.drop - 4)));
-	}
-
-	static String ledgeId;
-	static SoundEvent ledgeEv;
-
-	/** The ledge sound (config id), looped as a continuous tone. */
-	static SoundEvent ledgeSound(SonarConfig cfg) {
-		if (ledgeEv == null || !cfg.ledgeSound.equals(ledgeId)) {
-			ledgeId = cfg.ledgeSound;
-			var id = net.minecraft.resources.Identifier.tryParse(ledgeId);
-			ledgeEv = id == null ? SoundEvents.METAL_BREAK : SoundEvent.createVariableRangeEvent(id);
-		}
-		return ledgeEv;
-	}
-
-	/** Where the echo replaces the sonar: underground (cave mode) or inside an enclosed room. Worked out once per scan. */
-	static boolean insideSpace(Minecraft mc, Scan s) {
-		if (s.inside == null) {
-			s.inside = cave(mc, s) || enclosed(mc, s); // (a base dug into rock is both: either way the echo replaces the sonar) // underground or inside a room the echo replaces the block sounds; outside (even next to a visible opening) the sonar keeps playing
-		}
-		return s.inside;
-	}
-
-	/** Something solid within `h` blocks straight above `pt` that is a real roof: leaves never count, and neither do natural logs that have leaves around them (a tree's trunk and branches). Doors and trapdoors never count either. */
-	static boolean solidRoof(Minecraft mc, Vec3 pt, int h) {
-		var pos = new net.minecraft.core.BlockPos.MutableBlockPos();
-		int x = (int) Math.floor(pt.x), y = (int) Math.floor(pt.y), z = (int) Math.floor(pt.z);
-		for (int dy = 1; dy <= h; dy++) {
-			BlockState bs = mc.level.getBlockState(pos.set(x, y + dy, z));
-			if (bs.getCollisionShape(mc.level, pos).isEmpty() || bs.is(BlockTags.LEAVES) || bs.is(BlockTags.DOORS) || bs.is(BlockTags.TRAPDOORS)) continue;
-			if (bs.is(BlockTags.OVERWORLD_NATURAL_LOGS)) {
-				// a tree: a real canopy around the log (6+ leaves within 2 blocks) and nothing built touching it. A log roof has built blocks (planks, stairs, slabs, glass...) next to its logs.
-				int leaves = 0;
-				boolean built = false;
-				for (int ax = -2; ax <= 2; ax++) for (int ay = -2; ay <= 2; ay++) for (int az = -2; az <= 2; az++) {
-					BlockState n = mc.level.getBlockState(pos.set(x + ax, y + dy + ay, z + az));
-					if (n.is(BlockTags.LEAVES)) leaves++;
-					else if (Math.abs(ax) <= 1 && Math.abs(ay) <= 1 && Math.abs(az) <= 1 && !FloorEdge.natural(n) && !n.getCollisionShape(mc.level, pos).isEmpty()) built = true;
-				}
-				boolean tree = leaves >= 6 && !built;
-				if (tree) continue;
-			}
-			return true;
-		}
-		return false;
-	}
-
-	private static String lastRoomMsg = "";
-	private static int offCorridorChecks;
-
-	static boolean enclosed(Minecraft mc, Scan s) {
-		return enclosed(mc, new Vec3(s.ex, s.ey, s.ez));
-	}
-
-	/** The room test (roof overhead plus walls around you), shared by the echo, the sonar and the path bell. */
-	static boolean enclosed(Minecraft mc, Vec3 from) {
-		double k = Math.sqrt(0.5);
-		double[][] up = new double[][]{{0.0, 1.0, 0.0}, {k, k, 0.0}, {-k, k, 0.0}, {0.0, k, k}, {0.0, k, -k}};
-		int roof = 0;
-
-		for (double[] v : up) {
-			if (rayLen(mc, from, v[0], v[1], v[2], 16.0, true, false) < 16.0) {
-				roof++;
-			}
-		}
-
-		if (roof < 3) return false;
-		// a roof alone is not a room (a covered deck, a porch, a carport): it also needs walls around you, in most directions within 14 blocks
-		int walls = 0;
-		for (int i = 0; i < 8; i++) {
-			double a = i * Math.PI / 4;
-			if (rayLen(mc, from, Math.cos(a), 0.0, Math.sin(a), 14.0, true, false) < 14.0) walls++;
-		}
-		if (SonarConfig.cur.debug && mc.player != null) {
-			String rm = "room test: roof " + roof + "/5, walls " + walls + "/8 within 14 blocks (need " + (roof >= 5 ? 5 : 6) + " walls and 3 roof)";
-			if (!rm.equals(lastRoomMsg)) { lastRoomMsg = rm; mc.player.sendSystemMessage(Component.literal(rm)); }
-		}
-		return walls >= (roof >= 5 ? 5 : 6); // fully roofed (every overhead ray hit something): big open-plan houses count with one wall fewer
-	}
-
-	static void tagTree(Map<com.sonar.Cues.Cue, Integer> kinds, com.sonar.Cues.Cue c, BlockState st) {
-		if (st.is(BlockTags.LEAVES)) {
-			kinds.put(c, 1);
-		} else if (st.is(BlockTags.OVERWORLD_NATURAL_LOGS)) {
-			kinds.put(c, 2);
-		}
-	}
-
 	static boolean isTerrainSound(SoundEvent e) {
 		String p = e.location().getPath();
 		return p.contains("grass") || p.contains("gravel") || p.contains("rooted") || p.contains("mud") || p.contains("moss") || p.contains("roots");
 	}
 
-	static List<double[]> mouths(Minecraft mc, Scan s) {
-		int n = 32;
-		double[] r = new double[n];
-		double[] base = new double[n];
-		Vec3 from = new Vec3(s.ex, s.ey, s.ez);
-
-		for (int i = 0; i < n; i++) {
-			double a = i * 2 * Math.PI / n;
-			r[i] = rayLen(mc, from, Math.cos(a), 0.0, Math.sin(a), s.range, false);
-		}
-
-		boolean[] open = new boolean[n];
-
-		for (int i = 0; i < n; i++) {
-			base[i] = Math.min(r[(i + n - 3) % n], r[(i + 3) % n]);
-			// a wall anywhere inside the sonar range can have an opening: much deeper than the wall (1.8x), or clearly deeper (1.35x and 8+ blocks), which is what a door in a house front looks like from far off
-			open[i] = base[i] < 0.98 * s.range && r[i] - base[i] > 6.0 && (r[i] > 1.8 * base[i] || (r[i] > 1.35 * base[i] && r[i] - base[i] >= 8.0));
-		}
-
-		double c25 = Math.cos(Math.toRadians(25.0));
-		double s25 = Math.sin(Math.toRadians(25.0));
-		List<double[]> out = new ArrayList<>();
-		int i = 0;
-
-		while (i < n) {
-			if (!open[i]) {
-				i++;
-			} else {
-				int j = i;
-				double sumD = 0.0;
-				double sumB = 0.0;
-
-				while (j < n && open[j]) {
-					sumD += r[j];
-					sumB += base[j];
-					j++;
-				}
-
-				int cnt = j - i;
-				double mid = (i + j - 1) / 2.0 * 2.0 * Math.PI / n;
-				double avgB = sumB / cnt;
-				// roof must cover the stretch just inside the opening (a real cave), not just an overhang, a mountainside, or a roof far behind a gap
-				double dc = Math.cos(mid), ds = Math.sin(mid), dm = sumD / cnt;
-				int roofs = 0;
-				for (double dd : new double[]{avgB + 1.5, avgB + 3.5, avgB + 5.5}) { // the roof must start right at the opening (a cave ceiling, a hall), not only far behind it (a gap between trees looking at a distant roof)
-					double dist = Math.min(dd, dm * 0.95);
-					Vec3 pt = from.add(dc * dist, 0.0, ds * dist);
-					if (solidRoof(mc, pt, 8)) {
-						roofs++;
-					}
-				}
-
-				if (SonarConfig.cur.debug && mc.player != null) {
-					Vec3 far = from.add(dc * 40.0, 0.0, ds * 40.0);
-					var hit = mc.level.clip(new ClipContext(from, far, Block.COLLIDER, Fluid.NONE, mc.player));
-					mc.player.sendSystemMessage(Component.literal(String.format("mouth: bearing %.0f deg, reach %.1f, wall before it %.1f, %d rays wide, roofs %d/3, ray hits %s at %.1f", Math.toDegrees(mid), dm, avgB, cnt, roofs,
-						hit.getType() == Type.MISS ? "nothing" : mc.level.getBlockState(hit.getBlockPos()).getBlock().getDescriptionId(), hit.getType() == Type.MISS ? 40.0 : from.distanceTo(hit.getLocation()))));
-				}
-				if (roofs < 3) { // a door is an entrance by itself: if the first thing along this bearing is a door, no roof is needed (the ray goes on through it, so the roof samples would land past the back of the building)
-					var dh = mc.level.clip(new ClipContext(from, from.add(dc * s.range, 0.0, ds * s.range), Block.COLLIDER, Fluid.NONE, mc.player));
-					if (dh.getType() != Type.MISS && mc.level.getBlockState(dh.getBlockPos()).is(BlockTags.DOORS)) roofs = 3;
-				}
-				if (roofs >= 3) {
-					out.add(new double[]{mid, dm, cnt, avgB}); // bearing, depth, width in rays, distance to the opening itself
-				}
-
-				i = j;
-			}
-		}
-
-		double fwd = Math.atan2(Math.cos(Math.toRadians(s.yaw)), -Math.sin(Math.toRadians(s.yaw)));
-		out.sort(Comparator.comparingDouble(m -> Math.abs(Math.atan2(Math.sin(m[0] - fwd), Math.cos(m[0] - fwd)))));
-		return out.size() > MAX_ECHOES ? new ArrayList<>(out.subList(0, MAX_ECHOES)) : out;
-	}
-
-	/** One echo click. Its loudness and pitch tell the distance relative to `range` (the sonar range, or the cave echo range underground); `elev` tilts it up or down (a route that climbs or descends). */
-	private static void scheduleEcho(Scan s, SonarConfig cfg, double ang, double dist, float mul, int delay, double range, double elev) {
-		double dx = Math.cos(ang);
-		double dz = Math.sin(ang);
-		float vol = cfg.volume * cfg.echoVolume * 1.06F * mul * (1.0F - 0.5F * (float)Math.min(1.0, dist / range));
-		float pitch = 1.4F - 0.7F * (float)Math.min(1.0, dist / range);
-		if (dist < range * 0.2) {
-			pitch = Math.min(2.0F, pitch + 0.2F); // tight space: a short, high click
-		}
-
-		SoundEvent hat = (SoundEvent)SoundEvents.NOTE_BLOCK_HAT.value();
-		double[] lag = lag(s);
-		double y = s.ey + lag[1] + 4.0 * Math.sin(elev);
-		pending.add(new com.sonar.Cues.Pending(hat, vol, pitch, s.ex + lag[0] + dx * 4.0, y, s.ez + lag[2] + dz * 4.0, new int[]{delay}));
-		if (dist > range * 0.45) { // big space: a softer, lower tail after the echo
-			pending.add(new com.sonar.Cues.Pending(hat, vol * 0.45F, pitch * 0.8F, s.ex + lag[0] + dx * 4.0, y, s.ez + lag[2] + dz * 4.0, new int[]{delay + 3}));
-		}
-	}
-
-	/** Most echoes in one ping. */
-	static final int MAX_ECHOES = 8;
-
-	/** Volume factor by where it is: ahead 1.0, to the side 0.75, behind 0.5. */
-	static double facingVol(Scan s, double ang) {
-		double fwd = Math.atan2(Math.cos(Math.toRadians(s.yaw)), -Math.sin(Math.toRadians(s.yaw)));
-		double rel = Math.abs(Math.atan2(Math.sin(ang - fwd), Math.cos(ang - fwd)));
-		return rel < Math.PI / 4 ? 1.0 : (rel > Math.PI * 3.0 / 4.0 ? 0.5 : 0.75);
-	}
-
-	/** The doors in sight as echoes {bearing, distance, volume, prio 3, entrance 1, elevation 0}: nearby ones merged (a double door is one), nearest 8, and none where another echo already points the same way. */
-	static List<double[]> visibleDoors(Scan s, List<double[]> others) {
-		if (s.doors.isEmpty() && !s.doorsSearched) { s.doorsSearched = true; s.findDoors(); }
-		List<double[]> sorted = new ArrayList<>(s.doors);
-		sorted.sort(Comparator.comparingDouble(d -> d[1]));
-		List<double[]> out = new ArrayList<>();
-		outer:
-		for (double[] d : sorted) {
-			for (double[] g : others) if (Math.abs(Math.atan2(Math.sin(d[0] - g[0]), Math.cos(d[0] - g[0]))) < Math.toRadians(12)) continue outer;
-			for (double[] o : out) if (Math.abs(Math.atan2(Math.sin(d[0] - o[0]), Math.cos(d[0] - o[0]))) < Math.toRadians(10) && Math.abs(d[1] - o[1]) < 3.0) continue outer;
-			out.add(new double[]{d[0], d[1], facingVol(s, d[0]), 3, 1, 0});
-			if (out.size() >= MAX_ECHOES) break;
-		}
-		return out;
-	}
+	private static boolean headWas;
+	private static int headLast = -100;
 
 	/**
-	 * Plays one ping's echoes as a single quick sequence. `echoes` = {angle, distance, volume, priority (lower = more important), entrance 0/1, elevation}.
-	 * The `count` most important are kept, then they play least important first, and the NEAREST ENTRANCE (door, way out, cave route) always plays last.
-	 * Up to 8 echoes; the spacing (3 ticks, 2 before an entrance) tightens when needed so the whole sequence ends before the next auto ping.
+	 * THE HEAD BONK: a soft low tone from above, played only when you jump into a ceiling (an upward collision), never because a ceiling is merely low. Once
+	 * per bump (a held jump under a ceiling does not repeat it).
 	 */
-	private static void playAll(Scan s, SonarConfig cfg, List<double[]> echoes, int count, double range) {
-		if (echoes.isEmpty() || count <= 0) return;
-		echoes.sort(Comparator.<double[]>comparingDouble(e -> e[3]).thenComparingDouble(e -> -e[2]).thenComparingDouble(e -> e[1]));
-		List<double[]> seq = new ArrayList<>(echoes.subList(0, Math.min(Math.min(count, MAX_ECHOES), echoes.size())));
-		java.util.Collections.reverse(seq); // least important first
-		int near = -1;
-		for (int i = 0; i < seq.size(); i++) if (seq.get(i)[4] == 1 && (near < 0 || seq.get(i)[1] < seq.get(near)[1])) near = i;
-		if (near >= 0) seq.add(seq.remove(near));
-		int period = Math.max(6, Math.round(cfg.autoPing * 20));
-		int echoAt = 1 + Math.min(6, Math.max(2, period / 2));
-		int avail = Math.max(seq.size() - 1, period - echoAt - 3); // ticks the sequence may take
-		int gap = seq.size() <= 1 ? 3 : Math.max(1, Math.min(3, avail / (seq.size() - 1)));
-		int t = 1;
-		for (int i = 0; i < seq.size(); i++) {
-			double[] e = seq.get(i);
-			scheduleEcho(s, cfg, e[0], e[1], (float) e[2], t, range, e[5]);
-			if (i + 1 < seq.size()) t += seq.get(i + 1)[4] == 1 ? Math.max(1, gap - 1) : gap;
+	static void headBonk(Minecraft mc, SonarConfig cfg) {
+		var p = mc.player;
+		if (p == null) return;
+		boolean hit = p.verticalCollision && !p.verticalCollisionBelow && !p.onGround() && !p.isInWater();
+		if (hit && !headWas && cfg.ceilingCue && SonarClient.tick - headLast > 6) {
+			headLast = SonarClient.tick;
+			play(mc, (SoundEvent)SoundEvents.NOTE_BLOCK_BASS.value(), cfg.volume * 0.5F, 1.3F, p.getX(), p.getEyeY() + 1.5, p.getZ());
+			Tutorial.event(Tutorial.Ev.HEAD_BONK, 1);
 		}
-		if (cfg.debug && Minecraft.getInstance().player != null) {
-			double fwd = Math.atan2(Math.cos(Math.toRadians(s.yaw)), -Math.sin(Math.toRadians(s.yaw)));
-			StringBuilder sb = new StringBuilder();
-			for (double[] e : seq) sb.append(String.format("[%s%.0f deg %.0f bl] ", e[4] == 1 ? "ENTR " : "", Math.toDegrees(Math.atan2(Math.sin(e[0] - fwd), Math.cos(e[0] - fwd))), e[1]));
-			Minecraft.getInstance().player.sendSystemMessage(Component.literal("echo plays " + seq.size() + " (gap " + gap + "): " + sb));
-		}
-	}
-
-	/** You stand on a built floor (planks, bricks, slabs, tiles...), not natural ground: a room dug into rock with a laid floor is a home, not a cave. */
-	static boolean builtFloor(Minecraft mc, Scan s) {
-		var pos = new net.minecraft.core.BlockPos.MutableBlockPos();
-		for (int y = s.feetY; y >= s.feetY - 2; y--) {
-			BlockState bs = mc.level.getBlockState(pos.set(s.px, y, s.pz));
-			if (bs.getCollisionShape(mc.level, pos).isEmpty()) continue;
-			return !FloorEdge.natural(bs) && !CaveEcho.caveRock(bs);
-		}
-		return false;
-	}
-
-	/** A door you can see within 16 blocks. */
-	static boolean doorNear(Scan s) {
-		if (s.doors.isEmpty() && !s.doorsSearched) { s.doorsSearched = true; s.findDoors(); }
-		for (double[] d : s.doors) if (d[1] <= 16) return true;
-		return false;
-	}
-
-	/** Underground (rock all around): the cave echo. Cached per scan. */
-	static boolean cave(Minecraft mc, Scan s) {
-		if (s.cave == null) s.cave = CaveEcho.inCave(mc, new Vec3(s.ex, s.ey, s.ez));
-		return s.cave;
-	}
-
-	static void echo(Minecraft mc, Scan s, SonarConfig cfg) {
-		if (cfg.echoCount == 0) {
-			return;
-		}
-
-		if (cfg.debug && mc.player != null) { // what is straight ahead: does a collision ray stop at it, does an outline ray, and which blocks are there
-			double yr = Math.toRadians(s.yaw), ax = -Math.sin(yr), az = Math.cos(yr);
-			Vec3 o = new Vec3(s.ex, s.ey, s.ez), far = o.add(ax * 20.0, 0.0, az * 20.0);
-			var hc = mc.level.clip(new ClipContext(o, far, Block.COLLIDER, Fluid.NONE, mc.player));
-			var ho = mc.level.clip(new ClipContext(o, far, Block.OUTLINE, Fluid.NONE, mc.player));
-			StringBuilder sb = new StringBuilder();
-			for (int d = 1; d <= 6; d++) {
-				var bp = net.minecraft.core.BlockPos.containing(s.ex + ax * d, s.ey, s.ez + az * d);
-				sb.append(d).append('=').append(mc.level.getBlockState(bp).getBlock().getDescriptionId().replace("block.minecraft.", "")).append(' ');
-			}
-			mc.player.sendSystemMessage(Component.literal(String.format("ahead probe: collider %s at %.1f, outline %s at %.1f | %s", hc.getType() == Type.MISS ? "nothing" : mc.level.getBlockState(hc.getBlockPos()).getBlock().getDescriptionId(), hc.getType() == Type.MISS ? 20.0 : o.distanceTo(hc.getLocation()),
-				ho.getType() == Type.MISS ? "nothing" : mc.level.getBlockState(ho.getBlockPos()).getBlock().getDescriptionId(), ho.getType() == Type.MISS ? 20.0 : o.distanceTo(ho.getLocation()), sb)));
-		}
-		int count = cfg.echoCount < 0 ? MAX_ECHOES : cfg.echoCount; // auto: every way out that was found, up to 8
-		List<double[]> echoes = new ArrayList<>(); // {angle, distance, volume, priority, entrance 0/1, elevation}
-
-		boolean room = enclosed(mc, s);
-		if (cave(mc, s) && !(room && (doorNear(s) || builtFloor(mc, s)))) { // underground: every route leading away, listened for out to the cave echo range. An enclosed space with a door in sight is a base or a house dug into the rock: house mode
-			List<double[]> routes = CaveEcho.routes(mc, s, cfg.caveRange);
-			for (int i = 0; i < routes.size(); i++) {
-				double[] r = routes.get(i);
-				echoes.add(new double[]{r[0], r[1], facingVol(s, r[0]), i, 1, r[4]}); // priority = how clearly it stands out
-			}
-			echoes.addAll(visibleDoors(s, echoes)); // a door down here (a base, a vault) is a way too
-			if (cfg.debug && mc.player != null) mc.player.sendSystemMessage(Component.literal("echo: CAVE mode, " + routes.size() + " routes, doors seen " + s.doors.size()));
-			playAll(s, cfg, echoes, count, cfg.caveRange);
-			return;
-		}
-
-		if (room) { // inside a building: its ways out (doors, open sides) and staircases, found by walking the floor; walls, glass included, never echo
-			echoes.addAll(ExitGuide.find(mc, s));
-		} else { // outside: cave mouths and big openings in sight
-			for (double[] g : mouths(mc, s)) echoes.add(new double[]{g[0], g[1], facingVol(s, g[0]), 1, 1, 0});
-		}
-		echoes.addAll(visibleDoors(s, echoes)); // every door in sight gets its own echo, unless one already points that way
-		if (cfg.debug && mc.player != null) {
-			StringBuilder sb = new StringBuilder();
-			for (double[] e : echoes) sb.append(String.format("[%.0f deg, %.1f blocks, prio %.0f%s] ", Math.toDegrees(e[0]), e[1], e[3], e[4] == 1 ? ", entrance" : ""));
-			mc.player.sendSystemMessage(Component.literal("echo: " + (room ? "ROOM" : "OUTSIDE") + " mode | doors seen " + s.doors.size() + " | " + sb));
-		}
-		playAll(s, cfg, echoes, count, s.range);
-	}
-
-	/** One continuous tone tracking the nearest edge ahead (louder/higher when closer; tall drops louder and lower). Returns ticks until the next check. */
-	/** Edges to your left and right (outside the forward cone), each as its own quieter tone placed on that side, so ledges on both sides are easy to tell apart. Returns whether any played. */
-	private static boolean sideTones(Minecraft mc, Scan s, SonarConfig cfg, double lead) {
-		double yawR = Math.toRadians(s.yaw);
-		double fx = -Math.sin(yawR);
-		double fz = Math.cos(yawR);
-		double rx = -Math.cos(yawR);
-		double rz = -Math.sin(yawR);
-		Ledge[] side = new Ledge[2];
-		double[] rad = new double[2];
-		if (cfg.sideLedges) {
-			boolean aheadEdge = false; // an edge in front of you: the ones behind are not needed
-			for (Ledge l : s.ledges) {
-				if (l.d <= cfg.ledgeWarnRange && l.d != Float.MAX_VALUE) {
-					double ex = l.x + 0.5 - s.ex, ez = l.z + 0.5 - s.ez;
-					if (Math.abs(Math.toDegrees(Math.atan2(ex * rx + ez * rz, ex * fx + ez * fz))) < 45.0 && !sideways(l, fx, fz)) {
-						aheadEdge = true;
-						break;
-					}
-				}
-			}
-			for (Ledge l : s.ledges) {
-				if (l.d > 4.0F || l.d < 0.6F) {
-					continue;
-				}
-				double ex = l.x + 0.5 - s.ex;
-				double ez = l.z + 0.5 - s.ez;
-				double r = Math.atan2(ex * rx + ez * rz, ex * fx + ez * fz);
-				if (sideways(l, fx, fz)) {
-					r = (l.ox * rx + l.oz * rz) < 0 ? -Math.PI / 2 : Math.PI / 2; // the ground falls away to that side (the open side of a staircase or a ridge ahead of you): it sounds from that side, never ahead
-				} else if (Math.abs(Math.toDegrees(r)) < 45.0) {
-					continue; // ahead is handled by the main tone
-				}
-				if (corridor) { // on a path: only the nearer edge sounds, and only once you are clearly off-centre (so a centred walk is silent)
-					double latd = Math.abs(ex * rx + ez * rz);
-					double od = ex * rx + ez * rz < 0 ? corrRight : corrLeft;
-					if (latd > 1.8 || latd > od * 0.6) {
-						continue;
-					}
-				}
-				if (aheadEdge && Math.abs(Math.toDegrees(r)) > 110.0) {
-					continue; // an edge ahead: leave out the ones behind you
-				}
-				int k = r < 0.0 ? 0 : 1;
-				if (side[k] == null || l.d < side[k].d) {
-					side[k] = l;
-					rad[k] = r;
-				}
-			}
-		}
-
-		if (corridor) { // on a path: silent while centred; the nearer edge gets its own tone, panned hard to that side, once you are clearly off-centre
-			boolean anyC = false;
-			for (int k = 0; k < 2; k++) {
-				double dn = k == 0 ? corrLeft : corrRight, df = k == 0 ? corrRight : corrLeft;
-				if (dn <= 0.8 && dn < df * 0.6) {
-					float c = 1.0F - (float)(dn / 0.8);
-					float vol = Math.min(1.0F, 0.72F * ledgeCurve(c, k == 0 ? corrLeftDrop : corrRightDrop) * dropFactor(k == 0 ? corrLeftDrop : corrRightDrop) * cfg.volume / 0.6F * cfg.ledgeVolume);
-					float pitch = (0.75F + 0.7F * c) * dropPitch(k == 0 ? corrLeftDrop : corrRightDrop);
-					double a = (k == 0 ? -1.0 : 1.0) * 1.2;
-					LedgeTone.update(mc, ledgeSound(cfg), k + 1, vol, pitch, s.ex + 4.0 * (Math.cos(a) * fx + Math.sin(a) * rx), s.feetY - 1.0, s.ez + 4.0 * (Math.cos(a) * fz + Math.sin(a) * rz));
-					anyC = true;
-				} else {
-					LedgeTone.quiet(k + 1);
-				}
-			}
-			return anyC;
-		}
-
-		boolean any = false;
-		for (int k = 0; k < 2; k++) {
-			Ledge l = side[k];
-			if (l == null) {
-				LedgeTone.quiet(k + 1);
-				continue;
-			}
-			any = true;
-			float c = Math.max(0.0F, Math.min(1.0F, 1.0F - (float)Math.max(0.0, l.d - lead) / cfg.ledgeWarnRange));
-			float dropF = dropFactor(l.drop);
-			float vol = Math.min(1.0F, 0.6F * 0.72F * ledgeCurve(c, l.drop) * dropF * cfg.volume / 0.6F * cfg.ledgeVolume);
-			float pitch = Math.max(0.4F, Math.min(2.0F, (0.75F + 0.7F * c) * dropPitch(l.drop)));
-			// placed hard to that side: the sideways angle is exaggerated and the source sits well out (8 blocks), so it reads as coming from that direction
-			double a = Math.signum(rad[k]) * Math.min(1.4, Math.abs(rad[k]) * 1.5);
-			double dist = 8.0;
-			LedgeTone.update(mc, ledgeSound(cfg), k + 1, vol, pitch, s.ex + dist * (Math.cos(a) * fx + Math.sin(a) * rx), l.y - 0.5, s.ez + dist * (Math.cos(a) * fz + Math.sin(a) * rz));
-		}
-
-		return any;
-	}
-
-	/** Distance and drop of the edge you are heading toward (for the optional edge brake); updated by watchLedges. */
-	static float edgeAheadD = Float.MAX_VALUE;
-	static int edgeAheadDrop;
-	static double edgeAheadX, edgeAheadZ;
-	/** Nearest walkable step down of 2+ blocks ahead of you (the brake also uses this). */
-	static float stepAheadD = Float.MAX_VALUE;
-	static int stepAheadDrop;
-	static double stepAheadX, stepAheadZ;
-
-	private static int dbgTick;
-	private static int ledgeMiss;
-	/** True while an edge is within warning range, so the tone keeps going even if you stand still next to it. */
-	static boolean ledgeActive;
-	private static boolean corridor, wasCorridor;
-	private static double corrLeft, corrRight;
-	private static int corrLeftDrop = 99, corrRightDrop = 99;
-
-	public static int watchLedges(Minecraft mc, Scan s, SonarConfig cfg, double vx, double vz) {
-		double sp = Math.max(1.0E-6, Math.hypot(vx, vz));
-		var mv = mc.player.getDeltaMovement();
-		double lead = Math.hypot(mv.x, mv.z) * 20.0 * 0.35; // running: judge the edge as if you were already 0.35 s further along
-		List<Ledge> near = new ArrayList<>();
-		stepAheadD = Float.MAX_VALUE;
-		for (Ledge dr : s.drops) {
-			if (dr.d == Float.MAX_VALUE || dr.d >= stepAheadD) {
-				continue;
-			}
-			double ex = dr.x + 0.5 - s.ex;
-			double ez = dr.z + 0.5 - s.ez;
-			if ((ex * vx + ez * vz) / (Math.max(1.0E-6, Math.hypot(ex, ez)) * sp) >= 0.7 || dr.d <= 0.6) {
-				stepAheadD = dr.d;
-				stepAheadDrop = dr.drop;
-				stepAheadX = dr.x + 0.5;
-				stepAheadZ = dr.z + 0.5;
-			}
-		}
-
-		// standing over (or right beside) a hole: edges nearly all the way around you within 4 blocks. Sound it from inside the hole, below you.
-		// (A ridge or path with a drop on each side has big gaps ahead and behind, so it is not a hole.)
-		int holeCount = 0;
-		double cx = 0.0;
-		double cz = 0.0;
-		float nearest = Float.MAX_VALUE;
-		int deepest = 0;
-		List<Double> bearings = new ArrayList<>();
-		for (Ledge l : s.ledges) {
-			if (l.d <= 4.0F) {
-				bearings.add(Math.atan2(l.z + 0.5 - s.ez, l.x + 0.5 - s.ex));
-				cx += l.x + 0.5;
-				cz += l.z + 0.5;
-				holeCount++;
-				nearest = Math.min(nearest, l.d);
-				deepest = Math.max(deepest, l.drop);
-			}
-		}
-
-		double maxGap = 2.0 * Math.PI;
-		if (bearings.size() >= 4) {
-			java.util.Collections.sort(bearings);
-			maxGap = bearings.get(0) + 2.0 * Math.PI - bearings.get(bearings.size() - 1);
-			for (int i = 1; i < bearings.size(); i++) {
-				maxGap = Math.max(maxGap, bearings.get(i) - bearings.get(i - 1));
-			}
-		}
-
-		// corridor: a straight path or ridge with a drop on BOTH sides. Each side is a line of edge cells at the same distance (3+ cells within 4 blocks along your heading).
-		// Its edges are constant, so they only sound once you drift close to one. (It is also not a hole, though edges surround you.)
-		double cyaw = Math.toRadians(s.yaw);
-		double cfx = -Math.sin(cyaw), cfz = Math.cos(cyaw), crx = -Math.cos(cyaw), crz = -Math.sin(cyaw);
-		double dLeft = Double.MAX_VALUE, dRight = Double.MAX_VALUE;
-		int dropL = 99, dropR = 99; // how deep the nearest edge on each side is (the path guide does not know, so it counts as a full warning)
-		for (Ledge l : s.ledges) {
-			if (l.d > 5.0F || l.d == Float.MAX_VALUE) {
-				continue;
-			}
-			double ex = l.x + 0.5 - s.ex, ez = l.z + 0.5 - s.ez;
-			double lat = ex * crx + ez * crz, fwd = ex * cfx + ez * cfz;
-			if (Math.abs(fwd) > 4.0 || Math.abs(lat) < 0.05) {
-				continue; // far ahead or behind: not a side edge
-			}
-			if (lat < 0) {
-				if (-lat < dLeft) { dLeft = -lat; dropL = l.drop; }
-			} else {
-				if (lat < dRight) { dRight = lat; dropR = l.drop; }
-			}
-		}
-		int nLeft = 0, nRight = 0;
-		for (Ledge l : s.ledges) {
-			if (l.d > 5.0F || l.d == Float.MAX_VALUE) {
-				continue;
-			}
-			double ex = l.x + 0.5 - s.ex, ez = l.z + 0.5 - s.ez;
-			double lat = ex * crx + ez * crz, fwd = ex * cfx + ez * cfz;
-			if (Math.abs(fwd) > 4.0 || Math.abs(lat) < 0.05) {
-				continue;
-			}
-			if (lat < 0 && -lat - dLeft < 0.6) {
-				nLeft++;
-			} else if (lat > 0 && lat - dRight < 0.6) {
-				nRight++;
-			}
-		}
-		corridor = dLeft <= 4.5 && dRight <= 4.5 && nLeft >= 2 && nRight >= 2;
-		boolean guided = false;
-		double bndL = Double.MAX_VALUE, bndR = Double.MAX_VALUE;
-		if (PathGuide.active()) { // the path guide knows the path (stairs, ramps, bends too): measure the sides from the path itself instead of guessing from the drops
-			double[] pe = PathGuide.edges(mc, s.ex, s.ez, mc.player.getBlockY() - 1, crx, crz, cfg.ledgeMinDrop);
-			if (pe != null) {
-				guided = true;
-				corridor = true;
-				dLeft = pe[0];
-				dRight = pe[1];
-				bndL = pe[2];
-				bndR = pe[3];
-			}
-		}
-		if (guided) { dropL = 99; dropR = 99; }
-		corrLeft = dLeft;
-		corrRight = dRight;
-		corrLeftDrop = dropL;
-		corrRightDrop = dropR;
-		if (corridor && !wasCorridor && offCorridorChecks >= 12) { // really stepped onto a path after a while off it (about a second of checks): the island's edge tone must not ring on. A flicker of the path state (the guide losing and regaining the path while you stand at an edge) must NOT cut the tone.
-			LedgeTone.hush(0);
-			LedgeTone.hush(1);
-			LedgeTone.hush(2);
-		}
-		offCorridorChecks = corridor ? 0 : offCorridorChecks + 1;
-		wasCorridor = corridor;
-
-		if (cfg.debug && ++dbgTick % 7 == 3) {
-			mc.player.sendSystemMessage(Component.literal(String.format("hole check: guided %b corridor %b (L %.1f x%d, R %.1f x%d) edges<=4: %d, maxGap %.0f", guided, corridor, dLeft > 1e6 ? -1.0 : dLeft, nLeft, dRight > 1e6 ? -1.0 : dRight, nRight, holeCount, Math.toDegrees(maxGap))));
-		}
-		if (!corridor && !PathGuide.active() && holeCount >= 4 && maxGap < Math.toRadians(110.0)) {
-			if (cfg.debug) {
-				mc.player.sendSystemMessage(Component.literal("TONE: hole (under you), nearest " + nearest + " deepest " + deepest));
-			}
-			ledgeMiss = 0;
-			ledgeActive = true;
-			float c = Math.max(0.0F, Math.min(1.0F, 1.0F - (float)Math.max(0.0, nearest - lead) / cfg.ledgeWarnRange));
-			float dropF = dropFactor(deepest);
-			float vol = Math.min(1.0F, 0.72F * ledgeCurve(c, deepest) * dropF * cfg.volume / 0.6F * cfg.ledgeVolume);
-			float pitch = Math.max(0.4F, Math.min(2.0F, (0.75F + 0.7F * c) * dropPitch(deepest)));
-			LedgeTone.quiet(1);
-			LedgeTone.quiet(2);
-			LedgeTone.update(mc, ledgeSound(cfg), 0, vol, pitch, cx / holeCount, s.feetY - Math.min(deepest, 6) * 0.7 - 0.5, cz / holeCount);
-			return 3;
-		}
-
-		edgeAheadD = Float.MAX_VALUE;
-		boolean anySide = sideTones(mc, s, cfg, lead);
-		if (cfg.debug && dbgTick % 7 == 1) {
-			int nLedges = 0;
-			StringBuilder sb = new StringBuilder();
-			for (Ledge e : s.ledges) {
-				if (e.d != Float.MAX_VALUE && e.d <= 6.0F) {
-					double ex = e.x + 0.5 - s.ex, ez = e.z + 0.5 - s.ez;
-					if (++nLedges <= 8) {
-						sb.append(String.format(" [fwd %.1f lat %.1f drop %d]", ex * cfx + ez * cfz, ex * crx + ez * crz, e.drop));
-					}
-				}
-			}
-			mc.player.sendSystemMessage(Component.literal(String.format("corridor %b (L %.1f R %.1f) ledges<=6: %d%s", corridor, dLeft, dRight, nLedges, sb)));
-		}
-		if (cfg.debug && ++dbgTick % 7 == 0) {
-			Ledge nl = null;
-			int n = 0;
-			for (Ledge e : s.ledges) {
-				if (e.d != Float.MAX_VALUE) {
-					n++;
-					if (nl == null || e.d < nl.d) {
-						nl = e;
-					}
-				}
-			}
-
-			mc.player.sendSystemMessage(Component.literal(nl == null ? "ledge: none detected" : String.format("ledge: %d sectors, nearest %.1f blocks (real %.1f), drop %d, deep %b", n, nl.d, Math.hypot(nl.x + 0.5 - s.ex, nl.z + 0.5 - s.ez), nl.drop, nl.deep)));
-		}
-
-		for (Ledge l : s.ledges) {
-			if (l.d - lead > cfg.ledgeWarnRange) {
-				continue;
-			}
-			double ex = l.x + 0.5 - s.ex;
-			double ez = l.z + 0.5 - s.ez;
-			double el = Math.max(1.0E-6, Math.hypot(ex, ez));
-			// only edges within ~45 degrees of where you are heading count, AND the ground must fall away in the direction you are going: a drop beside a staircase or ridge ahead of you
-			// is a side edge (sideTones plays it from that side). el = the real distance: l.d can be shrunk by the stair-approach logic, which must not make a far edge count as "at your feet".
-			if (el > 1.0 && ((ex * vx + ez * vz) / (el * sp) < 0.7 || (l.ox * vx + l.oz * vz) / sp < 0.5)) {
-				continue;
-			}
-			if (guided) { // on the guided path: terrain beyond its sides (a cliff, terraces, the island next to it) is not on your way, so it stays silent until you are back on the main land
-				double lat = ex * crx + ez * crz;
-				if (lat < -(bndL + 0.1) || lat > bndR + 0.1) {
-					continue;
-				}
-				if (Math.abs(lat + (bndL - 0.5)) < 0.6 || Math.abs(lat - (bndR - 0.5)) < 0.6) { // matched against both side lines: next to an edge the sign of lat flips
-					continue; // the cells along the path's own side lines (any drop size): sideTones handles those, they are not "ahead"
-				}
-			}
-			if (corridor) { // the two lines of edge cells along the path are handled by sideTones; only something else (the end of the path, a drop across it) counts as ahead
-				double lat = ex * crx + ez * crz;
-				if (Math.abs(lat + dLeft) < 0.6 || Math.abs(lat - dRight) < 0.6) {
-					continue;
-				}
-			}
-			near.add(l);
-		}
-
-		if (near.isEmpty()) {
-			LedgeTone.quiet(0);
-			if (anySide) {
-				ledgeMiss = 0;
-				ledgeActive = true;
-				return 3;
-			}
-
-			if (++ledgeMiss > 3) {
-				ledgeActive = false; // brief gaps (looking around, a step in the way) keep the tone instead of cutting out and restarting
-				LedgeTone.fade();
-			}
-			return 5;
-		}
-
-		ledgeMiss = 0;
-		ledgeActive = true;
-		near.sort(Comparator.comparingDouble(e -> e.d));
-		// one tone, sounded from the edge itself (just below the lip, where the ground falls away), louder and higher the closer it is
-		// the edge you are heading toward: among the nearest ones, the one most squarely ahead (at the lip, the cell beside your foot must not win)
-		Ledge l = near.get(0);
-		double bestAlign = -2.0;
-		for (Ledge e : near) {
-			if (e.d > near.get(0).d + 2.0) {
-				break;
-			}
-
-			double ex = e.x + 0.5 - s.ex;
-			double ez = e.z + 0.5 - s.ez;
-			double align = (ex * vx + ez * vz) / (Math.max(1.0E-6, Math.hypot(ex, ez)) * sp);
-			if (align > bestAlign) {
-				bestAlign = align;
-				l = e;
-			}
-		}
-
-		float c = Math.max(0.0F, Math.min(1.0F, 1.0F - (float)Math.max(0.0, l.d - lead) / cfg.ledgeWarnRange));
-		float dropF = dropFactor(l.drop);
-		float vol = Math.min(1.0F, 0.72F * ledgeCurve(c, l.drop) * dropF * cfg.volume / 0.6F * cfg.ledgeVolume);
-		float pitch = Math.max(0.4F, Math.min(2.0F, (0.75F + 0.7F * c - (l.deep ? 0.15F : 0.0F)) * dropPitch(l.drop)));
-		if (cfg.debug) {
-			double dx0 = l.x + 0.5 - s.ex, dz0 = l.z + 0.5 - s.ez;
-			mc.player.sendSystemMessage(Component.literal(String.format("TONE: main from edge fwd %.1f lat %.1f drop %d d %.1f vol %.2f | guided %b corridor %b bnd L %.1f R %.1f", dx0 * cfx + dz0 * cfz, dx0 * crx + dz0 * crz, l.drop, l.d, vol, guided, corridor, bndL > 1e6 ? -1.0 : bndL, bndR > 1e6 ? -1.0 : bndR)));
-		}
-		LedgeTone.update(mc, ledgeSound(cfg), 0, vol, pitch, l.x + 0.5 + l.ox * 0.7, l.y - 0.5, l.z + 0.5 + l.oz * 0.7); // from just past the lip, where the ground falls away
-		edgeAheadD = l.d;
-		edgeAheadDrop = l.drop;
-		edgeAheadX = l.x + 0.5;
-		edgeAheadZ = l.z + 0.5;
-
-		return 3; // check often while an edge is near so the tone tracks it closely
-	}
-
-	/** The warning's loudness follows the danger: a 3-block drop is a stumble (soft), 4 is a little louder, and 5 or more (a real fall, or lava, which counts as 99) is full strength. */
-	/** Loudness of an edge tone by closeness c (0 = at the edge of the warning range, 1 = at the lip): for small drops (3-4 blocks) it starts very quiet and climbs steeply as you close in, so it is a sharp,
-	 *  clear warning when it matters, not a constant drone while you walk near a ledge. */
-	static float ledgeCurve(float c, int drop) {
-		c = Math.max(0F, Math.min(1F, c));
-		if (drop >= 5) return 0.4F + 0.6F * c; // a real fall (5+ blocks, or lava): the early, steady warning, already clear from the far end of the range
-		return 0.08F + 0.92F * (float) Math.pow(c, 1.6);
-	}
-
-	/** The ground falls away sideways relative to where you face (not ahead): the open side of a staircase, a ridge or a path. */
-	static boolean sideways(Ledge l, double fx, double fz) {
-		return (l.ox != 0 || l.oz != 0) && Math.abs(l.ox * fx + l.oz * fz) < 0.5;
-	}
-
-	static float dropFactor(int drop) {
-		if (drop >= 5) return 1.0F;
-		if (drop == 4) return 0.25F;
-		return 0.08F;
-	}
-
-	/** Small drops sound lower; the tone rises to the normal pitch as the drop reaches 5 blocks. */
-	static float dropPitch(int drop) {
-		if (drop >= 5) return 1.0F;
-		if (drop == 4) return 0.68F;
-		return 0.5F;
+		headWas = hit;
 	}
 
 	static void play(Minecraft mc, SoundEvent e, float vol, float pitch, double x, double y, double z) {
+		vol = Math.min(1f, vol * Loud.level(e) * Voice.duck()); // evens out sounds that are naturally louder or softer than the rest; quieter while the narrator speaks
 		mc.getSoundManager().play(new SimpleSoundInstance(e, SoundSource.AMBIENT, vol, pitch, RandomSource.create(), x, y, z));
 	}
 
@@ -783,8 +94,8 @@ public class Cues {
 		return 0.12F + 0.88F * c * c;
 	}
 
-	private static final Map<SoundEvent, SoundEvent> MUFFLED = new HashMap<>();
-	private static java.util.Set<String> muffledNames;
+	static final Map<SoundEvent, SoundEvent> MUFFLED = new HashMap<>();
+	static java.util.Set<String> muffledNames;
 
 	/** Low-passed copy of a block sound (bundled in the mod), used for cues behind you so front and back sound different. Falls back to the original. */
 	static SoundEvent muffled(SoundEvent e) {
@@ -806,11 +117,35 @@ public class Cues {
 	}
 
 	/** Exaggerates the sideways angle: 1 = true angle, 2 = double (front stays front, behind stays behind). */
+	/**
+	 * DIRECTION SPREAD: pushes a sound's direction (radians from where you face, + one side) out TOWARD YOUR SIDE, never past it. Stereo tells left from right best at
+	 * exactly the side (90 degrees) and not at all straight ahead or straight behind, so angles near the front, and near the back, are widened toward 90 degrees;
+	 * straight ahead, straight to the side and straight behind stay where they are. k = 1: true angles; larger: wider.
+	 * (Round 15: the old spread kept stretching past the side, and at 200% every sound 90 degrees or more round was put exactly straight behind you, the one direction
+	 * stereo can not place at all: pings sounded "in the middle of my head".)
+	 */
 	static double spread(double a, double k) {
-		double h = Math.PI / 2;
-		double abs = Math.abs(a);
-		double out = abs <= h ? abs * k : k * h + (abs - h) * (Math.PI - k * h) / h;
-		return Math.signum(a) * Math.min(Math.PI, out);
+		double h = Math.PI / 2, abs = Math.abs(a);
+		double out = abs <= h ? h * (1 - Math.pow(1 - abs / h, k)) : Math.PI - h * (1 - Math.pow(1 - (Math.PI - abs) / h, k));
+		return Math.signum(a) * out;
+	}
+
+	/**
+	 * WHERE A SONAR SOUND IS HEARD (radians from where you face, + right), from its real direction `rel`: where it really is, widened by Direction spread `k` when
+	 * that is above 100%. Warnings (pri 0) are always heard where they really are. The beat is decided by the real direction, never this one (quarter).
+	 */
+	static double place(double rel, int pri, double k) {
+		return pri == 0 || k <= 1.001 ? rel : spread(rel, k);
+	}
+
+	/** How loud a sonar ping is for its real direction `rel`: full straight ahead, to each side and behind, SONAR_DIAGONAL at 45 degrees between, a smooth curve
+	 *  (1 - (1 - SONAR_DIAGONAL) * sin^2(2 rel)) so a block fades as you turn rather than jumping. */
+	/** How much of the diagonal dip applies at distance d: none within DIAGONAL_NEAR (up close a wall fills your front-left and front-right and must be heard), all from DIAGONAL_FULL. */
+	static double nearFade(double d) { return Math.max(0, Math.min(1, (d - Tuning.DIAGONAL_NEAR) / (Tuning.DIAGONAL_FULL - Tuning.DIAGONAL_NEAR))); }
+
+	static double diagonal(double rel) {
+		double s = Math.sin(2 * rel);
+		return 1 - (1 - Tuning.SONAR_DIAGONAL) * s * s;
 	}
 
 	static com.sonar.Cues.Cue at(Scan s, SonarConfig cfg, float d, double tx, double ty, double tz, SoundEvent e, float volMul, float pitch, int pri) {
@@ -818,13 +153,18 @@ public class Cues {
 		double vy = ty - s.ey;
 		double vz = tz - s.ez;
 		double len = Math.max(1.0E-6, Math.sqrt(vx * vx + vy * vy + vz * vz));
-		double ad = 1.0 + Math.min(d, s.range) / s.range * (pri == 0 ? 6.0 : 12.0);
+		// how far out the sound is placed: further for further blocks, but never closer than CUE_CLOSEST (right beside your head the game can not place a
+		// sound: a wall a block away collapsed into the middle of your head and was lost). How loud it is still follows the real distance.
+		double ad = Math.max(Tuning.CUE_CLOSEST, 1.0 + Math.min(d, s.range) / s.range * (pri == 0 ? 6.0 : 12.0));
 		double yawR = Math.toRadians(s.yaw);
 		double fx = -Math.sin(yawR);
 		double fz = Math.cos(yawR);
 		double hl = Math.max(1.0E-6, Math.hypot(vx, vz));
-		boolean behind = pri != 0 && (vx * fx + vz * fz) / hl < -0.5;
-		float vol = Math.min(1.0F, cfg.volume * closeness(d, s.range) * volMul * (behind ? 0.5F : 1.0F));
+		// behind you: the sounds of the sweep's last beat (more than 135 degrees round), muffled and quieter, so behind is plain (round 15: "more muted")
+		boolean behind = pri != 0 && (vx * fx + vz * fz) / hl < -Math.cos(Math.PI / 4);
+		double rx = -Math.cos(yawR), rz = -Math.sin(yawR);
+		double rel = Math.atan2(vx * rx + vz * rz, vx * fx + vz * fz); // the real direction
+		float vol = Math.min(1.0F, cfg.volume * closeness(d, s.range) * volMul * (behind ? Tuning.BEHIND_SONAR : 1.0F) * (pri != 0 ? (float) (1 - (1 - diagonal(rel)) * nearFade(d)) : 1.0F)); // (the diagonal dip fades out up close: a wall beside you is never dimmed)
 		if (behind) {
 			e = muffled(e);
 			if (cfg.behindPitch) {
@@ -832,31 +172,35 @@ public class Cues {
 			}
 		}
 
-		if (pri != 0 && cfg.directionSpread > 1.001F) {
-			double rx = -Math.cos(yawR);
-			double rz = -Math.sin(yawR);
-			double a = spread(Math.atan2(vx * rx + vz * rz, vx * fx + vz * fz), cfg.directionSpread);
+		double heard = place(rel, pri, cfg.directionSpread);
+		if (heard != rel) {
+			double a = heard;
 			vx = hl * (Math.cos(a) * fx + Math.sin(a) * rx);
 			vz = hl * (Math.cos(a) * fz + Math.sin(a) * rz);
 			len = Math.max(1.0E-6, Math.sqrt(vx * vx + vy * vy + vz * vz));
 		}
 
 		double[] lag = lag(s);
-		return new com.sonar.Cues.Cue(d, e, vol, pitch, s.ex + lag[0] + vx / len * ad, s.ey + lag[1] + vy / len * ad, s.ez + lag[2] + vz / len * ad, pri);
+		return new com.sonar.Cues.Cue(d, e, vol, pitch, s.ex + lag[0] + vx / len * ad, s.ey + lag[1] + vy / len * ad, s.ez + lag[2] + vz / len * ad, pri, rel);
 	}
 
 	/** How far you moved since the scan began. The sounds are placed around where you are now, not where you were, so they do not trail behind when you run. */
 	static double[] lag(Scan s) {
+		if (!s.live()) return new double[3]; // a scan of a self-test world: nobody has moved
 		var p = Minecraft.getInstance().player;
 		return p == null ? new double[3] : new double[]{p.getX() - s.ex, p.getEyeY() - s.ey, p.getZ() - s.ez};
 	}
 
 	static SoundEvent blockSound(BlockState st, SonarConfig cfg) {
-		if (!cfg.materialSounds) {
-			return SoundEvents.STONE_HIT;
-		}
+		return cfg.materialSounds ? materialSound(st) : SoundEvents.STONE_HIT;
+	}
 
+	/** A block's own sound (with Material sounds on). */
+	static SoundEvent materialSound(BlockState st) {
+		if (st.is(Blocks.ENCHANTING_TABLE)) return SoundEvents.ENCHANTMENT_TABLE_USE; // its own sound: the enchanting chime
 		SoundType t = st.getSoundType();
+		if ((t == SoundType.WOOD || t == SoundType.NETHER_WOOD || t == SoundType.CHERRY_WOOD || t == SoundType.BAMBOO_WOOD) && !st.is(BlockTags.LOGS))
+			return SoundEvents.CHISELED_BOOKSHELF_BREAK; // all made wood (planks, doors, fences, stairs... every kind): one hollow knock, easy to pick out from stone (the user's pick). Logs keep their own sound.
 		return t == SoundType.GLASS ? t.getPlaceSound() : t.getBreakSound();
 	}
 
@@ -866,6 +210,7 @@ public class Cues {
 		if (p.contains("glass") || p.contains("amethyst")) return 1.45F;
 		if (p.contains("metal") || p.contains("copper") || p.contains("chain") || p.contains("netherite") || p.contains("anvil") || p.contains("iron")) return 1.15F;
 		if (p.contains("stone") || p.contains("deepslate") || p.contains("tuff") || p.contains("calcite") || p.contains("brick") || p.contains("basalt")) return 1.25F;
+		if (p.contains("bookshelf")) return 1.0F; // wood (its own sound, at its own pitch)
 		if (p.contains("wood") || p.contains("bamboo") || p.contains("stem")) return 0.85F;
 		if (p.contains("grass") || p.contains("gravel") || p.contains("sand") || p.contains("mud") || p.contains("moss") || p.contains("rooted") || p.contains("snow") || p.contains("wool")) return 1.0F;
 		return 1.0F;
@@ -885,13 +230,15 @@ public class Cues {
 
 	public static void emit(Minecraft mc, Scan s, SonarConfig cfg) {
 		List<com.sonar.Cues.Cue> cues = new ArrayList<>();
-		Map<com.sonar.Cues.Cue, Integer> treeKind = new java.util.IdentityHashMap<>();
+		Map<com.sonar.Cues.Cue, int[]> blockAt = new java.util.IdentityHashMap<>(); // the block each block sound is (for grouping)
 		List<com.sonar.Cues.Cue> ledgeCues = new ArrayList<>();
-		loopSound = null;
-		float nearLoop = Float.MAX_VALUE;
+		// water and lava as steady loops while auto scan is on (FluidLoop), not in every ping: here only the nearest of each is noted for them
+		boolean fluidLoop = FluidLoop.on(cfg);
+		double nearWater = Double.MAX_VALUE, nearLava = Double.MAX_VALUE;
+		double[] waterAt = null, lavaAt = null;
 		// lava: only the 3 nearest hazard sectors sound (a lava lake used to fire dozens of sounds per ping), and it never loops
-		Integer[] hazOrder = new Integer[48];
-		for (int i = 0; i < 48; i++) {
+		Integer[] hazOrder = new Integer[Scan.SECTORS];
+		for (int i = 0; i < Scan.SECTORS; i++) {
 			hazOrder[i] = i;
 		}
 
@@ -904,41 +251,42 @@ public class Cues {
 		final Cand[] hazards = s.best[0];
 		java.util.Arrays.sort(hazOrder, Comparator.comparingDouble(i -> hazards[i].state == null ? Double.MAX_VALUE : hazards[i].d));
 
-		for (int i = 0; i < 48; i++) {
+		for (int i = 0; i < Scan.SECTORS; i++) {
 			Cand haz = s.best[0][i];
 			Cand sol = s.best[1][i];
 			Cand tac = s.best[2][i];
 			Cand wat = s.best[3][i];
 			if (haz.state != null && cfg.hazardCue) {
 				int rank = java.util.Arrays.asList(hazOrder).indexOf(i);
-				if (rank < 3 && lavaDue) {
+				if (haz.d < nearLava) { nearLava = haz.d; lavaAt = new double[]{haz.x + 0.5, haz.y + 0.5, haz.z + 0.5}; }
+				if (rank < 3 && lavaDue && !fluidLoop) {
 					lavaPlayed = true;
-					if (rank == 0) {
-						cues.add(at(s, cfg, haz.d, haz.x + 0.5, haz.y + 0.5, haz.z + 0.5, SoundEvents.LAVA_POP, 0.5F * cfg.lavaVolume, 0.7F, 0));
-					}
-					cues.add(at(s, cfg, haz.d, haz.x + 0.5, haz.y + 0.5, haz.z + 0.5, LAVA_SHORT, 0.35F * cfg.lavaVolume, 0.9F, 0));
+					// the game's own gentle lava ambience (the old pop + rumble was too harsh); the nearest a little louder
+					cues.add(at(s, cfg, haz.d, haz.x + 0.5, haz.y + 0.5, haz.z + 0.5, SoundEvents.LAVA_AMBIENT, (rank == 0 ? 0.7F : 0.45F) * cfg.lavaVolume, 1.0F, 0));
 				}
 			} else {
-				if (wat.state != null) {
+				if (wat.state != null && wat.d < nearWater) { nearWater = wat.d; waterAt = new double[]{wat.x + 0.5, wat.y + 0.5, wat.z + 0.5}; }
+				if (wat.state != null && !fluidLoop) {
 					int depth = waterDepth(mc, wat.x, wat.y, wat.z);
 					float pitch = Math.max(0.5F, 1.2F - depth * 0.1F);
-					cues.add(at(s, cfg, wat.d, wat.x + 0.5, wat.y + 0.5, wat.z + 0.5, WATER_SHORT, 0.6F + depth * 0.1F, pitch, 1));
-					if (wat.d < nearLoop) {
-						nearLoop = wat.d;
-						setLoop(wat, WATER_SHORT, 0.4F + depth * 0.08F, pitch);
-					}
+					com.sonar.Cues.Cue watCue = at(s, cfg, wat.d, wat.x + 0.5, wat.y + 0.5, wat.z + 0.5, WATER_SHORT, 0.6F + depth * 0.1F, pitch, 1);
+					cues.add(watCue);
+					blockAt.put(watCue, new int[]{wat.x, wat.y, wat.z}); // water is grouped like every block (round 15: a lake took 20 of 32 sounds)
 				}
 
 				if (sol.state != null && !quiet) {
-					if (cfg.debug && mc.player != null) mc.player.sendSystemMessage(Component.literal("wall: " + sol.state.getBlock().getDescriptionId() + " at " + sol.x + "," + sol.y + "," + sol.z + " -> " + blockSound(sol.state, cfg).location().getPath()));
-					com.sonar.Cues.Cue solCue = at(s, cfg, sol.d, sol.x + 0.5, sol.y + 0.5, sol.z + 0.5, blockSound(sol.state, cfg), (sol.state.is(net.minecraft.tags.BlockTags.SLABS) || sol.state.is(net.minecraft.tags.BlockTags.STAIRS)) ? 0.45F : 0.9F, materialPitch(blockSound(sol.state, cfg)), 1);
+					if (cfg.debug && mc.player != null) Dbg.send(mc.player, Component.literal("wall: " + sol.state.getBlock().getDescriptionId() + " at " + sol.x + "," + sol.y + "," + sol.z + " -> " + blockSound(sol.state, cfg).location().getPath()));
+					// a thin layer on the floor (carpet, moss carpet, pressure plate, a layer of snow) is something you walk over, not a block in your way: a soft, light tick, not a full block
+					boolean thin = sol.state.getShape(Sense.hear(mc), new net.minecraft.core.BlockPos(sol.x, sol.y, sol.z)).max(net.minecraft.core.Direction.Axis.Y) <= 0.2;
+					float solVol = thin ? 0.25F : (sol.state.is(net.minecraft.tags.BlockTags.SLABS) || sol.state.is(net.minecraft.tags.BlockTags.STAIRS)) ? 0.45F : 0.9F;
+					com.sonar.Cues.Cue solCue = at(s, cfg, sol.d, sol.x + 0.5, sol.y + (thin ? 0.1 : 0.5), sol.z + 0.5, blockSound(sol.state, cfg), solVol, materialPitch(blockSound(sol.state, cfg)) * (thin ? 1.35F : 1.0F), 1);
 					cues.add(solCue);
-					tagTree(treeKind, solCue, sol.state);
+					blockAt.put(solCue, new int[]{sol.x, sol.y, sol.z});
 				} else if (tac.state != null && !quiet) {
-					if (cfg.debug && mc.player != null) mc.player.sendSystemMessage(Component.literal("touch: " + tac.state.getBlock().getDescriptionId() + " at " + tac.x + "," + tac.y + "," + tac.z));
+					if (cfg.debug && mc.player != null) Dbg.send(mc.player, Component.literal("touch: " + tac.state.getBlock().getDescriptionId() + " at " + tac.x + "," + tac.y + "," + tac.z));
 					com.sonar.Cues.Cue tacCue = at(s, cfg, tac.d, tac.x + 0.5, tac.y + 0.5, tac.z + 0.5, tactileSound(tac.state), 0.8F, 0.9F, 2);
 					cues.add(tacCue);
-					tagTree(treeKind, tacCue, tac.state);
+					blockAt.put(tacCue, new int[]{tac.x, tac.y, tac.z});
 				}
 			}
 		}
@@ -962,7 +310,7 @@ public class Cues {
 			}
 		}
 
-		Integer[] order = new Integer[48];
+		Integer[] order = new Integer[Scan.SECTORS];
 
 		for (int i = 0; i < order.length; i++) {
 			order[i] = i;
@@ -983,12 +331,13 @@ public class Cues {
 			if (s.mobs[i] != null && s.mobD[i] != Float.MAX_VALUE) {
 				Mob m = s.mobs[i];
 				Long last = mobSeen.get(m.getId());
+				if (mobSeen.size() > 512) mobSeen.values().removeIf(v -> now - v >= 60L); // forget mobs long gone
 				if (last == null || now - last >= 60L) {
 					SoundEvent amb = ((MobAccessor)m).sonar$ambient();
 					if (amb != null) {
 						mobSeen.put(m.getId(), now);
 						mobCount++;
-						cues.add(at(s, cfg, s.mobD[i], m.getX(), m.getY() + m.getBbHeight() / 2.0F, m.getZ(), amb, 0.9F * (s.mobD[i] <= 2.0F ? 1.0F : Math.max(0.04F, (float)Math.pow(0.5, (s.mobD[i] - 2.0) / 4.0))), 1.0F, 1)); // full volume only right next to it, then it halves every 4 blocks
+						cues.add(at(s, cfg, s.mobD[i], m.getX(), m.getY() + m.getBbHeight() / 2.0F, m.getZ(), amb, 0.9F * (float) Loud.at(s.mobD[i], 2, s.range), 1.0F, 1)); // the shared fade over the scan's range: full right next to it, silent at the edge
 					}
 				}
 			}
@@ -997,58 +346,84 @@ public class Cues {
 		if (lavaPlayed) {
 			lastLava = nowTick;
 		}
+		FluidLoop.waterAt = waterAt;
+		FluidLoop.lavaAt = cfg.hazardCue ? lavaAt : null;
 
 		boolean path = !inRoom && FloorEdge.ping(mc, cfg); // no path ripple inside a room
-		if (cfg.ceilingCue && !s.front && rayLen(mc, new Vec3(s.ex, s.ey, s.ez), 0.0, 1.0, 0.0, 3.0, true) < 1.1) {
-			play(mc, (SoundEvent)SoundEvents.NOTE_BLOCK_BASS.value(), cfg.volume * 0.5F, 1.3F, s.ex, s.ey + 1.5, s.ez); // low ceiling overhead
-		}
 
 		if (!s.front && cfg.echoCue && s.withEcho) {
 			echo(mc, s, cfg);
+			Tutorial.event(Tutorial.Ev.ECHO, 1);
 		}
 
-		cues.sort(Comparator.comparingDouble(com.sonar.Cues.Cue::d));
-		int leaves = 0;
-		int logs = 0; // trees are sparse: only the nearest couple of leaf and trunk sounds play
+		// ground (grass, dirt, gravel...) behind you is not needed, it only crowds the sounds ahead; ground in front (a bank, a step up, a hill) is what you walk into:
+		// it stays loud, right up close loudest; hillside off to the sides quieter
+		double tyaw = Math.toRadians(s.yaw), tfx = -Math.sin(tyaw), tfz = Math.cos(tyaw);
 		for (int i = 0; i < cues.size(); i++) {
 			com.sonar.Cues.Cue c = cues.get(i);
-			Integer k = treeKind.get(c);
-			if (k == null) {
-				continue;
+			if (c.pri() == 0 || !isTerrainSound(c.snd())) continue;
+			double fwd = Math.cos(c.rel()); // by the real direction, not where it is heard
+			if (fwd < -0.2) { blockAt.remove(c); cues.remove(i--); continue; }
+			float k = fwd > 0.7 ? (c.d() < 3.5F ? 1.0F : 0.85F) : fwd > 0.0 ? 0.5F : 0.35F;
+			com.sonar.Cues.Cue r = new com.sonar.Cues.Cue(c.d(), c.snd(), c.vol() * k, c.pitch(), c.x(), c.y(), c.z(), c.pri(), c.rel());
+			int[] where = blockAt.remove(c);
+			if (where != null) blockAt.put(r, where);
+			cues.set(i, r);
+		}
+		// ONE RULE FOR EVERY BLOCK SOUND (round 15, replacing the tree, per-material and ground limits): blocks that make the same sound and touch (face to face, followed
+		// through the world: the leaves of a tree, a wall, a hillside) are one group. Of the blocks you HEAR in it (the nearest in each direction, as real sonar), every 3
+		// give it one sound: 1 to 3 heard, 1 sound; 4 to 6, 2; and so on. Its sounds are spread evenly across it, so a wide thing sounds wide.
+		List<com.sonar.Cues.Cue> blockCues = new ArrayList<>(blockAt.keySet());
+		if (!blockCues.isEmpty()) {
+			int[][] at = new int[blockCues.size()][];
+			for (int i = 0; i < at.length; i++) at[i] = blockAt.get(blockCues.get(i));
+			int[] grp = groupsOf(Sense.hear(mc), at, st -> groupKey(st, cfg), s.ex, s.ey, s.ez, s.range + 2);
+			double[] bearing = new double[at.length], elev = new double[at.length], dist = new double[at.length];
+			for (int i = 0; i < at.length; i++) {
+				double dx = at[i][0] + 0.5 - s.ex, dy = at[i][1] + 0.5 - s.ey, dz = at[i][2] + 0.5 - s.ez;
+				bearing[i] = Math.atan2(dz, dx);
+				elev[i] = Math.atan2(dy, Math.hypot(dx, dz));
+				dist[i] = Math.sqrt(dx * dx + dy * dy + dz * dz);
 			}
-			if (k == 1) {
-				if (++leaves > 2) {
-					cues.remove(i--);
-				} else {
-					cues.set(i, new com.sonar.Cues.Cue(c.d(), c.snd(), c.vol() * 0.7F, c.pitch(), c.x(), c.y(), c.z(), c.pri()));
-				}
-			} else if (++logs > 2) {
-				cues.remove(i--);
+			java.util.Set<com.sonar.Cues.Cue> keep = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+			for (int[] members : membersOf(grp)) {
+				double[] b2 = new double[members.length], e2 = new double[members.length], d2 = new double[members.length];
+				for (int j = 0; j < members.length; j++) { b2[j] = bearing[members[j]]; e2[j] = elev[members[j]]; d2[j] = dist[members[j]]; }
+				for (int j : spread(b2, e2, d2, soundsFor(members.length))) keep.add(blockCues.get(members[j]));
 			}
+			cues.removeIf(c -> blockAt.containsKey(c) && !keep.contains(c));
 		}
 
-		Map<SoundEvent, Integer> seen = new HashMap<>();
-		int terrain = 0; // dirt/grass/gravel share one small budget so hillsides do not drown out everything else
-
-		for (int i = 0; i < cues.size(); i++) {
-			com.sonar.Cues.Cue c = cues.get(i);
-			if (c.pri() != 0 && isTerrainSound(c.snd())) {
-				double tdx = c.x() - s.ex, tdz = c.z() - s.ez, tl = Math.max(1.0E-6, Math.hypot(tdx, tdz));
-				double tyaw = Math.toRadians(s.yaw);
-				if ((tdx * -Math.sin(tyaw) + tdz * Math.cos(tyaw)) / tl < -0.2) { // grass and dirt behind you are not needed: they only crowd the sounds ahead
-					cues.remove(i--);
-				} else if (++terrain > 16) {
-					cues.remove(i--);
-				} else {
-					cues.set(i, new com.sonar.Cues.Cue(c.d(), c.snd(), c.vol() * 0.6F, c.pitch(), c.x(), c.y(), c.z(), c.pri()));
+		// the wall straight in front of you (the next 2 blocks you would walk onto) always sounds, full and clear: it is what you are about to walk into. A "wall" is a block
+		// you can not STEP onto, by the same rule the player route and the clearance use (BlockRules.stepTo): a wall, fence, rail or anything 2+ tall is one; a step up,
+		// a slab, stairs or a doorway is not. Water is not a wall (and the ledge warning covers drops). Material budgets never drop it, and it plays even inside a cave or
+		// room where the auto sonar otherwise leaves everything to the echo.
+		if (!s.front) {
+			var wpos = new net.minecraft.core.BlockPos.MutableBlockPos();
+			int cy = BlockRules.floorUnder(Sense.hear(mc), s.ex, s.feetY, s.ez, wpos);
+			int lx = (int) Math.floor(s.ex), lz = (int) Math.floor(s.ez);
+			for (int r = 1; r <= 2 && cy != BlockRules.NONE; r++) {
+				int cx = (int) Math.floor(s.ex + tfx * r), cz = (int) Math.floor(s.ez + tfz * r);
+				if (cx == lx && cz == lz) continue;
+				lx = cx; lz = cz;
+				int next = BlockRules.stepTo(Sense.hear(mc), cx, cz, cy, wpos);
+				if (next != BlockRules.NONE) { cy = next; continue; }
+				int wy = BlockRules.NONE;
+				boolean wet = false;
+				for (int y = cy + 1; y <= cy + 2 && wy == BlockRules.NONE; y++) {
+					BlockState bs = Sense.hear(mc).getBlockState(wpos.set(cx, y, cz));
+					if (!bs.getFluidState().isEmpty()) wet = true;
+					else if (!bs.getCollisionShape(Sense.hear(mc), wpos).isEmpty()) wy = y;
 				}
-			} else if (c.pri() != 0) {
-				int r = seen.merge(c.snd(), 1, Integer::sum) - 1;
-				if (r >= cfg.maxPerMaterial) {
-					cues.remove(i--);
-				} else if (r >= 3) {
-					cues.set(i, new com.sonar.Cues.Cue(c.d(), c.snd(), c.vol() * 0.55F, c.pitch(), c.x(), c.y(), c.z(), c.pri()));
-				}
+				if (wet || wy == BlockRules.NONE) break; // water, or a drop: not a wall
+				BlockState ws = Sense.hear(mc).getBlockState(wpos.set(cx, wy, cz));
+				SoundEvent ev = blockSound(ws, cfg);
+				double wd = Math.hypot(cx + 0.5 - s.ex, cz + 0.5 - s.ez) - 0.5;
+				int bx = cx, by = wy, bz = cz;
+				cues.removeIf(c -> Math.abs(c.x() - (bx + 0.5)) < 0.6 && Math.abs(c.y() - (by + 0.5)) < 0.6 && Math.abs(c.z() - (bz + 0.5)) < 0.6);
+				cues.add(at(s, cfg, (float) Math.max(0.1, wd), bx + 0.5, by + 0.5, bz + 0.5, ev, 1.0F, materialPitch(ev), 1));
+				if (cfg.debug && mc.player != null) Dbg.send(mc.player, Component.literal(Dbg.fmt("wall ahead: %s %.1f blocks (can not step there)", ws.getBlock().getDescriptionId(), wd)));
+				break;
 			}
 		}
 
@@ -1064,7 +439,7 @@ public class Cues {
 			for (int i = 0; i < cues.size(); i++) {
 				com.sonar.Cues.Cue c = cues.get(i);
 				if (c.pri() != 0) {
-					cues.set(i, new com.sonar.Cues.Cue(c.d(), c.snd(), c.vol() * 0.4F, c.pitch(), c.x(), c.y(), c.z(), c.pri()));
+					cues.set(i, new com.sonar.Cues.Cue(c.d(), c.snd(), c.vol() * 0.4F, c.pitch(), c.x(), c.y(), c.z(), c.pri(), c.rel()));
 				}
 			}
 		}
@@ -1073,15 +448,213 @@ public class Cues {
 			for (int i = 0; i < cues.size(); i++) {
 				com.sonar.Cues.Cue c = cues.get(i);
 				if (c.pri() != 0) {
-					cues.set(i, new com.sonar.Cues.Cue(c.d(), c.snd(), c.vol() * 0.7F, c.pitch(), c.x(), c.y(), c.z(), c.pri()));
+					cues.set(i, new com.sonar.Cues.Cue(c.d(), c.snd(), c.vol() * 0.7F, c.pitch(), c.x(), c.y(), c.z(), c.pri(), c.rel()));
 				}
 			}
 		}
 
 		cues.addAll(ledgeCues);
-		cues.sort(Comparator.comparingInt(com.sonar.Cues.Cue::pri).thenComparingDouble(com.sonar.Cues.Cue::d));
+		{ // the limit, shared fairly round you (see fairOrder)
+			double[] rel = new double[cues.size()], dd = new double[cues.size()];
+			int[] pr = new int[cues.size()];
+			for (int i = 0; i < rel.length; i++) {
+				com.sonar.Cues.Cue c = cues.get(i);
+				rel[i] = c.rel(); // the real direction (round 16: the heard one, moved by Direction spread, put front and behind blocks on the side beats)
+				dd[i] = c.d(); pr[i] = c.pri();
+			}
+			int[] ord = fairOrder(rel, dd, pr);
+			List<com.sonar.Cues.Cue> fair = new ArrayList<>(cues.size());
+			for (int i : ord) fair.add(cues.get(i));
+			cues.clear(); cues.addAll(fair);
+		}
 		int n = Math.min(cues.size(), cfg.maxSounds);
 
+		playSet(mc, s, cfg, cues, n, 0);
+
+		if (cfg.debug && mc.player != null) {
+			Dbg.send(mc.player, Component.literal("Sonar: " + s.nanos / 1000000.0 + " ms, " + cues.size() + " cues, played " + n));
+		}
+	}
+
+	/**
+	 * What a block is, for grouping: blocks group with their own kind, never across kinds that only happen to share a sound. Leaves with leaves, tree logs with tree
+	 * logs, ground (grass, dirt, gravel, mud, moss) with ground, anything else by its sound (stone with stone, planks with wood); and built blocks never with natural
+	 * ones (stone bricks or cobblestone walls are not the rock face they stand against). Null for air and water.
+	 * (Round 15: by sound alone, a tree's leaves and the grassy hill under it were one group: leaves and grass blocks make the very same sound.)
+	 */
+	static Object groupKey(BlockState st, SonarConfig cfg) { return groupKey(st, cfg.materialSounds); }
+
+	static Object groupKey(BlockState st, boolean materialSounds) {
+		if (st.isAir()) return null;
+		if (!st.getFluidState().isEmpty()) return st.getFluidState().getType().isSame(net.minecraft.world.level.material.Fluids.WATER) ? "water" : null; // a lake is one thing
+		if (st.is(BlockTags.LEAVES)) return "leaves";
+		if (st.is(BlockTags.OVERWORLD_NATURAL_LOGS)) return "logs";
+		// built or natural: a stone house built into a stone mountain shares its sound, but it is not the mountain
+		String made = FloorEdge.natural(st) || CaveEcho.caveRock(st) ? "natural " : "built ";
+		SoundEvent e = materialSounds ? materialSound(st) : SoundEvents.STONE_HIT;
+		if (isTerrainSound(e)) return made + "ground";
+		return made + e.location();
+	}
+
+	/**
+	 * THE LIMIT, SHARED FAIRLY: the order sounds are kept in when there are more than Max sounds. Warnings (priority 0: ledges, lava) first, nearest first. Then the
+	 * four quarters round you (front, right, left, behind) take turns: each its nearest sound, then each its second nearest, and so on; a quarter with nothing left
+	 * gives up its turn. One busy side (a tree, a lake) can no longer take the whole limit while the rest of you goes unheard (round 15).
+	 * rel: direction from where you face (radians, + right); d: distance; pri: priority. Returns indices in keep order.
+	 */
+	static int[] fairOrder(double[] rel, double[] d, int[] pri) {
+		int n = rel.length;
+		List<List<Integer>> q = new ArrayList<>();
+		for (int k = 0; k < 4; k++) q.add(new ArrayList<>());
+		List<Integer> warn = new ArrayList<>();
+		for (int i = 0; i < n; i++) {
+			if (pri[i] == 0) { warn.add(i); continue; }
+			double a = Math.abs(rel[i]);
+			q.get(a <= Math.PI / 4 ? 0 : a >= 3 * Math.PI / 4 ? 3 : rel[i] > 0 ? 1 : 2).add(i);
+		}
+		Comparator<Integer> near = Comparator.comparingDouble(i -> d[i]);
+		warn.sort(near);
+		for (List<Integer> l : q) l.sort(near);
+		int[] out = new int[n];
+		int o = 0;
+		for (int i : warn) out[o++] = i;
+		for (int r = 0; o < n; r++) for (List<Integer> l : q) if (r < l.size()) out[o++] = l.get(r);
+		return out;
+	}
+
+	/** One rule for every block sound: of the blocks heard in a group, one sound per 3 (1-3: 1, 4-6: 2, 7-9: 3, ...). */
+	static int soundsFor(int heard) { return heard <= 0 ? 0 : (heard + 2) / 3; }
+
+	/**
+	 * The groups the heard blocks fall into: blocks with the same sound key (keyOf: null for air and water) joined face to face, followed through the world (not
+	 * only through the heard blocks: the heard blocks of a wall lie a few apart, its hidden blocks join them), within `radius` of you. A group number per heard block.
+	 */
+	static int[] groupsOf(net.minecraft.world.level.BlockGetter w, int[][] heard, java.util.function.Function<BlockState, Object> keyOf, double cx, double cy, double cz, double radius) {
+		int n = heard.length;
+		int[] grp = new int[n];
+		Arrays.fill(grp, -1);
+		var pos = new net.minecraft.core.BlockPos.MutableBlockPos();
+		// one entry per block (a block can be the nearest in two directions: both are the same group), and each block's sound key
+		it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap first = new it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap();
+		first.defaultReturnValue(-1);
+		Object[] key = new Object[n];
+		for (int i = 0; i < n; i++) {
+			long l = net.minecraft.core.BlockPos.asLong(heard[i][0], heard[i][1], heard[i][2]);
+			if (first.get(l) < 0) first.put(l, i);
+			key[i] = keyOf.apply(w.getBlockState(pos.set(heard[i][0], heard[i][1], heard[i][2])));
+		}
+		double r2 = radius * radius;
+		int next = 0;
+		it.unimi.dsi.fastutil.longs.LongOpenHashSet seen = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
+		it.unimi.dsi.fastutil.longs.LongArrayFIFOQueue q = new it.unimi.dsi.fastutil.longs.LongArrayFIFOQueue();
+		for (int i = 0; i < n; i++) {
+			if (grp[i] >= 0 || first.get(net.minecraft.core.BlockPos.asLong(heard[i][0], heard[i][1], heard[i][2])) != i) continue;
+			int g = next++;
+			grp[i] = g;
+			if (key[i] == null) continue;
+			// the heard blocks of this sound not yet in a group: the fill stops as soon as it has found them all (a hillside is not followed further than needed)
+			int open = 0;
+			for (int j = i + 1; j < n; j++) if (grp[j] < 0 && key[i].equals(key[j]) && first.get(net.minecraft.core.BlockPos.asLong(heard[j][0], heard[j][1], heard[j][2])) == j) open++;
+			if (open == 0) continue;
+			seen.clear(); q.clear();
+			long start = net.minecraft.core.BlockPos.asLong(heard[i][0], heard[i][1], heard[i][2]);
+			seen.add(start); q.enqueue(start);
+			int left = Tuning.GROUP_FILL_MAX;
+			while (!q.isEmpty() && left-- > 0 && open > 0) {
+				long cur = q.dequeueLong();
+				int x = net.minecraft.core.BlockPos.getX(cur), y = net.minecraft.core.BlockPos.getY(cur), z = net.minecraft.core.BlockPos.getZ(cur);
+				for (int k = 0; k < 6; k++) {
+					int nx = x + (k == 0 ? 1 : k == 1 ? -1 : 0), ny = y + (k == 2 ? 1 : k == 3 ? -1 : 0), nz = z + (k == 4 ? 1 : k == 5 ? -1 : 0);
+					long nl = net.minecraft.core.BlockPos.asLong(nx, ny, nz);
+					if (!seen.add(nl)) continue;
+					double ddx = nx + 0.5 - cx, ddy = ny + 0.5 - cy, ddz = nz + 0.5 - cz;
+					if (ddx * ddx + ddy * ddy + ddz * ddz > r2) continue;
+					if (!key[i].equals(keyOf.apply(w.getBlockState(pos.set(nx, ny, nz))))) continue;
+					q.enqueue(nl);
+					int h = first.get(nl);
+					if (h >= 0 && grp[h] < 0) { grp[h] = g; open--; }
+				}
+			}
+		}
+		for (int i = 0; i < n; i++) if (grp[i] < 0) grp[i] = grp[first.get(net.minecraft.core.BlockPos.asLong(heard[i][0], heard[i][1], heard[i][2]))]; // the second listing of a block
+		return grp;
+	}
+
+	/** The heard blocks of each group (their indices), from a group number per block. */
+	static List<int[]> membersOf(int[] grp) {
+		Map<Integer, List<Integer>> m = new java.util.LinkedHashMap<>();
+		for (int i = 0; i < grp.length; i++) m.computeIfAbsent(grp[i], k -> new ArrayList<>()).add(i);
+		List<int[]> out = new ArrayList<>();
+		for (List<Integer> l : m.values()) out.add(l.stream().mapToInt(Integer::intValue).toArray());
+		return out;
+	}
+
+	/** Spread by left-right direction only (all level, all equally far): see the full version. */
+	static int[] spread(double[] bearing, int k) { return spread(bearing, new double[bearing.length], new double[bearing.length], k); }
+
+	/**
+	 * `k` of a group's heard blocks, spread across it BY DIRECTION, up and down as well as round you: the nearest block first, then each next one the block furthest in
+	 * direction from all those already picked, with a nearer block preferred over a further one in much the same direction (SPREAD_NEAR radians per block). So:
+	 * a wide group sounds across its whole width, not bunched where most of its blocks happen to be (round 15: a dense canopy on the left took all the sounds); a
+	 * canopy straight overhead counts as one direction, not as many; and a block right beside you is not passed over for a far part of the same thing.
+	 * Directions: bearing round you and elevation (radians), and distance (blocks). Returns positions in the given arrays.
+	 */
+	static int[] spread(double[] bearing, double[] elev, double[] dist, int k) {
+		int m = bearing.length;
+		if (k <= 0 || m == 0) return new int[0];
+		if (k >= m) { int[] all = new int[m]; for (int i = 0; i < m; i++) all[i] = i; return all; }
+		double[][] u = new double[m][];
+		int first = 0;
+		for (int i = 0; i < m; i++) {
+			double c = Math.cos(elev[i]);
+			u[i] = new double[]{c * Math.cos(bearing[i]), Math.sin(elev[i]), c * Math.sin(bearing[i])};
+			if (dist[i] < dist[first]) first = i;
+		}
+		double[] minAng = new double[m];
+		java.util.Arrays.fill(minAng, Double.MAX_VALUE);
+		boolean[] used = new boolean[m];
+		int[] pick = new int[k];
+		int cur = first;
+		for (int j = 0; j < k; j++) {
+			pick[j] = cur;
+			used[cur] = true;
+			int best = -1;
+			double bestScore = -Double.MAX_VALUE;
+			for (int i = 0; i < m; i++) {
+				if (used[i]) continue;
+				double dot = u[i][0] * u[cur][0] + u[i][1] * u[cur][1] + u[i][2] * u[cur][2];
+				minAng[i] = Math.min(minAng[i], Math.acos(Math.max(-1, Math.min(1, dot))));
+				double score = minAng[i] - Tuning.SPREAD_NEAR * dist[i];
+				if (score > bestScore) { bestScore = score; best = i; }
+			}
+			if (best < 0) break;
+			cur = best;
+		}
+		return pick;
+	}
+
+	/**
+	 * WHEN EACH SOUND OF A PING PLAYS (ticks after the ping): four evenly spaced beats by where it is: in FRONT (within 45 degrees of where you face), then RIGHT,
+	 * then LEFT, then BEHIND, `gap` ticks apart, the same every ping; a quarter with nothing in it keeps its beat silent, so the rhythm never changes and the beat
+	 * itself tells you the side. Warnings (priority 0: ledges, lava) play at once. gap 0: everything at once.
+	 * (Round 15: the waves were the first, middle and last THIRD of the sounds sorted front to back, not real directions, so a sound on your left could play with the
+	 * front one, and two quick sounds, a pause, two more was what you heard. Right and left are separate beats now, so they never blend into the middle either.)
+	 * rel: direction from where you face (radians, + right).
+	 */
+	static int[] beatTicks(double[] rel, int[] pri, int gap) {
+		int[] at = new int[rel.length];
+		for (int i = 0; i < rel.length; i++) at[i] = pri[i] == 0 ? 0 : quarter(rel[i]) * gap;
+		return at;
+	}
+
+	/** 0 front, 1 right, 2 left, 3 behind (45 degrees either side of each). */
+	static int quarter(double rel) {
+		double a = Math.abs(rel);
+		return a <= Math.PI / 4 ? 0 : a >= 3 * Math.PI / 4 ? 3 : rel > 0 ? 1 : 2;
+	}
+
+	/** Plays one ping's sounds the way every ping plays them: in front first, then round to behind, in three quick steps. */
+	static void playSet(Minecraft mc, Scan s, SonarConfig cfg, List<com.sonar.Cues.Cue> cues, int n, int delay) {
 		double yawNow = Math.toRadians(s.yaw);
 		Integer[] playOrder = new Integer[n];
 		for (int i = 0; i < n; i++) {
@@ -1098,35 +671,41 @@ public class Cues {
 			return -(dx * fxs + dz * fzs) / Math.max(1.0E-6, Math.hypot(dx, dz));
 		}));
 
+		final double rxs = -Math.cos(yawNow), rzs = -Math.sin(yawNow); // your right
+		double[] rel = new double[n];
+		int[] pri = new int[n];
 		for (int rank = 0; rank < n; rank++) {
 			com.sonar.Cues.Cue c = cues.get(playOrder[rank]);
-			int bucket = !cfg.stagger || c.pri() == 0 ? 0 : Math.min(2, rank * 3 / Math.max(1, n));
-			if (bucket == 0) {
+			rel[rank] = c.rel(); // the beat is the REAL direction's quarter
+			pri[rank] = c.pri();
+		}
+		int[] at = beatTicks(rel, pri, cfg.stagger ? Math.max(1, cfg.sweepGap) : 0); // the sweep speed slider
+		boolean dbg = mc.player != null && cfg.debug;
+		StringBuilder playedLog = dbg && cfg.trace ? new StringBuilder("played:") : null;
+		for (int rank = 0; rank < n; rank++) {
+			com.sonar.Cues.Cue c = cues.get(playOrder[rank]);
+			if (playedLog != null) {
+				double dx = c.x() - s.ex, dz = c.z() - s.ez;
+				double relDeg = Math.toDegrees(Math.atan2(dx * rxs + dz * rzs, dx * fxs + dz * fzs)); // + right, - left, 0 ahead
+				String snd = c.snd().location().getPath();
+				playedLog.append(Dbg.fmt(" [%s %+.0f deg (heard %+.0f) %.1f bl up %.1f t%d]", snd.substring(snd.lastIndexOf('.', snd.lastIndexOf('.') - 1) + 1), Math.toDegrees(c.rel()), relDeg, c.d(), c.y() - s.ey, at[rank]));
+			}
+			if (at[rank] == 0 && delay == 0) {
+				Timeline.book(0); // the ping books its tick: guide sounds wait for it
 				play(mc, c.snd(), c.vol(), c.pitch(), c.x(), c.y(), c.z());
 			} else {
-				pending.add(new com.sonar.Cues.Pending(c.snd(), c.vol(), c.pitch(), c.x(), c.y(), c.z(), new int[]{bucket - 1}));
+				queue(new com.sonar.Cues.Pending(c.snd(), c.vol(), c.pitch(), c.x(), c.y(), c.z(), new int[]{Math.max(0, delay + at[rank] - 1)}));
 			}
 		}
+		if (playedLog != null) SonarClient.LOG.info("SONAR " + playedLog);
 
-		if (cfg.debug && mc.player != null) {
-			mc.player.sendSystemMessage(Component.literal("Sonar: " + s.nanos / 1000000.0 + " ms, " + cues.size() + " cues, played " + n));
-		}
-	}
-
-	private static void setLoop(Cand c, SoundEvent e, float vol, float pitch) {
-		loopX = c.x + 0.5;
-		loopY = c.y + 0.5;
-		loopZ = c.z + 0.5;
-		loopSound = e;
-		loopVol = Math.min(vol, 1.0F);
-		loopPitch = pitch;
 	}
 
 	static int waterDepth(Minecraft mc, int x, int y, int z) {
 		int d = 0;
 		MutableBlockPos p = new MutableBlockPos(x, y, z);
 
-		while (d < 10 && mc.level.getFluidState(p).is(FluidTags.WATER)) {
+		while (d < 10 && Sense.hear(mc).getFluidState(p).is(FluidTags.WATER)) {
 			d++;
 			p.move(0, -1, 0);
 		}
@@ -1134,29 +713,15 @@ public class Cues {
 		return d;
 	}
 
-	private static void extraCues(Scan s, SonarConfig cfg, List<com.sonar.Cues.Cue> out) {
-		float[] dist = new float[16];
-
-		for (int i = 0; i < 16; i++) {
-			float m = Float.MAX_VALUE;
-
-			for (int b = 0; b < 3; b++) {
-				m = Math.min(m, s.best[1][b * 16 + i].d);
-			}
-
-			dist[i] = m;
-		}
+	static void extraCues(Scan s, SonarConfig cfg, List<com.sonar.Cues.Cue> out) {
+		float[] dist = nearestBy16(s);
 
 		double fwd = Math.atan2(Math.cos(Math.toRadians(s.yaw)), -Math.sin(Math.toRadians(s.yaw)));
 		if (cfg.gapCue) {
-			for (int i = 0; i < 16; i++) {
-				float a = dist[(i + 16 - 1) % 16];
-				float b = dist[(i + 1) % 16];
-				if (a < 6.0F && b < 6.0F && dist[i] > Math.max(a, b) + 4.0F) {
-					double ang = (i + 0.5) / 16.0 * 2.0 * Math.PI - Math.PI;
-					double r = Math.min(6.0, dist[i]);
-					out.add(at(s, cfg, (float)r, s.ex + Math.cos(ang) * r, s.ey, s.ez + Math.sin(ang) * r, SoundEvents.AMETHYST_BLOCK_CHIME, 0.7F, 1.4F, 2));
-				}
+			for (double ang : gaps(s)) {
+				int i = Math.floorMod((int) Math.floor((ang + Math.PI) / (2 * Math.PI) * Scan.BLOCK_YAW), Scan.BLOCK_YAW);
+				double r = Math.min(6.0, nearest(s)[i]);
+				out.add(at(s, cfg, (float) r, s.ex + Math.cos(ang) * r, s.ey, s.ez + Math.sin(ang) * r, SoundEvents.AMETHYST_BLOCK_CHIME, 0.7F, 1.4F, 2));
 			}
 		}
 
@@ -1171,6 +736,75 @@ public class Cues {
 		}
 	}
 
+	/**
+	 * How far you can see at eye height in each of the scan's BLOCK_YAW (32) directions (slice j centred on (j + 0.5) / 32 of a turn from -180 degrees, as
+	 * atan2 z,x counts): a ray as Sonar hears the world (guide blocks are air), passing doors (a door is a way through), out to the sonar's range.
+	 * (Not the scan's block candidates: each block is filed under the slice its centre points into, so close up a slice by a corner can hold no block at
+	 * all, and read as wide open.)
+	 */
+	static float[] nearest(Scan s) {
+		float[] d = new float[Scan.BLOCK_YAW];
+		var eye = new Vec3(s.ex, s.ey, s.ez);
+		for (int j = 0; j < Scan.BLOCK_YAW; j++) {
+			double a = (j + 0.5) / Scan.BLOCK_YAW * 2 * Math.PI - Math.PI;
+			double r = Rooms.ray(s.world(), eye, Math.cos(a), 0, Math.sin(a), s.range, false, true, false);
+			d[j] = r >= s.range ? Float.MAX_VALUE : (float) r;
+		}
+		return d;
+	}
+
+	/** A gap needs walls this near on both sides of it... */
+	static final float GAP_NEAR = 6f;
+	/** ...and to reach this much further than both of them... */
+	static final float GAP_DEEPER = 4f;
+	/** ...and to be no wider than this many slices (a quarter turn: wider is open ground, not a gap). */
+	static final int GAP_MAX_SLICES = Scan.BLOCK_YAW / 4;
+
+	/**
+	 * THE GAP CUE: openings between walls you are near (a doorway, a gap in a hedge, the way out of a courtyard), as directions (atan2 z,x) to chime from.
+	 * A gap is a RUN of neighbouring slices that all reach GAP_DEEPER further than the walls just either side of the run, those walls both within GAP_NEAR,
+	 * the run at most a quarter turn wide; it chimes from the middle of the run. (It used to be one direction of 16 between two near ones: a doorway close by
+	 * is wider than one direction, so it was missed; and after the round 15 finer slices it read the wrong slices altogether.)
+	 */
+	static List<Double> gaps(Scan s) {
+		float[] d = nearest(s);
+		int n = d.length;
+		List<Double> out = new ArrayList<>();
+		for (int start = 0; start < n; start++) {
+			int before = (start + n - 1) % n;
+			if (d[before] >= GAP_NEAR) continue; // a run starts just after a near wall
+			int len = 0;
+			while (len < GAP_MAX_SLICES && d[(start + len) % n] > d[before] + GAP_DEEPER) len++;
+			if (len == 0 || len >= GAP_MAX_SLICES) continue;
+			int after = (start + len) % n;
+			if (d[after] >= GAP_NEAR) continue; // and ends at a near wall
+			float far = Math.max(d[before], d[after]) + GAP_DEEPER;
+			boolean deep = true;
+			for (int k = 0; k < len; k++) if (d[(start + k) % n] <= far) deep = false;
+			if (!deep) continue;
+			double mid = start + len / 2.0; // slice units: direction j is centred on j + 0.5
+			out.add(mid / n * 2 * Math.PI - Math.PI);
+		}
+		return out;
+	}
+
+	/**
+	 * The nearest solid block in each of 16 directions round you (direction i is centred on (i + 0.5) / 16 of a turn from -180 degrees, as atan2 z,x counts),
+	 * taken from the eye-level bands (30 degrees down to 30 up). The scan has BLOCK_YAW (32) slices round you and BANDS (5) up and down: each direction is two
+	 * slices. (Round 15 made the slices finer and this still read them as 16 x 3: the gap cue then looked at the wrong slices, half of them under your feet.)
+	 */
+	static float[] nearestBy16(Scan s) {
+		float[] dist = new float[16];
+		int per = Scan.BLOCK_YAW / 16;
+		for (int i = 0; i < 16; i++) {
+			float m = Float.MAX_VALUE;
+			for (int band = 1; band <= 3; band++)
+				for (int k = 0; k < per; k++) m = Math.min(m, s.best[Scan.SOLID][band * Scan.BLOCK_YAW + i * per + k].d);
+			dist[i] = m;
+		}
+		return dist;
+	}
+
 	public static String summary(Minecraft mc, Scan s) {
 		String[] names = new String[]{"ahead", "right", "behind", "left"};
 		double fwd = Math.atan2(Math.cos(Math.toRadians(s.yaw)), -Math.sin(Math.toRadians(s.yaw)));
@@ -1183,9 +817,8 @@ public class Cues {
 			double rel = (i + 0.5) / 16.0 * 2.0 * Math.PI - Math.PI - fwd;
 			rel = Math.atan2(Math.sin(rel), Math.cos(rel));
 			int dir = Math.abs(rel) < Math.PI / 4 ? 0 : (Math.abs(rel) > Math.PI * 3.0 / 4.0 ? 2 : (rel > 0.0 ? 1 : 3));
-			if (s.best[0][i].state != null || s.best[0][16 + i].state != null) {
-				lava[dir] = true;
-			}
+			for (int band = 0; band < Scan.BANDS; band++) for (int k = 0; k < Scan.BLOCK_YAW / 16; k++) // (the 16 directions over the scan's 32 x 5 slices, every band)
+				if (s.best[Scan.HAZARD][band * Scan.BLOCK_YAW + i * (Scan.BLOCK_YAW / 16) + k].state != null) lava[dir] = true;
 
 			if (s.ledges[i].d < ledgeD[dir]) {
 				ledgeD[dir] = s.ledges[i].d;
@@ -1227,7 +860,9 @@ public class Cues {
 		return sb.toString().trim();
 	}
 
-	record Cue(float d, SoundEvent snd, float vol, float pitch, double x, double y, double z, int pri) {
+	/** rel: the REAL direction of the block from where you faced at the scan (radians, + right, 0 ahead). Beats, fair shares and front/behind decisions use it;
+	 *  x/y/z is where the sound is HEARD (moved by place()), and is only for playing it. */
+	record Cue(float d, SoundEvent snd, float vol, float pitch, double x, double y, double z, int pri, double rel) {
 	}
 
 	record Pending(SoundEvent snd, float vol, float pitch, double x, double y, double z, int[] ticks) {

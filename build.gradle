@@ -61,6 +61,7 @@ jar {
 	from("LICENSE") {
 		rename { "${it}_$projectName"}
 	}
+	from("CREDITS.md") // the tutorial voice's model, voice and licences
 }
 
 // configure the maven publication
@@ -94,3 +95,6 @@ tasks.register('selfTest', JavaExec) {
 	classpath = sourceSets.selftest.runtimeClasspath
 	mainClass = 'com.sonar.SelfTest'
 }
+
+// Every build runs the self-test first: a build whose checks fail never produces a jar to install or release.
+tasks.named('build') { dependsOn 'selfTest' }

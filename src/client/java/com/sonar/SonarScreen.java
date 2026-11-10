@@ -38,12 +38,17 @@ public abstract class SonarScreen extends Screen {
 	protected void toggle(int col, int y, String name, BooleanSupplier get, Runnable flip) {
 		Supplier<Component> label = () -> Component.literal(name + "  ")
 			.append(Component.literal(get.getAsBoolean() ? "ON" : "OFF").withStyle(get.getAsBoolean() ? ChatFormatting.GREEN : ChatFormatting.GRAY));
-		this.addRenderableWidget(Button.builder(label.get(), b -> { flip.run(); save(); b.setMessage(label.get()); })
+		this.addRenderableWidget(Button.builder(label.get(), b -> { flip.run(); save(); b.setMessage(label.get()); Tutorial.event(Tutorial.Ev.SETTING, get.getAsBoolean() ? 1 : 0, name); })
 			.bounds(colX(col), y, 150, 20).build());
 	}
 
 	protected void slider(int y, int w, String name, double min, double max, double step, double cur, DoubleFunction<String> fmt, DoubleConsumer set) {
 		this.addRenderableWidget(new Slider(this.width / 2 - w / 2, y, w, name, min, max, step, cur, fmt, set));
+	}
+
+	/** A slider in one of two columns (col 0 left, 1 right), each 150 wide. */
+	protected void sliderCol(int col, int y, String name, double min, double max, double step, double cur, DoubleFunction<String> fmt, DoubleConsumer set) {
+		this.addRenderableWidget(new Slider(this.width / 2 + (col == 0 ? -154 : 4), y, 150, name, min, max, step, cur, fmt, set));
 	}
 
 	private static class Slider extends AbstractSliderButton {
@@ -71,6 +76,7 @@ public abstract class SonarScreen extends Screen {
 		protected void applyValue() {
 			set.accept(real());
 			save();
+			Tutorial.event(Tutorial.Ev.SETTING, real(), name);
 		}
 	}
 

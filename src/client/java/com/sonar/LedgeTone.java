@@ -22,16 +22,20 @@ public class LedgeTone extends AbstractTickableSoundInstance {
 
 	@Override
 	public void tick() {
-		float target = tv * duck;
+		float target = tv * duck * sneak;
 		volume += (target - volume) * (target > volume ? 0.75f : 0.06f); // a quick, sharp ramp in (never a click-on); the fade-out is slower
 		pitch += (tp - pitch) * 0.12f;
-		x += (tx - x) * 0.15;
-		y += (ty - y) * 0.15;
-		z += (tz - z) * 0.15; // the source glides along the edge instead of jumping
+		x = Smooth.toward(x, tx, 0.15); y = Smooth.toward(y, ty, 0.15); z = Smooth.toward(z, tz, 0.15); // the source glides along the edge instead of jumping
 		if (tv <= 0.001f && volume < 0.02f) stop();
 	}
 
 	public static void update(Minecraft mc, SoundEvent ev, int slot, float vol, float pitch, double x, double y, double z) {
+		// never closer than CLOSEST blocks: right beside your head the game can not tell left from right (an edge under a block away, behind and to the left, was heard
+		// as straight in front). Same direction, pushed out to where it can be placed.
+		if (mc.player != null) {
+			double dx = x - mc.player.getX(), dz = z - mc.player.getZ(), h = Math.hypot(dx, dz);
+			if (h > 1e-3 && h < Tuning.LEDGE_CLOSEST) { x = mc.player.getX() + dx / h * Tuning.LEDGE_CLOSEST; z = mc.player.getZ() + dz / h * Tuning.LEDGE_CLOSEST; }
+		}
 		LedgeTone t = cur[slot];
 		if (t != null && t.ev != ev) { mc.getSoundManager().stop(t); t = cur[slot] = null; }
 		if (t == null || t.isStopped()) {
@@ -66,10 +70,12 @@ public class LedgeTone extends AbstractTickableSoundInstance {
 
 	/** Standing still: every ledge tone sinks to a fifth of its loudness until you move again (it fades down over about a second, and comes back at once). */
 	public static float duckTarget = 1f;
+	/** Sneaking while you walk: the warning stays, at Tuning.LEDGE_SNEAK (you can not fall while sneaking, but you still want to know where the edge is). */
+	public static float sneak = 1f;
 	private static float duck = 1f;
 
 	/** Runs every client tick: moves the shared duck level toward its target; the loops animate themselves. */
 	public static void tick(Minecraft mc) {
-		duck += (duckTarget - duck) * (duckTarget > duck ? 0.5f : 0.06f);
+		duck += (duckTarget - duck) * (duckTarget > duck ? 0.5f : 0.2f); // comes back at once when you move, hushes within half a second
 	}
 }

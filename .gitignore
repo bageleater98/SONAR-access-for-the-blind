@@ -38,3 +38,13 @@ hs_err_*.log
 replay_*.log
 *.hprof
 *.jfr
+logs/
+
+# voice tool (local venv and downloaded models)
+tools/voice/.venv/
+tools/voice/models/
+
+# the user's edited tutorial save (backup, not part of the mod)
+docs/user-world-backup/
+
+__pycache__/

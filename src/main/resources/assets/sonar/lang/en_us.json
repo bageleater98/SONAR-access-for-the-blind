@@ -5,5 +5,7 @@
 	"key.sonar.echo": "Sonar echo toggle",
 	"key.sonar.ledge": "Sonar ledge warning toggle",
 	"key.sonar.identify": "Sonar identify target",
-	"key.category.sonar.sonar": "Sonar"
+	"key.category.sonar.sonar": "Sonar",
+	"key.category.sonar.tutorial": "Sonar Tutorial",
+	"key.sonar.confusing": "Mark: this was confusing"
 }

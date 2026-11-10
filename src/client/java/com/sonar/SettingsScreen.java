@@ -35,6 +35,8 @@ public class SettingsScreen extends SonarScreen {
 		y += 24;
 		nav(x, y, "Keys", () -> new KeysScreen(this));
 		nav(x + 158, y, "Advanced", () -> new AdvancedScreen(this));
+		y += 24;
+		if (!Tutorial.active()) this.addRenderableWidget(Tutorial.entryButton(this.minecraft, this.width / 2 - 154, y, 308)); // (inside the tutorial it is already running)
 		y += 36;
 		this.addRenderableWidget(Button.builder(CommonComponents.GUI_DONE, b -> this.onClose()).bounds(this.width / 2 - 102, y, 204, 20).build());
 	}
