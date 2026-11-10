@@ -19,8 +19,8 @@ final class Lessons {
 	/** A plain step lesson. */
 	static Lesson lesson(String id, TutorialRooms.Room room) { return new Lesson(id, room) {}; }
 
-	/** The tutorial's sweep speed, always: 0.10 s a beat (sweepGap ticks). */
-	static final int SWEEP_GAP = 2;
+	/** The tutorial's sweep speed, always: 0.15 s a beat (sweepGap ticks). */
+	static final int SWEEP_GAP = 3;
 
 	/** Every lesson starts from this: the defaults a lesson relies on (auto scan off until it is taught; the echo on, as by default; the sweep speed fixed). */
 	static void base(SonarConfig c, boolean beforeLedges) {
@@ -34,7 +34,7 @@ final class Lessons {
 	}
 
 	static List<Lesson> all() {
-		return List.of(new Welcome(), turning(), new Ping(), sweep(), materials(), tree(), autoScan(), hedges(), moves(), ledges(), echo(), bend(), entrances(),
+		return List.of(new Welcome(), turning(), new Ping(), sweep(), materials(), tree(), autoScan(), hedges(), ledges(), bend(), echo(), entrances(), moves(),
 			caves(), pathBell(), water(), jingle(), waypoints(), graduation());
 	}
 
@@ -261,7 +261,9 @@ final class Lessons {
 
 	/** L6 MOVES: jump onto a block, climb the stairs, climb the ladder up the wall at the landing, open the door of the cottage on top. */
 	static Lesson moves() {
-		Lesson l = lesson("l6", TutorialRooms.MOVES);
+		Lesson l = new Lesson("l6", TutorialRooms.MOVES) {
+			@Override void settings(SonarConfig c) { c.autoScan = true; } // (it comes after the entrances level: the door clicks)
+		};
 		l.title = "Jumps, stairs, ladders and doors"; l.intro = "l6.intro"; l.done = "l6.done"; l.par = 120;
 		l.goal = d -> d.rx() >= 26 && d.ry() >= 16.9; // (in the cottage by any route: the level is done)
 		l.step(Step.of("l6.task1", d -> d.ry() >= 2.9 && d.rx() >= 9 && d.rx() < 12, "l6.up", "l6.hint.jump", null));
@@ -322,10 +324,10 @@ final class Lessons {
 			@Override void settings(SonarConfig c) { c.autoScan = true; }
 		};
 		l.title = "Finding entrances"; l.intro = "l10.intro"; l.done = "l10.done"; l.par = 150;
-		l.goal = d -> d.inBox(6, 4, 11, 9); // (into the cottage before the shed and the gazebo: the level is done)
+		l.goal = d -> d.inBox(9, 4, 14, 9); // (into the cottage before the shed and the gazebo: the level is done)
 		l.step(Step.of("l10.task1", d -> d.inBox(12, 17, 21, 20) && d.count(Ev.BUMP) > 0, "l10.shed", "l10.hint.shed", null));
 		l.step(Step.of("l10.task2", d -> d.inBox(24, 14, 30, 20), "l10.gazebo", "l10.hint.gazebo", null));
-		l.step(Step.of("l10.task3", d -> d.inBox(6, 4, 11, 9), null, "l10.hint1", "l10.hint2"));
+		l.step(Step.of("l10.task3", d -> d.inBox(9, 4, 14, 9), null, "l10.hint1", "l10.hint2"));
 		l.where(d -> d.at("by the doorway", 2.5), "l10.round");
 		return l;
 	}
@@ -352,6 +354,7 @@ final class Lessons {
 			@Override void settings(SonarConfig c) { c.pathGuide = true; c.floorEdge = true; }
 		};
 		l.title = "The path bell"; l.intro = "l12.intro"; l.done = "l12.done"; l.par = 90;
+		l.wrongWay = true; l.wrongLine = "l12.back"; // turned round: the bell now leads you back down the path
 		l.step(Step.of("l12.task", d -> d.rx() >= 27 && d.rz() <= 6.5, null, "l12.hint1", "l12.hint2"));
 		l.where(d -> d.host.floorBlock().equals("dirt_path"), "l12.ripple");
 		l.where(d -> d.inBox(8, 18, 15, 25), "l12.plaza");
@@ -396,7 +399,7 @@ final class Lessons {
 		l.step(Step.of("l15.task1b", d -> d.count(Ev.WAYPOINT_ADDED) > 0, "l15.added", "l15.hint.add", null).inMenu());
 		l.step(Step.of("l15.task2", d -> d.host.waypointsOpen() || d.count(Ev.WAYPOINTS_OPENED) > 0 || d.host.guiding(), null, "l15.hint.open", null).onStart(d -> d.moveTo("far corner", 0f)));
 		l.step(Step.of("l15.task2b", d -> d.count(Ev.WAYPOINT_GUIDING) > 0 || d.host.guiding(), "l15.guiding", "l15.hint.guide", null).inMenu());
-		l.step(Step.of(null, d -> d.count(Ev.WAYPOINT_ARRIVED) > 0 || d.at("by the fountain", 2.0), null, "l15.hint.follow", null));
+		l.step(Step.of(null, d -> d.at("by the fountain", 2.0), null, "l15.hint.follow", null));
 		return l;
 	}
 

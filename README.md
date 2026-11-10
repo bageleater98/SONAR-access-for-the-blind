@@ -87,11 +87,11 @@ SONAR comes with a tutorial you can play entirely by ear. Click **Sonar Access T
 | 5 | Chopping a tree | Finding a tree by ear and cutting down its trunk. |
 | 6 | Auto scan | Hold **R** for two seconds and SONAR pings by itself. |
 | 7 | The hedge walk | Walking a winding path between hedges by ear. |
-| 8 | Jumps, stairs, ladders and doors | One thud means you can jump it; stairs, ladders and doors. |
-| 9 | Ledges | The edge tone, sneaking to a lip, the narrow ridge. |
-| 10 | The echo indoors | The clicks that mark the ways out of a room. |
-| 11 | Round the corner | A muffled click means the way out is round a corner. |
-| 12 | Finding entrances | Outside, clicks are the ways *into* buildings. |
+| 8 | Ledges | The edge tone, sneaking to a lip, the narrow ridge. |
+| 9 | Round the corner | Indoors the echo clicks from the ways out; round a corner the click is muffled. |
+| 10 | The echo indoors | A click from every door and opening; the last one is the nearest. |
+| 11 | Finding entrances | Outside, clicks are the ways *into* buildings. |
+| 12 | Jumps, stairs, ladders and doors | One thud means you can jump it; stairs, ladders and doors. |
 | 13 | Caves | Underground, every route out of a cave clicks. |
 | 14 | The path bell | Following a built path by its bell. |
 | 15 | Water and lava | Their looping sounds, and keeping away from lava. |

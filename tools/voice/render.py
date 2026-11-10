@@ -38,12 +38,24 @@ def spoken(text, keys):
     return re.sub(r"\{key:(\w+)\}", lambda m: keys[m.group(1)], text)
 
 
+PHRASES = {"scan": "your ping key", "echo": "your echo key", "ledge": "your ledge key", "confusing": "your marking key"}
+
+
+def rebound(text):
+    """For a player who changed that key: the line says what the key is for, not its letter (a rebound key can not be pre-recorded)."""
+    return re.sub(r"\{key:(\w+)\}", lambda m: PHRASES.get(m.group(1), "your " + m.group(1) + " key"), text)
+
+
 def variants(script):
     """(file id, text) for every line and every short variant."""
     for line in script["lines"]:
         yield line["id"], line["text"]
+        if "{key:" in line["text"]:
+            yield line["id"] + ".rb", rebound(line["text"])
         if line.get("short"):
             yield line["id"] + ".short", line["short"]
+            if "{key:" in line["short"]:
+                yield line["id"] + ".short.rb", rebound(line["short"])
 
 
 def main():

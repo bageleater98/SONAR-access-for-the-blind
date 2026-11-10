@@ -129,6 +129,7 @@ final class WaypointRoute {
 		if (r != null && r.size() >= 2 && (hit || progress(r) >= 2)) {
 			last = hit ? "to the waypoint" : fromEnd ? "extended" : "new route";
 			failsFromHere = 0;
+			if (!fromEnd) wait = 40; // a fresh route from where you stand: no other from-scratch search for two seconds (it was re-planning every few seconds and flipping sides)
 			take(r, hit);
 			return;
 		}
@@ -141,8 +142,10 @@ final class WaypointRoute {
 			route = trimToYou(mx, my, mz);
 			offForced = true; // the route stays for the sound; the next search starts from you
 		} else {
-			wait = 20; // from where you are, no way on: look again in a second (the route you have keeps sounding)
-			if (++failsFromHere >= 3 && route == null) last = "no way at all";
+			if (!dead.isEmpty()) { dead.clear(); wait = 0; offForced = true; last = "no way on (forgetting the dead ends, looking again)"; return; } // the dead ends may have walled the only way off
+			wait = 20; // from where you are, no way on: look again in a second
+			if (++failsFromHere >= 2) { route = null; last = "no way on (the old route led nowhere: dropped)"; } // never keep leading into the wall
+			if (failsFromHere >= 3 && route == null) last = "no way at all";
 		}
 	}
 

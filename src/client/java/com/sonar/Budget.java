@@ -24,11 +24,26 @@ final class Budget {
 		return Math.max(Tuning.SEARCH_FLOOR_NS, Math.min(Tuning.ROUTE_TICK_NANOS, Math.max(left, share)));
 	}
 
-	/** Runs a route search for this tick's share of time. True when it is over. */
+	private static final java.util.concurrent.ExecutorService POOL = java.util.concurrent.Executors.newSingleThreadExecutor(r -> { Thread t = new Thread(r, "sonar-routes"); t.setDaemon(true); return t; });
+	private static final java.util.Map<PlayerChime.Search, java.util.concurrent.Future<?>> RUNNING = new java.util.IdentityHashMap<>();
+
+	/**
+	 * Works a route search on a helper thread (it only reads blocks, and is not touched by the game thread until it is over): the game thread never waits for a
+	 * route, so a long search can not stutter the game. True when the search is over (found, or no way); call it every tick until then.
+	 */
 	static boolean run(PlayerChime.Search sr) {
-		long t0 = System.nanoTime();
-		boolean done = sr.run(PlayerChime.SLICE, forSearch());
-		searchUsed += System.nanoTime() - t0;
-		return done;
+		var f = RUNNING.get(sr);
+		if (RUNNING.size() > 16) RUNNING.values().removeIf(x -> x.isDone() && x != RUNNING.get(sr)); // (searches that were dropped before they ended)
+		if (f == null) {
+			f = POOL.submit(() -> {
+				try {
+					long end = System.nanoTime() + 20_000_000_000L; // never longer than 20 s
+					while (!sr.run(PlayerChime.SLICE, 50_000_000L) && System.nanoTime() < end) {}
+				} catch (Throwable e) { sr.done = true; sr.failed = true; } // (a block changed under it: no route this time, the next search tries again)
+			});
+			RUNNING.put(sr, f);
+		}
+		if (f.isDone()) { RUNNING.remove(sr); return true; }
+		return false;
 	}
 }

@@ -131,7 +131,7 @@ public class ExitGuide {
 					if (cy > f0 && up == null) up = new double[]{c[0], c[1], steps, seen ? 1 : 0};
 					if (cy < f0 && down == null) down = new double[]{c[0], c[1], steps, seen ? 1 : 0};
 				}
-				if (isDoor || sky) continue; // do not explore beyond a way out: the first one in each direction is what matters
+				if (sky) continue; // outside is not explored (one cell of it is the way out); a door inside is walked through: the next room's ways out click too, muffled
 			}
 			for (int k = 0; k < 4; k++) {
 				int nx = c[0] + (k == 0 ? 1 : k == 1 ? -1 : 0), nz = c[1] + (k == 2 ? 1 : k == 3 ? -1 : 0);

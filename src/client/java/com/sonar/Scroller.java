@@ -31,6 +31,19 @@ final class Scroller {
 
 	private static final Map<Screen, State> STATES = new WeakHashMap<>();
 
+	/** Tab on the last widget goes to the first, Shift+Tab on the first to the last (Tab through a menu loops, it never runs out). False = key used. */
+	private static boolean wrapTab(Screen sc, net.minecraft.client.input.KeyEvent event) {
+		if (event.key() != 258) return true;
+		List<AbstractWidget> all = new ArrayList<>();
+		for (var c : sc.children()) if (c instanceof AbstractWidget w && w.active && w.visible) all.add(w);
+		if (all.size() < 2) return true;
+		boolean shift = (event.modifiers() & 1) != 0;
+		var f = sc.getFocused();
+		if (!shift && f == all.get(all.size() - 1)) { sc.setFocused(null); sc.setFocused(all.get(0)); return false; }
+		if (shift && f == all.get(0)) { sc.setFocused(null); sc.setFocused(all.get(all.size() - 1)); return false; }
+		return true;
+	}
+
 	static boolean applies(Screen s) { return s instanceof TitleScreen || s.getClass().getName().startsWith("com.sonar."); }
 
 	static void init() {
@@ -51,6 +64,7 @@ final class Scroller {
 				g.fill(sc.width - 5, MARGIN, sc.width - 2, MARGIN + track, 0x55000000);
 				g.fill(sc.width - 5, y, sc.width - 2, y + thumb, 0xCCFFFFFF);
 			});
+			net.fabricmc.fabric.api.client.screen.v1.ScreenKeyboardEvents.allowKeyPress(screen).register((sc, event) -> wrapTab(sc, event)); // Tab past the last button goes back to the first
 			ScreenMouseEvents.allowMouseScroll(screen).register((sc, mx, my, sx, sy) -> {
 				if (st.token != token || st.max <= 0 || sy == 0) return true;
 				st.scroll = clamp(st.scroll - (int) Math.round(sy * 20), st.max);

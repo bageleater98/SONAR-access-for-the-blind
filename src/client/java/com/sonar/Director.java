@@ -127,6 +127,7 @@ final class Director {
 		Lessons.base(host.cfg(), index < ledgesAt());
 		lesson.settings(host.cfg());
 		host.saveCfg();
+		host.clearWaypoints(); // (a waypoint guide from the waypoints level must not play on into the next)
 		host.inventory(lesson.axe);   // empty hands, or the tree lesson's axe
 		host.fallDamage(lesson.hurt); // a fall is felt only where the lesson is about falling
 		hintsThisLesson = 0;
@@ -308,7 +309,6 @@ final class Director {
 		if (hintLevel == 0 && stuck > HINT1_S * f && h1 != null) { hintLevel = 1; hint(h1); }
 		else if (hintLevel == 1 && !exampleSaid && pacing.struggling(hintsThisLesson, retriesThisLesson) && lesson.example(this) != null) { exampleSaid = true; hint(lesson.example(this)); }
 		else if (hintLevel == 1 && stuck > HINT2_S * f && h2 != null) { hintLevel = 2; hint(h2); }
-		else if (hintLevel == 2 && stuck > SKIP_OFFER_S * f) { hintLevel = 3; hint("hint.skip"); }
 		else if (since(lastInput) > IDLE_S && lesson.idle != null && !host.screenOpen()) nar.say(lesson.idle);
 	}
 
@@ -372,7 +372,7 @@ final class Director {
 		if (d > wrongD + 3 && since(wrongAt) <= WRONG_WAY_S) {
 			log.wrongWay++;
 			SonarClient.LOG.info("SONAR tutorial: " + lesson.id + " wrong way");
-			nar.say("wrong.1");
+			nar.say(lesson.wrongLine);
 			wrongD = d;
 			wrongAt = host.now();
 		} else if (since(wrongAt) > WRONG_WAY_S) { wrongD = d; wrongAt = host.now(); }
@@ -522,6 +522,8 @@ final class Director {
 		String fallLine;
 		/** Moving away from the goal says so (only where the straight line is the way). */
 		boolean wrongWay;
+		/** What is said when you walk the wrong way (default: wrong.1). */
+		String wrongLine = "wrong.1";
 		/** For custom lessons: the challenge is open. */
 		boolean armed;
 		/** Its name in the lesson menu. */

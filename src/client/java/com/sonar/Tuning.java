@@ -179,7 +179,7 @@ final class Tuning {
 
 	static final float BELL_LEVEL = 0.064f /* chime_soft.ogg is normalised to ~0.85 peak; 0.064 makes 100% about 2.8x the old bell, 200% about 5.6x */, BELL_DUCK = 0.35f;
 	/** Ticks between two bell chimes (5: four a second). */
-	static final int BELL_BLIP_TICKS = 5;
+	static final int BELL_BLIP_TICKS = 4;
 	/** The bell leads at least this far along the path, even at a turn right in front of you. */
 	static final double BELL_MIN_LEAD = 3.5;
 	static final double BELL_LEAD_PER_SPEED = 3.0, BELL_LEAD_MAX = 5;

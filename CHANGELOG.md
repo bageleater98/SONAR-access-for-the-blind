@@ -1,5 +1,24 @@
 # Sonar Access: changes
 
+## 1.5.1
+
+### Tutorial
+- New order: ledges, round the corner, the echo indoors, finding entrances, then jumps, stairs, ladders and doors (its door now clicks, and auto scan is on there).
+- The path bell has a new sound (clean glass tones with the glass of a breaking bottle), plays faster, and glides instead of jumping. On the path level, Wren says it will lead you backwards if you turn round, and tells you if you do.
+- Every line that names a key has a second recording that says "your ping key" for players who changed that key, so the narrator's voice is used everywhere.
+- Opening a door centres you in front of it. Invisible walls on the ridge, gazebo and pond levels; a wider cave mouth; rock all round the cave level.
+- The "move on if you're stuck" offer is gone; hints come a little sooner; the sweep is one notch slower.
+
+### Mod
+- Master switch off now silences the direction words and the head-bump tone. The head-bump tone plays only under a two-block ceiling.
+- The edge tone is louder when you crouch or stand still.
+- Tab loops through every Sonar menu.
+### Routes (all of the mod)
+- Route searches for the player jingle and the waypoint guide now run on a helper thread, so a long search can no longer stutter the game.
+- The waypoint guide no longer keeps leading you into a wall: when a search finds no way on, it forgets the dead ends it was avoiding, looks again, and drops a route that leads nowhere.
+- The player jingle is no longer muffled while you stand or swim in water.
+
+
 ## 1.5.0
 
 ### The tutorial
@@ -13,6 +32,7 @@
 - Entrances are found up to 45 blocks away. A roof on posts (a gazebo) is no longer taken for a building, so it no longer clicks.
 - The ceiling tone now plays only when you jump and hit your head.
 - Fences and ladders ping; the ledge tone while sneaking is a little louder.
+- Ways out round a corner, and in the next room through a door, click too (muffled).
 - Waypoints guide you round walls with a hum and three rising notes.
 
 ## Earlier changes (also in this version)

@@ -102,6 +102,11 @@ public class SonarClient implements ClientModInitializer {
 		SonarConfig.reloadIfChanged();
 		Scan.warm(SonarConfig.cur.range, SonarConfig.cur.frontRange);
 		ClientTickEvents.END_CLIENT_TICK.register(this::onTick);
+		// opening a door in the tutorial centres you on your block and squares you up, as a bump does, so you stand directly in front of it
+		net.fabricmc.fabric.api.event.player.UseBlockCallback.EVENT.register((player, level, hand, hit) -> {
+			if (level.isClientSide() && Tutorial.active() && player instanceof net.minecraft.client.player.LocalPlayer lp && level.getBlockState(hit.getBlockPos()).is(net.minecraft.tags.BlockTags.DOORS)) centerAndSquare(lp);
+			return net.minecraft.world.InteractionResult.PASS;
+		});
 	}
 
 	static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger("sonar");
@@ -145,7 +150,7 @@ public class SonarClient implements ClientModInitializer {
 		}
 		if (++tick % 20 == 0) SonarConfig.reloadIfChanged();
 		Timeline.tick(tick);
-		guard("facing", () -> sayFacing(mc));
+		if (SonarConfig.cur.enabled) guard("facing", () -> sayFacing(mc));
 		guard("headBonk", () -> Cues.headBonk(mc, SonarConfig.cur));
 		// F2 with Debug on: also save the blocks around you, named like the screenshot. The game handles the screenshot key itself and never marks it as held,
 		// so the key's own state is read straight from the keyboard
@@ -183,7 +188,7 @@ public class SonarClient implements ClientModInitializer {
 			try { SonarConfig.save(); } catch (Exception ignored) {}
 		}
 		Cues.tickPending(mc);
-		LedgeTone.duckTarget = stillTicks >= 10 ? 0.2f : 1f; // not moved for half a second: the edge warning mostly quiets until you move again
+		LedgeTone.duckTarget = stillTicks >= 10 ? 0.4f : 1f; // not moved for half a second: the edge warning mostly quiets until you move again
 		guard("ledge tone", () -> LedgeTone.tick(mc));
 		guard("guide icons", () -> Markers.tick(mc));
 		guard("door ahead", () -> doorAhead(mc));

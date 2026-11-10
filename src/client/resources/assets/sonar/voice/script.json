@@ -469,13 +469,13 @@
       "id": "title.l6",
       "category": "reaction",
       "priority": 1,
-      "text": "Level eight. Jumps, stairs, ladders and doors."
+      "text": "Level twelve. Jumps, stairs, ladders and doors."
     },
     {
       "id": "title.l7",
       "category": "reaction",
       "priority": 1,
-      "text": "Level nine. Ledges."
+      "text": "Level eight. Ledges."
     },
     {
       "id": "title.l8",
@@ -487,13 +487,13 @@
       "id": "title.l9",
       "category": "reaction",
       "priority": 1,
-      "text": "Level eleven. Round the corner."
+      "text": "Level nine. Round the corner."
     },
     {
       "id": "title.l10",
       "category": "reaction",
       "priority": 1,
-      "text": "Level twelve. Finding entrances."
+      "text": "Level eleven. Finding entrances."
     },
     {
       "id": "title.l11",
@@ -643,15 +643,15 @@
       "id": "l5.intro",
       "category": "intro",
       "priority": 1,
-      "text": "Pressing R at every step gets tiring. Hold R for two seconds, and Sonar pings by itself, again and again, until you hold it again.",
-      "short": "Hold R for two seconds for auto scan."
+      "text": "Pressing {key:scan} at every step gets tiring. Hold {key:scan} for two seconds, and Sonar pings by itself, again and again, until you hold it again.",
+      "short": "Hold {key:scan} for two seconds for auto scan."
     },
     {
       "id": "l5.task1",
       "category": "instruction",
       "priority": 1,
-      "text": "Hold R now, for two seconds, until you hear auto scan on.",
-      "short": "Hold R until auto scan is on."
+      "text": "Hold {key:scan} now, for two seconds, until you hear auto scan on.",
+      "short": "Hold {key:scan} until auto scan is on."
     },
     {
       "id": "l5.on",
@@ -670,13 +670,13 @@
       "id": "l5.hint.r",
       "category": "hint1",
       "priority": 2,
-      "text": "Hold R down without letting go, for a slow count of two."
+      "text": "Hold {key:scan} down without letting go, for a slow count of two."
     },
     {
       "id": "l5.done",
       "category": "success",
       "priority": 1,
-      "text": "Auto scan, sorted. It keeps pinging until you hold R again."
+      "text": "Auto scan, sorted. It keeps pinging until you hold {key:scan} again."
     },
     {
       "id": "l6.intro",
@@ -689,7 +689,7 @@
       "id": "l6.task1",
       "category": "instruction",
       "priority": 1,
-      "text": "Walk east along this lane. If you bump into something with a single thud, it's low enough to jump onto. Hold forward and press space.",
+      "text": "Walk forward along this lane. If you bump into something with a single thud, it's low enough to jump onto. Hold forward and press space.",
       "short": "Walk east, and jump onto the low block."
     },
     {
@@ -708,7 +708,7 @@
       "id": "l6.task2",
       "category": "instruction",
       "priority": 1,
-      "text": "Keep going east. Stairs come next. Just walk up them.",
+      "text": "Keep going. Stairs come next. Just walk up them.",
       "short": "Walk up the stairs."
     },
     {
@@ -721,7 +721,7 @@
       "id": "l6.task3",
       "category": "instruction",
       "priority": 1,
-      "text": "At the east end of this landing, a ladder climbs the wall. Walk into it and you'll hold on. Then hold forward to climb up, and step off at the top.",
+      "text": "At the end of this landing, a ladder climbs the wall. Walk into it and you'll hold on. Then hold forward to climb up, and step off at the top.",
       "short": "Climb the ladder at the east end."
     },
     {
@@ -734,7 +734,7 @@
       "id": "l6.task4",
       "category": "instruction",
       "priority": 1,
-      "text": "The cottage door is a little further east, up here. Look at it for a moment and Sonar says door ahead. Right-click to open it, then walk in.",
+      "text": "The cottage door is a little further on, up here. Listen for its click. Look at the door for a moment and Sonar says door ahead. Right-click to open it, then walk in.",
       "short": "Open the door and go in."
     },
     {
@@ -747,19 +747,19 @@
       "id": "l6.hint.stairs",
       "category": "hint1",
       "priority": 2,
-      "text": "Just keep walking east. Stairs climb themselves."
+      "text": "Just keep walking forward. Stairs climb themselves."
     },
     {
       "id": "l6.hint.ladder",
       "category": "hint1",
       "priority": 2,
-      "text": "Walk east into the ladder, and keep holding forward to climb. If you slip off, walk into it again."
+      "text": "Walk forward into the ladder, and keep holding forward to climb. If you slip off, walk into it again."
     },
     {
       "id": "l6.hint.door",
       "category": "hint1",
       "priority": 2,
-      "text": "The door is straight east. Face it, then right-click: that's the use button."
+      "text": "The door is straight ahead. Face it, then right-click: that's the use button."
     },
     {
       "id": "l6.done",
@@ -785,8 +785,8 @@
       "id": "l7.task1",
       "category": "instruction",
       "priority": 1,
-      "text": "Walk north, slowly, until you hear the edge tone.",
-      "short": "Walk north until the edge tone."
+      "text": "Walk forward, slowly, until you hear the edge tone.",
+      "short": "Walk forward until the edge tone."
     },
     {
       "id": "l7.tone",
@@ -817,8 +817,8 @@
       "id": "l7.task3",
       "category": "instruction",
       "priority": 1,
-      "text": "Now the narrow ridge. It starts a few steps to your right, east of here, and runs north, three blocks wide, with drops on both sides. Find it, and walk along it to the end. The tones on your left and right tell you where the sides are: keep them even.",
-      "short": "Find the narrow ridge, right and north."
+      "text": "Now the narrow ridge. Walk right, east, along the edge until something stops you. The ridge starts right there and runs north, three blocks wide, with drops on both sides. Turn north, and walk along it to the end. The tones on your left and right tell you where the sides are: keep them even.",
+      "short": "Walk right until you are stopped, then north along the ridge."
     },
     {
       "id": "l7.ridge",
@@ -830,8 +830,8 @@
       "id": "l7.task4",
       "category": "instruction",
       "priority": 1,
-      "text": "Last thing. Press J to turn the ledge warning off, then J again to turn it back on. Handy when you're building near edges.",
-      "short": "Press J twice."
+      "text": "Last thing. Press {key:ledge} to turn the ledge warning off, then {key:ledge} again to turn it back on. Handy when you're building near edges.",
+      "short": "Press {key:ledge} twice."
     },
     {
       "id": "l7.brake",
@@ -849,7 +849,7 @@
       "id": "l7.hint.tone",
       "category": "hint1",
       "priority": 2,
-      "text": "Walk north, a step at a time. The tone starts a few blocks before the edge."
+      "text": "Walk forward, a step at a time. The tone starts a few blocks before the edge."
     },
     {
       "id": "l7.hint.lip",
@@ -861,13 +861,13 @@
       "id": "l7.hint.ridge",
       "category": "hint1",
       "priority": 2,
-      "text": "Walk right, east, along the edge, until you hear the edge tone on both sides of you. Then turn north and walk the ridge, keeping the left and right tones even."
+      "text": "Walk right, east, until something stops you. That is the ridge's side. Then turn north and walk along it, keeping the left and right tones even."
     },
     {
       "id": "l7.hint.j",
       "category": "hint1",
       "priority": 2,
-      "text": "Press J. It switches the ledge warning on and off."
+      "text": "Press {key:ledge}. It switches the ledge warning on and off."
     },
     {
       "id": "l7.done",
@@ -879,8 +879,8 @@
       "id": "l8.intro",
       "category": "intro",
       "priority": 1,
-      "text": "Indoors, pinging every wall would just be a wall of sound. So inside, Sonar uses the echo: short clicks from the ways out of the room you're in. The echo is already on. H turns it on and off.",
-      "short": "Indoors, the echo clicks from the ways out."
+      "text": "Another house, with more than one way out. The echo gives a click from every door and opening, and the last click is always the nearest way out.",
+      "short": "Every way out clicks. The last is the nearest."
     },
     {
       "id": "l8.last",
@@ -936,27 +936,27 @@
       "id": "l9.intro",
       "category": "intro",
       "priority": 1,
-      "text": "A room you can't see, round a corner. Its click is muffled, like a sound from the next room, and it comes from the corner you need to walk to.",
-      "short": "Muffled clicks are round a corner."
+      "text": "Indoors, pinging every wall would just be a wall of sound. So inside, Sonar uses the echo: short clicks from the ways out of the room you're in. The echo is already on. {key:echo} turns it on and off. This corridor's way out is round a corner, so its click is muffled, like a sound from the next room, and it comes from the corner you need to walk to.",
+      "short": "Indoors, the echo clicks from the ways out. Round a corner, it's muffled."
     },
     {
       "id": "l9.task",
       "category": "instruction",
       "priority": 1,
-      "text": "Follow the muffled click along this corridor to the room at its end.",
+      "text": "Follow the muffled click along this corridor, and out.",
       "short": "Follow the muffled click out."
     },
     {
       "id": "l9.clear",
       "category": "reaction",
       "priority": 3,
-      "text": "Hear that? Now the room is in view, its click is clear."
+      "text": "Hear that? Now the way out is in view, its click is clear."
     },
     {
       "id": "l9.hint1",
       "category": "hint1",
       "priority": 2,
-      "text": "Walk forward, north. The corridor turns right at the end."
+      "text": "Walk forward. The corridor turns right at the end."
     },
     {
       "id": "l9.hint2",
@@ -968,7 +968,7 @@
       "id": "l9.done",
       "category": "success",
       "priority": 1,
-      "text": "Round the corner and in. You followed a sound you couldn't even see."
+      "text": "Round the corner and out. You followed a sound you couldn't even see."
     },
     {
       "id": "l10.intro",
@@ -1088,8 +1088,8 @@
       "id": "l12.task",
       "category": "instruction",
       "priority": 1,
-      "text": "The path starts just ahead of you. Walk forward to find it, then follow the bell along it to the well at the far end.",
-      "short": "Walk forward to find the path, then follow the bell to the well."
+      "text": "The path starts just ahead of you. Walk forward to find it, then follow the bell along it to the well at the far end. If you ever turn around, the bell will lead you backwards, back down the path.",
+      "short": "Walk forward to find the path, then follow the bell to the well. Turn round and it leads you back."
     },
     {
       "id": "l12.ripple",
@@ -1626,6 +1626,12 @@
       "category": "reaction",
       "priority": 1,
       "text": "Sonar Access settings."
+    },
+    {
+      "id": "l12.back",
+      "category": "reaction",
+      "priority": 3,
+      "text": "You've turned around. The bell is leading you backwards, down the path the way you came. Turn round again to follow it on to the well."
     }
   ]
 }

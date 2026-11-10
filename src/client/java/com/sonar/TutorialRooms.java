@@ -217,6 +217,7 @@ final class TutorialRooms {
 		b.fill(16, 4, 10, 20, 4, 20, Blocks.GRASS_BLOCK);
 		b.fill(9, 2, 2, 11, 6, 9, Blocks.STONE);         // the ridge, three wide, running north
 		b.fill(9, 6, 2, 11, 6, 9, Blocks.GRASS_BLOCK);
+		b.fill(12, 7, 10, 12, 10, 20, Blocks.BARRIER);   // an invisible wall right of the ridge's start: walk right and you are stopped there, at the ridge
 	}, spot("spawn", 6.5, 7, 16.5, OUT), spot("near the lip", 6.5, 7, 10.5, OUT), spot("on the ridge", 10.5, 7, 5.5, OUT),
 		spot("by the low step", 14.5, 7, 15.5, OUT), spot("ridge end", 10.5, 7, 2.5, OUT));
 
@@ -263,12 +264,13 @@ final class TutorialRooms {
 	static final Room LAWN = new Room("l10", 10, 33, 9, 27, OUT, 16.5, 2, 23.5, 180f, b -> {
 		ground(b, 33, 27);
 		house(b, 13, 12, 19, 17, Blocks.SPRUCE_PLANKS);          // the shed: no door at all
-		house(b, 5, 3, 11, 9, Blocks.OAK_PLANKS);                // the cottage...
-		b.fill(8, 2, 3, 8, 3, 3, Blocks.AIR);                    // ...with a doorway in its north wall
+		house(b, 8, 3, 14, 9, Blocks.OAK_PLANKS);                // the cottage (nearer the gazebo than it was)...
+		b.fill(11, 2, 3, 12, 3, 3, Blocks.AIR);                  // ...with a doorway in its north wall
 		for (int[] p : new int[][]{{24, 14}, {29, 14}, {24, 19}, {29, 19}}) b.fill(p[0], 2, p[1], p[0], 4, p[1], Blocks.OAK_FENCE); // the gazebo's posts
 		b.fill(24, 5, 14, 29, 5, 19, Blocks.OAK_SLAB);           // and its roof
+		b.fill(8, 2, 10, 8, 6, 26, Blocks.BARRIER);              // an invisible wall five blocks left of the shed, from behind the start up to the cottage: no walking straight to it
 	}, spot("spawn", 16.5, 2, 23.5, OUT), spot("by the shed", 16.5, 2, 18.5, OUT), spot("in the gazebo", 26.5, 2, 16.5, OUT),
-		spot("by the doorway", 8.5, 2, 1.5, OUT), spot("in the cottage", 8.5, 2, 6.5, ROOM));
+		spot("by the doorway", 11.5, 2, 1.5, OUT), spot("in the cottage", 11.5, 2, 6.5, ROOM));
 
 	// ---------------------------------------------------------------- L11 caves
 
@@ -277,9 +279,11 @@ final class TutorialRooms {
 	 * SMALL tunnel north to a little chamber; and a shallow alcove west that must NOT echo. The cave floor is at y 4 (you stand at y 5); the lower cave at y 1.
 	 */
 	static final Room CAVES = new Room("l11", 11, 33, 14, 33, CAVE, 16.5, 5, 17.5, -90f, b -> {
+		b.fill(-6, -4, -6, 38, 17, 38, Blocks.STONE);   // rock beyond the room's box too, so up at its edge you are still deep in a cave (the box itself is silent)
 		b.fill(0, 0, 0, 32, 13, 32, Blocks.STONE);
 		b.fill(4, 9, 4, 28, 9, 28, Blocks.ANDESITE);     // a seam of andesite in the roof, for texture
 		b.fill(12, 5, 14, 20, 8, 20, Blocks.AIR);        // the cavern
+		b.fill(20, 5, 15, 23, 7, 19, Blocks.AIR);        // the mouth of the big tunnel, wide (a funnel: no corners to catch on)
 		b.fill(21, 5, 16, 31, 7, 18, Blocks.AIR);        // the big tunnel east...
 		b.fill(29, 5, 19, 31, 7, 31, Blocks.AIR);        // ...turning south (13 long: well out of sight)
 		b.fill(29, 1, 29, 30, 4, 30, Blocks.AIR);        // the shaft down, at the passage's end
@@ -320,6 +324,8 @@ final class TutorialRooms {
 		b.fill(20, 3, 2, 22, 3, 4, Blocks.LAVA);         // the lava pit
 		b.fill(20, 2, 2, 22, 2, 4, Blocks.STONE);
 		b.walls(19, 1, 23, 5, 4, 4, Blocks.NETHER_BRICK_FENCE); // fenced all round (a fence that lava can not set alight)
+		b.fill(5, 4, 6, 5, 7, 14, Blocks.BARRIER);       // invisible sides to the pond: the only way out is the far bank
+		b.fill(21, 4, 6, 21, 7, 14, Blocks.BARRIER);
 	}, spot("spawn", 12.5, 4, 3.5, OUT), spot("by the lava", 17.5, 4, 3.5, OUT), spot("far bank", 12.5, 4, 16.5, OUT));
 
 	// ---------------------------------------------------------------- L14 player jingle
@@ -399,7 +405,7 @@ final class TutorialRooms {
 	}, spot("spawn", 19.5, 2, 89.5, OUT), spot("on the raised walk", 19.5, 6, 32.5, OUT), spot("in the cottage", 19.5, 2, 21.5, ROOM), spot("in the cavern", 17.5, 2, 6.5, CAVE), spot("finish", 1.5, 2, 7.5, OUT));
 
 	/** All rooms, in lesson order. */
-	static final List<Room> ALL = List.of(WELCOME, GARDEN, COURTYARD, SWEEP, MATERIALS, TREE, AUTO, HEDGES, MOVES, LEDGES, HOUSE, BEND, LAWN, CAVES, MEADOW, POND,
+	static final List<Room> ALL = List.of(WELCOME, GARDEN, COURTYARD, SWEEP, MATERIALS, TREE, AUTO, HEDGES, LEDGES, BEND, HOUSE, LAWN, MOVES, CAVES, MEADOW, POND,
 		DUMMY, SQUARE, COURSE);
 
 	/** Room slots (a room's index is its place along x, not its lesson number: new rooms take new slots, so old ones never move): one past the highest. */

@@ -121,8 +121,9 @@ final class Voice {
 		stop(mc);
 		playingId = id;
 		started = System.nanoTime();
+		if (rebound[0] && SECONDS.containsKey(file + ".rb")) file = file + ".rb"; // changed keys: the recording that says "your ping key"
 		Double secs = SECONDS.get(file);
-		if (!rebound[0] && secs != null && fileExists(mc, file)) {
+		if (secs != null && fileExists(mc, file)) {
 			float vol = SonarConfig.cur.speechVolume / 100f;
 			// a line started while the game is paused (an instruction about the menu you are in) plays on the UI channel, which pausing leaves alone
 			playing = new SimpleSoundInstance(Identifier.fromNamespaceAndPath("sonar", "voice." + file), mc.isPaused() ? SoundSource.UI : SoundSource.VOICE, vol, 1f, RandomSource.create(),
@@ -255,8 +256,9 @@ final class Voice {
 		menuSound = null;
 		boolean[] rebound = {false};
 		String text = withKeys(l.text(), rebound);
-		if (!rebound[0] && SECONDS.containsKey(id) && fileExists(mc, id)) {
-			menuSound = new SimpleSoundInstance(Identifier.fromNamespaceAndPath("sonar", "voice." + id), SoundSource.UI, SonarConfig.cur.speechVolume / 100f, 1f,
+		String mid = rebound[0] && SECONDS.containsKey(id + ".rb") ? id + ".rb" : id;
+		if (SECONDS.containsKey(mid) && fileExists(mc, mid)) {
+			menuSound = new SimpleSoundInstance(Identifier.fromNamespaceAndPath("sonar", "voice." + mid), SoundSource.UI, SonarConfig.cur.speechVolume / 100f, 1f,
 				RandomSource.create(), false, 0, SoundInstance.Attenuation.NONE, 0, 0, 0, true);
 			mc.getSoundManager().play(menuSound);
 		} else Speech.say(mc, Component.literal(text));

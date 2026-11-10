@@ -74,8 +74,11 @@ public class Cues {
 	 */
 	static void headBonk(Minecraft mc, SonarConfig cfg) {
 		var p = mc.player;
-		if (p == null) return;
-		boolean hit = p.verticalCollision && !p.verticalCollisionBelow && !p.onGround() && !p.isInWater();
+		if (p == null || !cfg.enabled) return;
+		var feet = p.blockPosition();
+		var roof = p.level().getBlockState(feet.above(2)); // only where the headroom is two blocks: in an ordinary three-high room a jump bumps nothing worth a sound
+		boolean low = !roof.getCollisionShape(p.level(), feet.above(2)).isEmpty();
+		boolean hit = low && p.verticalCollision && !p.verticalCollisionBelow && !p.onGround() && !p.isInWater();
 		if (hit && !headWas && cfg.ceilingCue && SonarClient.tick - headLast > 6) {
 			headLast = SonarClient.tick;
 			play(mc, (SoundEvent)SoundEvents.NOTE_BLOCK_BASS.value(), cfg.volume * 0.5F, 1.3F, p.getX(), p.getEyeY() + 1.5, p.getZ());

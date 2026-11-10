@@ -763,7 +763,9 @@ public class PathGuide {
 	private static int lastJx = Integer.MIN_VALUE, lastJz, lastJt = -10000;
 	private static boolean approach;
 	/** The bell's little tune (pitch steps of a rising major arpeggio), and where it is in it. */
-	static final float[] BELL_TUNE = {2.0f, 1.78f, 2.0f, 1.68f}; // high, dips a little, back, dips a little further (picked by ear from samples)
+	static final float[] BELL_TUNE = {1.0f, 1.26f, 1.5f, 1.26f, 1.12f, 1.5f}, BELL_GLASS_TUNE = {1.0f, 1.26f, 1.5f, 1.26f};
+	static final net.minecraft.sounds.SoundEvent BELL_RES = net.minecraft.sounds.SoundEvent.createVariableRangeEvent(net.minecraft.resources.Identifier.fromNamespaceAndPath("sonar", "bell_res")),
+		BELL_GLASS = net.minecraft.sounds.SoundEvent.createVariableRangeEvent(net.minecraft.resources.Identifier.fromNamespaceAndPath("sonar", "bell_glass")); // high, dips a little, back, dips a little further (picked by ear from samples)
 	/** The bell's sound: the amethyst chime with its harshest top filtered off (it is played high, where the top end grated). */
 	static final net.minecraft.sounds.SoundEvent BELL_CHIME = net.minecraft.sounds.SoundEvent.createVariableRangeEvent(net.minecraft.resources.Identifier.fromNamespaceAndPath("sonar", "chime_soft"));
 	private static int blipWait, blipN, lastTry;
@@ -939,7 +941,11 @@ public class PathGuide {
 		double cap = Math.toRadians(25);
 		double a2 = approach ? ang : cap * Math.tanh(ang * 2.5 / cap), dist = approach ? Math.min(10.5, Math.max(2.0, Math.hypot(dx, dz))) : Math.min(15.0, Math.max(4.0, Math.hypot(dx, dz))); // leading you onto a path: its real direction, from all round
 		// glide in YOUR frame (its direction and distance from you), a little each tick: in the world the old spot is already behind you when you run
-		if (!Double.isNaN(lastBa) && Math.abs(a2 - lastBa) < Math.toRadians(40) && Math.abs(dist - lastBd) < 6) { a2 = Smooth.toward(lastBa, a2, 0.2); dist = Smooth.toward(lastBd, dist, 0.2); }
+		if (!Double.isNaN(lastBa)) { // always a glide, never a jump: a little each tick, however far the new spot is
+			double da = Math.atan2(Math.sin(a2 - lastBa), Math.cos(a2 - lastBa));
+			a2 = lastBa + Math.max(-Math.toRadians(4), Math.min(Math.toRadians(4), da * 0.2));
+			dist = lastBd + Math.max(-0.35, Math.min(0.35, (dist - lastBd) * 0.2));
+		}
 		lastBa = a2; lastBd = dist;
 		double px = p.getX() + dist * (Math.cos(a2) * fx + Math.sin(a2) * rx), pz = p.getZ() + dist * (Math.cos(a2) * fz + Math.sin(a2) * rz);
 		if (cfg.debug && t % 12 == 0) Dbg.send(p, net.minecraft.network.chat.Component.literal(Dbg.fmt("bell: me %.0f,%.0f yaw %.0f | %s target %.0f,%.0f (%.0f blocks, %.0f deg) | sound %.0f,%.0f", p.getX(), p.getZ(), p.getYRot(), endMode ? "END-OF-PATH" : approach ? "TO-THE-PATH" : "ahead", tx, tz, Math.hypot(dx, dz), Math.toDegrees(ang), px, pz)));
@@ -947,16 +953,19 @@ public class PathGuide {
 		// from wherever the bell leads at that moment. A blip waits a tick or two while a sonar ping or an echo click plays, so it never covers them.
 		if (++blipWait < Tuning.BELL_BLIP_TICKS || !Timeline.free() && blipWait < Tuning.BELL_BLIP_TICKS + 3) return;
 		blipWait = 0;
-		float note = BELL_TUNE[blipN++ % BELL_TUNE.length] * (approach ? 0.84f : 1f); // a little lower while leading you onto the path (the game plays 2.0 at most)
+		int bn = blipN++;
+		float low = approach ? 0.84f : 1f; // a little lower while leading you onto the path (the game plays 2.0 at most)
+		float note = BELL_TUNE[bn % BELL_TUNE.length] * low, gnote = Math.min(2f, BELL_GLASS_TUNE[bn % BELL_GLASS_TUNE.length] * 1.4f * low);
 		float vol = bellVolume(cfg.volume, cfg.guideVolume);
 		vol *= (float) Loud.guideFacing(Math.abs(a2)); // the guides' direction rule: quieter to the side
-		Cues.play(mc, BELL_CHIME, vol, note, px, ty + 0.5, pz);
+		Cues.play(mc, BELL_RES, vol, note, px, ty + 0.5, pz); // clean amethyst glass...
+		Cues.play(mc, BELL_GLASS, vol * 0.75f, gnote, px, ty + 0.5, pz); // ...with the glass of a bottle breaking riding on it (picked by ear from samples)
 	}
 
 	/** The bell's loudness for the master and path-guide sliders. The game plays nothing louder than 1.0, so BELL_LEVEL stays low enough (the
 	 *  chime_soft file itself is loud) that every step of the slider, up to 200%, is still louder than the one before. */
 	static float bellVolume(float master, float guide) {
-		return Math.min(1f, master * guide * Tuning.BELL_LEVEL * Loud.level(BELL_CHIME));
+		return Math.min(1f, master * guide * Tuning.BELL_LEVEL * Loud.level(BELL_RES));
 	}
 
 	/**

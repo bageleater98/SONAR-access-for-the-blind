@@ -431,7 +431,7 @@ final class RoomTests {
 		check.accept(fromGazebo.size() == 1, "l10: from the gazebo the cottage's doorway still echoes (" + fromGazebo.size() + ", about 22 blocks off and round the corner)");
 		var by = r.spot("by the doorway");
 		var near = ExitGuide.entrances(null, scan(w, r, by, 180f));
-		double want = Math.atan2(r.oz() + 3.5 - wz(r, by), r.ox() + 8.5 - wx(r, by));
+		double want = Math.atan2(r.oz() + 3.5 - wz(r, by), r.ox() + 12.0 - wx(r, by));
 		boolean door = near.size() == 1 && Math.abs(Math.atan2(Math.sin(near.get(0)[0] - want), Math.cos(near.get(0)[0] - want))) < 0.5;
 		check.accept(door, "l10: round the far side, the click comes from the cottage's doorway (" + near.size() + ")");
 	}

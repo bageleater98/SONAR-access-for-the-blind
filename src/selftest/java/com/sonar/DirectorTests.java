@@ -201,8 +201,8 @@ final class DirectorTests {
 		r.run(25);
 		check.accept(r.saidAny("l1.hint2"), "director: the second hint after about 50 s");
 		r.run(45);
-		check.accept(r.saidAny("hint.skip"), "director: then the offer to skip");
-		check.accept(r.d.log.hints.size() >= 3, "director: the hints heard go into the lesson log");
+		check.accept(!r.saidAny("hint.skip"), "director: no offer to skip any more (the Levels menu is always there)");
+		check.accept(r.d.log.hints.size() >= 2, "director: the hints heard go into the lesson log");
 		// struggling (a retry): hints sooner, and the worked example after the first
 		Rig s = new Rig(List.of(lesson("t0", TutorialRooms.GARDEN, d -> false)));
 		s.d.begin(progress(dir, "t0"));

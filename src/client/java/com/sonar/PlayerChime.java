@@ -71,7 +71,7 @@ public class PlayerChime {
 			Search sr = searching.get(p.id);
 			if (sr == null && (g == null || (t - g.foundAt >= every && (moved || t - g.foundAt >= 100)))) {
 				sr = new Search(mc, mc.player, p, false); // walking only first (stairs, ramps, a long way round)
-				if (sr.gf == NONE) sr.swimTo(); // they stand in water (round 16: a friend wading counted as unreachable, so the jingle went muffled): swim to them
+				if (sr.gf == NONE || sr.pendingStart) sr.swimTo(); // you or they stand in water (a swimmer was "unreachable" and heard muffled) / they stand in water (round 16: a friend wading counted as unreachable, so the jingle went muffled): swim to them
 				searching.put(p.id, sr);
 			}
 			if (sr != null) {
@@ -80,7 +80,7 @@ public class PlayerChime {
 				if (rp == null && !sr.ladders) { // no walking way: ladders and vines too, as a new search
 					walkWhy.put(p.id, lastSearch);
 					Search lad = new Search(mc, mc.player, p, true);
-					if (lad.gf == NONE) lad.swimTo();
+					if (lad.gf == NONE || lad.pendingStart) lad.swimTo();
 					searching.put(p.id, lad);
 					continue;
 				}
