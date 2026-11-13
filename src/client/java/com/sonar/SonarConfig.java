@@ -70,7 +70,7 @@ public class SonarConfig {
 	public boolean enabled = true; // master switch: false turns every Sonar sound and effect off
 	/** Which settings layout this file was written by. A file from an older version is upgraded step by step on loading (see upgrade()). Missing in old files = 0. */
 	public int configVersion = 0; // (0 by default, so an old file without this field is recognised as old and upgraded; a fresh file is upgraded once, harmlessly)
-	static final int CURRENT = 2;
+	static final int CURRENT = 3;
 
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 	/** The player's own settings file. */
@@ -128,6 +128,7 @@ public class SonarConfig {
 			chimeVolume = 0.8f;
 			entityCue = false;
 		}
+		if (configVersion < 3) sweepGap = 3; // 1.5.2: the sweep speed is 0.15 s a beat for everyone (the tutorial had left 0.10 s in some files)
 		configVersion = CURRENT;
 		return true;
 	}

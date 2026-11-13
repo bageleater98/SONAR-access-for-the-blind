@@ -38,9 +38,26 @@ final class Spot {
 			Files.createDirectories(dir);
 			Files.writeString(dir.resolve(name), text, StandardCharsets.UTF_8);
 			Dbg.send(mc.player, net.minecraft.network.chat.Component.literal("spot saved: sonar-spots/" + name));
+			saveRoute(mc, dir, name);
 		} catch (IOException e) {
 			org.slf4j.LoggerFactory.getLogger("sonar").warn("Could not save the spot: {}", e.toString());
 		}
+	}
+
+	/** With a waypoint being guided: the plan (route, what the last search did) as <name>.route.txt, and the whole area it searched (capped) as <name>.search.txt, a spot file the self-test can load. */
+	static void saveRoute(Minecraft mc, Path dir, String name) throws IOException {
+		String rep = WaypointGuide.report();
+		if (rep == null) return;
+		String base = name.substring(0, name.length() - 4);
+		Files.writeString(dir.resolve(base + ".route.txt"), rep, StandardCharsets.UTF_8);
+		int[] b = WaypointGuide.searchedBox();
+		if (b == null) return;
+		int px = mc.player.getBlockX(), pz = mc.player.getBlockZ(), py = mc.player.getBlockY();
+		int x0 = Math.max(b[0] - 4, px - 80), x1 = Math.min(b[1] + 4, px + 80), z0 = Math.max(b[4] - 4, pz - 80), z1 = Math.min(b[5] + 4, pz + 80);
+		int y0 = Math.max(b[2] - 4, py - 50), y1 = Math.min(b[3] + 12, py + 40);
+		if (x1 < x0 || z1 < z0 || y1 < y0) return;
+		Files.writeString(dir.resolve(base + ".search.txt"), write(mc.level, x0, y0, z0, x1 - x0 + 1, y1 - y0 + 1, z1 - z0 + 1, mc.player.getX(), mc.player.getY(), mc.player.getZ(), mc.player.getYRot()), StandardCharsets.UTF_8);
+		Dbg.send(mc.player, net.minecraft.network.chat.Component.literal("route saved: sonar-spots/" + base + ".route.txt and .search.txt"));
 	}
 
 	/** The spot file text for a box of any world (the game, or a self-test world). */

@@ -36,7 +36,22 @@ final class WaypointGuide {
 	private static boolean reached; // the route ends at the waypoint itself (not a spot on the way)
 	private static int t;
 	private static double walkLeft = -1;
-	private static boolean saidNoWay, saidDim;
+	private static boolean saidDim;
+	/** What the guide says about itself (one place: GuideSpeech). */
+	private static final GuideSpeech talk = new GuideSpeech();
+
+	static int[] searchedBox() { return wr == null ? null : wr.searched; }
+
+	/** Debug (F2): what the guide knows, for the spot snapshot. */
+	static String report() {
+		if (target == null || wr == null) return null;
+		StringBuilder sb = new StringBuilder();
+		sb.append("waypoint ").append(target.name).append(' ').append(target.x).append(' ').append(target.y).append(' ').append(target.z).append(" dim ").append(target.dim).append('\n');
+		sb.append("last ").append(wr.last).append(" spots ").append(wr.lastSpots).append(" closest ").append(wr.closest).append(" dig ").append(wr.dig).append(" dead ").append(wr.dead.size()).append(" known ").append(Known.cells.size()).append('\n');
+		if (wr.searched != null) sb.append("searched ").append(java.util.Arrays.toString(wr.searched)).append('\n');
+		if (wr.route != null) { sb.append("route ").append(wr.route.size()).append('\n'); for (double[] c : wr.route) sb.append((int) c[0]).append(' ').append((int) c[1]).append(' ').append((int) c[2]).append('\n'); }
+		return sb.toString();
+	}
 	private static Vec3 sound;
 	private static Hum hum;
 
@@ -47,7 +62,7 @@ final class WaypointGuide {
 		stop();
 		target = w;
 		startDist = Math.max(1, dist(mc));
-		saidNoWay = false; saidDim = false;
+		saidDim = false; talk.reset(t);
 		Speech.say(mc, Component.literal("Guiding to " + w.name + ", " + Math.round(startDist) + " blocks"));
 		Tutorial.event(Tutorial.Ev.WAYPOINT_GUIDING, startDist);
 	}
@@ -59,7 +74,7 @@ final class WaypointGuide {
 
 	/** A new world or dimension: the search and route belong to the old one. (The target stays: in another dimension it waits and says so.) */
 	static void reset() {
-		wr = null; stand = null; route = null; sound = null; saidDim = false; reached = false; walkLeft = -1;
+		wr = null; stand = null; route = null; sound = null; saidDim = false; reached = false; walkLeft = -1; talk.reset(t);
 		if (hum != null) { hum.tv = 0; hum = null; }
 	}
 
@@ -136,11 +151,19 @@ final class WaypointGuide {
 		if (wr == null || wr.tx != tx || wr.tz != tz) wr = new WaypointRoute(tx, target.y - 1, tz);
 		if (p.onGround()) stand = new double[]{p.getX(), p.getY(), p.getZ()};
 		String before = wr.last;
+		java.util.function.Consumer<String> say = text -> Speech.say(mc, Component.literal(text));
 		boolean wasSearching = wr.searching();
 		wr.tick(new BlockCache(mc.level), p.getX(), p.getY(), p.getZ(), stand, 0);
 		if (cfg.debug && wasSearching && !wr.searching()) Dbg.send(p, Component.literal(Dbg.fmt("waypoint: %s (%d spots), side %d, %.0f blocks to %s, route %d cells, dead ends %d", wr.last, wr.lastSpots, wr.plan.side, d, target.name, wr.route == null ? 0 : wr.route.size(), wr.dead.size())));
-		if ("no way at all".equals(wr.last) && !"no way at all".equals(before) && !saidNoWay) { Speech.say(mc, Component.literal("No walking way to " + target.name + " from here yet")); saidNoWay = true; }
-		if (wr.route != null) { saidNoWay = false; wr.trim(p.getX(), p.getY(), p.getZ()); }
+		talk.update(say, wr.status(p.getX(), p.getY(), p.getZ()), p.isInWater(), t); // what it says about itself: a state that lasted, once per spell
+		if (wr.closest && (wr.dig > 0 || wr.up > 0) && !wr.digSaid && wr.route != null) { // at the closest point: what lies between you and the way on (the rock, in blocks)
+			double[] ce = wr.route.get(wr.route.size() - 1);
+			if (Math.hypot(ce[0] + 0.5 - p.getX(), ce[2] + 0.5 - p.getZ()) < 4) {
+				wr.digSaid = talk.say(say, GuideSpeech.hint(wr.dig, wr.up)); // (kept for the next tick when it is too soon after another line)
+			}
+		}
+		if (wr.route != null) wr.trim(p.getX(), p.getY(), p.getZ());
+		if (wr.route == null && "no way at all".equals(wr.last)) { sound = null; if (hum != null) hum.tv = 0; return; } // nothing to lead to: quiet, never a sound stuck on a wall
 		route = wr.route; reached = wr.reached;
 		// where it sounds from: the lead point along the route. Off the route (or at its end before the next stretch is joined on): it holds where it was
 		Vec3 me = p.getEyePosition();

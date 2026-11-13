@@ -139,6 +139,41 @@ final class WaypointTests {
 		double[] l2 = walkRound(sea, 65, 200);
 		check.accept(l2[0] >= 65 && l2[2] == 0 && l2[1] <= 20, Dbg.fmt("a lake far too big to walk round: it swims across (the easier way), never doubling back (reached z %.0f in %.0f looks, reversed %b)", l2[0], l2[1], l2[2] == 1));
 
+		// round 18 (Nov 10, a sealed cave): no walking way at all must still lead somewhere real (the closest point), say so once, never point into the rock
+		World pocket = new World().fill(-60, 50, -10, 60, 90, 300, STONE).fill(-8, 64, -5, 8, 67, 15, Blocks.AIR.defaultBlockState());
+		var wrp = new WaypointRoute(0.5, 66, 250.5);
+		for (int t = 0; t < 600; t++) wrp.tick(pocket, 0.5, 64, 0.5, new double[]{0.5, 64, 0.5}, Long.MAX_VALUE);
+		double pEndZ = wrp.route == null ? -99 : wrp.route.get(wrp.route.size() - 1)[2];
+		check.accept(wrp.route != null && wrp.closest && wrp.status(0.5, 64, 0.5) == WaypointRoute.Status.BLOCKED && pEndZ >= 12 && !"no way at all".equals(wrp.last), Dbg.fmt("sealed pocket: leads to the closest point (route end z %.0f, last '%s'), never a sound with nowhere to go", pEndZ, wrp.last));
+		// the closest point names the rock between it and open ground: a second cave three blocks of rock further on
+		World two = new World().fill(-60, 50, -10, 60, 90, 300, STONE).fill(-8, 64, -5, 8, 67, 15, Blocks.AIR.defaultBlockState()).fill(-8, 64, 19, 8, 67, 40, Blocks.AIR.defaultBlockState()).fill(-8, 63, 19, 8, 63, 40, STONE);
+		var wr2 = new WaypointRoute(0.5, 66, 250.5);
+		for (int t = 0; t < 400; t++) wr2.tick(two, 0.5, 64, 0.5, new double[]{0.5, 64, 0.5}, Long.MAX_VALUE);
+		check.accept(wr2.closest && wr2.dig == 3 && wr2.lastSpots < Tuning.CLOSED_MAX, "closest point: says how much rock lies between it and the way on (dig " + wr2.dig + ", wanted 3)");
+		// a pit with open ground a few blocks overhead: the closest point says how far up it is
+		World pit = new World().fill(-60, 50, -10, 60, 70, 300, STONE).fill(-8, 64, -5, 8, 66, 15, Blocks.AIR.defaultBlockState());
+		var wrU = new WaypointRoute(0.5, 66, 250.5);
+		for (int t = 0; t < 400; t++) wrU.tick(pit, 0.5, 64, 0.5, new double[]{0.5, 64, 0.5}, Long.MAX_VALUE);
+		check.accept(wrU.closest && wrU.up >= 5 && wrU.up <= 9, "closest point in a pit: open ground overhead is found (" + wrU.up + " up, wanted about 7)");
+		// round 18 night 2: standing on the bottom of a deep lake: a route up to the surface and on, never "can't find a way" (and never spoken)
+		World deep = new World().fill(-60, 40, -10, 60, 40, 300, STONE).fill(-60, 41, -10, 60, 52, 40, Blocks.WATER.defaultBlockState()).fill(-60, 41, 41, 60, 51, 300, STONE).fill(-60, 52, 41, 60, 52, 300, GRASS);
+		var wd = new WaypointRoute(0.5, 54, 250.5);
+		for (int t = 0; t < 400; t++) wd.tick(deep, 0.5, 42, 0.5, new double[]{0.5, 42, 0.5}, Long.MAX_VALUE);
+		check.accept(wd.route != null && wd.route.size() >= 2 && wd.status(0.5, 42, 0.5) != WaypointRoute.Status.STUCK && !wd.last.startsWith("no way at all"), "on the bottom of a deep lake: a route up and out, no spoken complaint (last '" + wd.last + "')");
+		// ground you walked counts where the world shows nothing (not loaded): a gap in the loaded land bridged by remembered cells
+		World gap = new World().fill(-20, 63, -10, 20, 63, 40, GRASS).fill(-20, 63, 81, 20, 63, 400, GRASS);
+		var wg0 = new WaypointRoute(0.5, 64, 300.5);
+		double[] at0 = {0.5, 64, 0.5};
+		for (int t = 0; t < 600; t++) { wg0.tick(gap, at0[0], at0[1], at0[2], new double[]{at0[0], at0[1], at0[2]}, Long.MAX_VALUE); at0[2] = walkOn(wg0, gap, at0[2]); }
+		double noKnownZ = -1, knownZ0;
+		for (int z = 41; z <= 80; z++) for (int x = -1; x <= 1; x++) Known.remember(x, 63, z);
+		var wg1 = new WaypointRoute(0.5, 64, 300.5);
+		double[] at1 = {0.5, 64, 0.5};
+		for (int t = 0; t < 600; t++) { wg1.tick(gap, at1[0], at1[1], at1[2], new double[]{at1[0], at1[1], at1[2]}, Long.MAX_VALUE); at1[2] = walkOn(wg1, gap, at1[2]); }
+		noKnownZ = Math.max(noKnownZ, at0[2]); knownZ0 = at1[2];
+		double knownZ = knownZ0;
+		Known.cells.clear();
+		check.accept(noKnownZ < 45 && knownZ >= 81, Dbg.fmt("a gap in the loaded land: without the walked ground the route stops at z %.0f, with it crosses to z %.0f", noKnownZ, knownZ));
 		// the guides' direction rule: full in front, behind exactly as before, the sides well down
 		check.accept(Math.abs(Loud.guideFacing(0) - 1) < 1e-9 && Math.abs(Loud.guideFacing(Math.PI) - Loud.facing(Math.PI)) < 1e-9 && Loud.guideFacing(Math.PI / 2) < 0.3
 			&& Loud.guideFacing(Math.PI / 2) < Loud.facing(Math.PI / 2) * 0.5, Dbg.fmt("guides: full in front, behind unchanged, the side down to %.2f (was %.2f)", Loud.guideFacing(Math.PI / 2), Loud.facing(Math.PI / 2)));
@@ -146,5 +181,12 @@ final class WaypointTests {
 		// 8. save and reload
 		var list = new java.util.ArrayList<Waypoints.Wp>(List.of(wp, new Waypoints.Wp("leo's house", "minecraft:the_nether", -120, 70, 33)));
 		check.accept(Waypoints.read(Waypoints.write(list)).equals(list), "waypoints survive a save and reload (names, dimensions, places)");
+	}
+
+	/** Walks the player along z toward the end of the route (0.4 a tick), as far as the route goes. */
+	static double walkOn(WaypointRoute wr, World w, double z) {
+		if (wr.route == null) return z;
+		double end = wr.route.get(wr.route.size() - 1)[2] + 0.5;
+		return Math.min(end, z + 0.4);
 	}
 }

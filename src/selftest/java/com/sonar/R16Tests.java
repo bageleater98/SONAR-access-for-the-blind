@@ -70,6 +70,23 @@ final class R16Tests {
 			double[] o1 = walk(open, 0.5, 64, 0.5, 0.5, 64, 240.5, 150, 0.22, 6000);
 			check.accept(o1[0] == 1 && o1[2] == 0 && o1[4] < 260, Dbg.fmt("far waypoint across open ground: straight stretches joined on ahead of you, no gaps (gaps %.0f, %.0f blocks walked)", o1[2], o1[4]));
 
+			// round 18: the bell keeps its way while you turn on the spot, until you face more than 80 degrees from it (a T: arms east and north, you at the corner)
+			{
+				var PT = net.minecraft.world.level.block.Blocks.DIRT_PATH.defaultBlockState();
+				World tee = new World().fill(-40, 63, -40, 40, 63, 20, GRASS).fill(0, 63, -1, 30, 63, 1, PT).fill(-1, 63, -30, 1, 63, 0, PT);
+				java.util.function.Function<Float, String> way = yaw -> { // which arm the bell leads along, remembering the last call
+					PathGuide.findAgain(tee, new PathGuide.Me(0.5, 64, 0.5, 65.62, yaw, 0, 0), CFG);
+					double[] g = PathGuide.target();
+					return g[4] == 0 ? "none" : g[0] - 0.5 > 3 && Math.abs(g[2] - 0.5) < 3 ? "east" : g[2] - 0.5 < -3 && Math.abs(g[0] - 0.5) < 4 ? "north" : "other";
+				};
+				PathGuide.forgetWay();
+				String s0 = way.apply(-90f), s1 = way.apply(-120f), s2 = way.apply(-150f), s3 = way.apply(-165f), s4 = way.apply(-175f);
+				PathGuide.forgetWay();
+				String fresh = way.apply(-150f); // the same facing with no memory: the old pick (the way you face most)
+				System.out.println("  turning east to north: " + s0 + " " + s1 + " " + s2 + " " + s3 + " " + s4 + " | fresh at 60 deg: " + fresh);
+				check.accept(s0.equals("east") && s1.equals("east") && s2.equals("east"), "path bell: turning from the east arm toward the north arm keeps the east arm up to 60 degrees round (was: flipped at 45)");
+				check.accept(s4.equals("north") && fresh.equals("north"), "path bell: once you face the north arm (and with no memory of the east one) it leads north");
+			}
 			// plazas: a path across a square goes on across it; a path that only runs into a square (a patio) ends at its edge
 			var PATH = net.minecraft.world.level.block.Blocks.DIRT_PATH.defaultBlockState(); var BRICK = net.minecraft.world.level.block.Blocks.STONE_BRICKS.defaultBlockState();
 			World across = new World().fill(-40, 63, -20, 40, 63, 20, GRASS).fill(-30, 63, -1, 30, 63, 1, PATH).fill(-3, 63, -3, 3, 63, 3, BRICK);
@@ -138,6 +155,21 @@ final class R16Tests {
 				if (b[2] == 1 && k < 12) ends++;
 			}
 			check.accept(stBad == 0 && ends == 0, "long stone staircase down (round 16, 17:02): not called the end of the path part way down, never behind you (" + stBad + " behind, " + ends + " early ends)");
+
+			// round 18 (Nov 10 20:05): climbing the same staircase UP (facing north, 1 block up per step): the uphill way was cut by the 6-block rise window before the 7-10 steps
+			// the target is taken from, so only the way DOWN behind you was left and the bell went silent ("target is behind you")
+			World up = new World();
+			World.load(Path.of("src/selftest/spots/r18-bell-20.05.29.txt"), up);
+			int upBad = 0, upFound = 0;
+			for (int k = 0; k <= 5; k++) {
+				double x = -133.5, z = -50.5 - k;
+				double[] b = bell(up, x, z, 107 + k, -179f);
+				System.out.println(Dbg.fmt("  climbing %d at %.1f,%.1f floor %d: found %s end %s target %+.0f deg %.1f away", k, x, z, (int) b[4], b[3] == 1, b[2] == 1, b[0], b[1]));
+				if (b[4] == Integer.MIN_VALUE) continue;
+				if (b[3] == 1) upFound++;
+				if (b[3] == 0 || Math.abs(b[0]) > 60 || b[1] < 2.4) upBad++;
+			}
+			check.accept(upFound >= 4 && upBad == 0, "climbing a steep staircase up (round 18, 20:05): the bell leads up the stairs ahead, never behind you or silent (" + upBad + " bad of " + upFound + " found)");
 		} catch (Exception e) { check.accept(false, "r16 tests crashed: " + e); e.printStackTrace(); }
 	}
 }

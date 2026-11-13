@@ -1632,6 +1632,108 @@
       "category": "reaction",
       "priority": 3,
       "text": "You've turned around. The bell is leading you backwards, down the path the way you came. Turn round again to follow it on to the well."
+    },
+    {
+      "id": "say.wp.blocked",
+      "category": "phrase",
+      "priority": 3,
+      "text": "I can't find a walking way on from here. I'll lead you to the closest spot I can, and you may need to dig or build from there."
+    },
+    {
+      "id": "say.wp.stuck",
+      "category": "phrase",
+      "priority": 3,
+      "text": "I can't find a way on from here yet. Try turning back, or dig through."
+    },
+    {
+      "id": "say.wp.dig1",
+      "category": "phrase",
+      "priority": 3,
+      "text": "The way on is through one block of rock, straight ahead. Dig forward."
+    },
+    {
+      "id": "say.wp.dig2",
+      "category": "phrase",
+      "priority": 3,
+      "text": "The way on is through two blocks of rock, straight ahead. Dig forward."
+    },
+    {
+      "id": "say.wp.dig3",
+      "category": "phrase",
+      "priority": 3,
+      "text": "The way on is through three blocks of rock, straight ahead. Dig forward."
+    },
+    {
+      "id": "say.wp.dig4",
+      "category": "phrase",
+      "priority": 3,
+      "text": "The way on is through four blocks of rock, straight ahead. Dig forward."
+    },
+    {
+      "id": "say.wp.dig5",
+      "category": "phrase",
+      "priority": 3,
+      "text": "The way on is through five blocks of rock, straight ahead. Dig forward."
+    },
+    {
+      "id": "say.wp.dig6",
+      "category": "phrase",
+      "priority": 3,
+      "text": "The way on is through six blocks of rock, straight ahead. Dig forward."
+    },
+    {
+      "id": "say.wp.up1",
+      "category": "phrase",
+      "priority": 3,
+      "text": "Open ground is a few blocks above you. Look for a way up."
+    },
+    {
+      "id": "say.wp.up2",
+      "category": "phrase",
+      "priority": 3,
+      "text": "Open ground is about five blocks above you. Look for a way up."
+    },
+    {
+      "id": "say.wp.up3",
+      "category": "phrase",
+      "priority": 3,
+      "text": "Open ground is about eight blocks above you. Look for a way up."
+    },
+    {
+      "id": "say.wp.up4",
+      "category": "phrase",
+      "priority": 3,
+      "text": "Open ground is about a dozen blocks above you. Look for a way up."
+    },
+    {
+      "id": "say.wp.up5",
+      "category": "phrase",
+      "priority": 3,
+      "text": "Open ground is well above you. Look for a way up."
+    },
+    {
+      "id": "say.route.recalc",
+      "category": "phrase",
+      "priority": 3,
+      "text": "Recalculating route."
+    },
+    {
+      "id": "say.route.hold",
+      "category": "phrase",
+      "priority": 3,
+      "text": "Hold on, I'm finding another way."
+    },
+    {
+      "id": "say.route.fell",
+      "category": "phrase",
+      "priority": 3,
+      "text": "You've fallen off the route. Let me find you another way."
+    },
+    {
+      "id": "say.route.finding",
+      "category": "phrase",
+      "priority": 3,
+      "text": "Finding a route."
     }
   ]
 }

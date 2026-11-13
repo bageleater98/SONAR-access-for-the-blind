@@ -102,6 +102,9 @@ final class Tuning {
 	static final double SPREAD_NEAR = 0.02;
 	/** The guides (jingle, waypoint, path bell): how far down their sound dips straight to the side (0.6: to 0.28 of full; behind stays BEHIND_LEVEL). */
 	static final double GUIDE_SIDE_DIP = 0.6;
+	/** The path bell keeps leading along the way it was on until you face more than this many degrees away from it (then it takes the way you face most), for at most this many ticks since it last led. */
+	static final double BELL_KEEP_DEG = 80;
+	static final int BELL_KEEP_TICKS = 60;
 	/** Ticks between two "centre and square up" moves after bumping a wall (1.5 s). */
 	static final int CENTER_COOLDOWN = 30;
 	/** Even loudness: a level per sound (by its name, e.g. "block.note_block.hat"), to even out sounds the game recorded louder or softer than the rest. Not listed = 1.
@@ -135,6 +138,8 @@ final class Tuning {
 	static final int SCOUT_MARGIN = 90;
 	/** Spots a route search may look at per tick, and in total. */
 	static final int ROUTE_SLICE = 1500, ROUTE_MAX = 60000;
+	/** A waypoint search that looks at every spot there is and stops below this many has found a closed area (a sealed cave), not a big world: no re-planning, the last resort at once. */
+	static final int CLOSED_MAX = 30000;
 	/** Most time a route search may take in one tick (2 ms: an eighth of a frame at 60 fps). */
 	static final long ROUTE_TICK_NANOS = 2_000_000L;
 	/** The route searches' own share of every tick (all of them together), whatever the rest of the tick used: 1.5 ms. */

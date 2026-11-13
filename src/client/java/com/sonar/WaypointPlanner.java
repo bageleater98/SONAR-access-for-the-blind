@@ -26,6 +26,9 @@ final class WaypointPlanner {
 	 *  shore the waypoint lay so far to one side that "further round" from it pointed back the way you came, and it shuttled to and fro). */
 	private double hx, hz;
 	final double ty;
+	/** How far beyond start and waypoint the scout looks; doubled when it ran into its own edge without finding a way (up to MAX_MARGIN). */
+	int margin = Tuning.SCOUT_MARGIN;
+	static final int MAX_MARGIN = 720;
 	/** The scout's route counts as round the obstacle when it ends this much nearer the waypoint than you are. */
 	static final double SCOUT_GAIN = 24, SCOUT_WEIGHT = 1.5;
 	private double ax, az; // the direction the current search aims along
@@ -48,7 +51,7 @@ final class WaypointPlanner {
 			side = 0; hx = 0; hz = 0;
 			// first, the scout: one bigger (greedy) search toward the waypoint itself across all the loaded land. If it finds the way round, that is the route and its
 			// side is kept; it picks the SHORT way round a lake whenever the end of it is loaded (edge following alone just takes the side it leans to)
-			scouting = true;
+			scouting = true; margin = Tuning.SCOUT_MARGIN;
 			return scout(w, px, py, pz);
 		} else if (clear && flat < hitDist - LEAVE) { following = false; lx = px; lz = pz; lhx = hx; lhz = hz; return null; } // round it: straight again (the side remembered a while)
 		tryIdx = 0;
@@ -67,7 +70,7 @@ final class WaypointPlanner {
 	}
 
 	private PlayerChime.Search scout(BlockGetter w, double px, double py, double pz) {
-		var sc = new PlayerChime.Search(w, px, py, pz, new PlayerChime.Tgt(null, tx, ty, tz, ty + 1.6), false, true).greedy(SCOUT_WEIGHT).widen(Tuning.SCOUT_MARGIN);
+		var sc = new PlayerChime.Search(w, px, py, pz, new PlayerChime.Tgt(null, tx, ty, tz, ty + 1.6), false, true).greedy(SCOUT_WEIGHT).widen(margin);
 		sc.swim = true;
 		return sc;
 	}
@@ -76,6 +79,7 @@ final class WaypointPlanner {
 	List<double[]> done(PlayerChime.Search sr, BlockGetter w, double px, double py, double pz, PlayerChime.Search[] again) {
 		List<double[]> r = sr.path();
 		again[0] = null;
+		if (scouting && sr.clipped && sr.goal == null && sr.open.isEmpty() && margin < MAX_MARGIN) { margin *= 2; again[0] = scout(w, px, py, pz); return null; } // ran out against its own edge: look wider before judging
 		if (scouting) {
 			scouting = false;
 			if (r != null && r.size() >= 2) {

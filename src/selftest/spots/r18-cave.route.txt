@@ -1,0 +1,12 @@
+waypoint leo's house -160 124 -84 dim minecraft:overworld
+last closest point spots 12219 closest true dig -1 dead 0 known 674
+searched [-265, -70, 17, 101, 535, 644]
+route 8
+-175 84 554
+-176 84 554
+-177 84 554
+-178 84 553
+-178 85 552
+-177 86 552
+-177 87 551
+-176 88 551

@@ -246,6 +246,15 @@ public class PlayerChime {
 		}
 		return NONE;
 	}
+	/** Under water: the floor cell below the water's surface straight above (up to 40 blocks), or NONE when it is not water all the way up to the air. */
+	static int surfaceAbove(net.minecraft.world.level.BlockGetter w, int x, int z, int feet, BlockPos.MutableBlockPos pos) {
+		for (int y = feet; y <= feet + 40; y++) {
+			if (!w.getBlockState(pos.set(x, y, z)).getFluidState().getType().isSame(net.minecraft.world.level.material.Fluids.WATER)) return NONE;
+			var above = w.getBlockState(pos.set(x, y + 1, z));
+			if (above.getFluidState().isEmpty() && above.getCollisionShape(w, pos).isEmpty()) return y - 1;
+		}
+		return NONE;
+	}
 	static int stepTo(net.minecraft.world.level.BlockGetter w, int x, int z, int ref, BlockPos.MutableBlockPos pos) { return BlockRules.stepTo(w, x, z, ref, pos); }
 	static boolean climbable(net.minecraft.world.level.BlockGetter w, int x, int y, int z, BlockPos.MutableBlockPos pos) { return BlockRules.climbable(w, x, y, z, pos); }
 	static int floorUnder(net.minecraft.world.level.BlockGetter w, double x, double y, double z, BlockPos.MutableBlockPos pos) { return BlockRules.floorUnder(w, x, y, z, pos); }
@@ -254,7 +263,7 @@ public class PlayerChime {
 
 
 
-	private static long key(int x, int y, int z) {
+	static long key(int x, int y, int z) {
 		return (((long) x & 0x3FFFFFFL) << 38) | (((long) z & 0x3FFFFFFL) << 12) | (y & 0xFFFL);
 	}
 
@@ -286,6 +295,8 @@ public class PlayerChime {
 		static final int DEAD_R = 4;
 		/** Waypoint routes: a made path out in the open (not under rock) costs ROUTE_WP_PATH a block, so a path nearby is taken when it goes your way (round 16 wish). */
 		boolean paths;
+		/** Waypoint searches: may step onto ground you walked (Known) where the loaded world shows none. */
+		boolean useKnown;
 		private boolean pendingStart;
 		private int startX, startZ, startFeet;
 
@@ -312,6 +323,12 @@ public class PlayerChime {
 		Node goal;
 		int expanded;
 		boolean done, failed;
+		/** The search wanted to go past the edge of its area: running out of spots then does NOT mean there is no way (round 18 night 3: a cave whose way out lay further behind you than the area reached). */
+		boolean clipped;
+		/** Exit search (weight 0, nothing to aim at): the goal is the first spot out in the open, not under rock: the way OUT of a cave, wherever it lies. */
+		boolean exitMode;
+		/** Most spots one run looks at (the exit search looks at far more: it has nothing to aim at). */
+		int cap = Tuning.ROUTE_MAX;
 
 		Search(Minecraft mc, net.minecraft.client.player.LocalPlayer me, Tgt other, boolean ladders) {
 			this(new BlockCache(mc.level), me.getX(), me.getY(), me.getZ(), other, ladders); // each search remembers the blocks it has read
@@ -348,6 +365,7 @@ public class PlayerChime {
 			if (pendingStart) {
 				pendingStart = false;
 				int sf = swim ? surface(w, startX, startZ, startFeet - 1, pos) : NONE;
+				if (sf == NONE && swim) sf = surfaceAbove(w, startX, startZ, startFeet, pos); // deep water, down at the bottom: up to the surface above you
 				if (sf == NONE) { done = true; failed = true; return true; }
 				Node start = new Node(startX, sf, startZ, 0, null);
 				start.f = weight * (1.2 * Math.hypot(gx - startX, gz - startZ) + Math.abs(gf - sf));
@@ -357,7 +375,7 @@ public class PlayerChime {
 			if (done) return true;
 			int stop = expanded + budget;
 			long deadline = maxNanos == Long.MAX_VALUE ? Long.MAX_VALUE : System.nanoTime() + maxNanos;
-			while (!open.isEmpty() && expanded < Tuning.ROUTE_MAX && expanded < stop) {
+			while (!open.isEmpty() && expanded < cap && expanded < stop) {
 				if ((expanded & 31) == 0 && System.nanoTime() > deadline) break; // 60000: enough for anyone in hearing range, the long way round included
 			Node c = open.poll();
 			if (c.closed) continue;
@@ -366,13 +384,14 @@ public class PlayerChime {
 			// partial: the spot with the lowest estimated total cost (cost so far + estimate on). Every block of easy progress lowers it, a hard detour raises it, so the
 			// way it keeps is the easiest progress toward the goal, not merely the spot nearest to it (that was a cave under a mountain: near, but awful to walk)
 			if (partial) { double sc = nearest ? c.f - 0.9 * c.g : c.f; if (sc < bestD && endable(c)) { bestD = sc; best = c; } }
-			if (Math.abs(c.x - gx) <= 1 && Math.abs(c.z - gz) <= 1 && Math.abs(c.y - gf) <= 1) { goal = c; break; }
+			if (exitMode) { if (c.parent != null && c.walk >= 4 && endable(c) && !underground(c.x, c.y, c.z) && wideOpen(c.x, c.y, c.z)) { goal = c; break; } }
+			else if (Math.abs(c.x - gx) <= 1 && Math.abs(c.z - gz) <= 1 && Math.abs(c.y - gf) <= 1) { goal = c; break; }
 			// 8 directions: diagonal steps too, so a route at an angle is a straight diagonal line instead of an L ("line up with the stairs first, then walk at them")
 			for (int k = 0; k < (ladders ? 10 : 8); k++) {
 				boolean climb = k >= 8, diag = k >= 4 && k < 8;
 				int ddx = climb ? 0 : DIRS[k][0], ddz = climb ? 0 : DIRS[k][1];
 				int nx = c.x + ddx, nz = c.z + ddz;
-				if (nx < minX || nx > maxX || nz < minZ || nz > maxZ) continue;
+				if (nx < minX || nx > maxX || nz < minZ || nz > maxZ) { clipped = true; continue; } // (the search area's wall: what lies beyond was not looked at)
 				int nf;
 				if (k == 8) { // up a ladder or vine: you are in a climbable block and there is room (or more ladder, or a trapdoor) above
 					// the ladder may start a block up (you jump to grab the bottom rung): climbable at your feet, or at your head with room at your feet
@@ -418,10 +437,36 @@ public class PlayerChime {
 				open.add(n);
 			}
 		}
-		if (goal == null && !open.isEmpty() && expanded < Tuning.ROUTE_MAX) return false; // more to do next tick
+		if (goal == null && !open.isEmpty() && expanded < cap) return false; // more to do next tick
 		done = true;
 		lastSearch = (ladders ? "with ladders" : "walking") + (goal != null ? " found" : open.isEmpty() ? " no way (searched all " + expanded + " spots)" : " gave up after " + expanded + " spots");
 		return true;
+		}
+
+		/** Really out in the open: clear sky over this spot (nothing solid but leaves up to SKY_RANGE blocks above) AND over the spots three blocks off each way (not the foot of a shaft). */
+		boolean wideOpen(int x, int f, int z) {
+			if (!skyAbove(x, f, z)) return false;
+			for (int[] d : new int[][]{{3, 0}, {-3, 0}, {0, 3}, {0, -3}}) if (!skyAbove(x + d[0], f, z + d[1])) return false;
+			return true;
+		}
+
+		static final int SKY_RANGE = 120;
+		private final it.unimi.dsi.fastutil.longs.Long2ByteOpenHashMap sky = new it.unimi.dsi.fastutil.longs.Long2ByteOpenHashMap();
+
+		/** Nothing solid over (x, f, z) but leaves and air, water, glass for SKY_RANGE blocks: the sky itself, whatever the ground over a cave is made of (dirt, stone, dripstone). Remembered. */
+		private boolean skyAbove(int x, int f, int z) {
+			long k = key(x, f, z);
+			byte b = sky.getOrDefault(k, (byte) -1);
+			if (b < 0) {
+				b = 1;
+				int top = Math.min(f + 2 + SKY_RANGE, w.getMinY() + w.getHeight() - 1);
+				for (int y = f + 2; y <= top; y++) {
+					var st = w.getBlockState(pos.set(x, y, z));
+					if (!st.getCollisionShape(w, pos).isEmpty() && !st.is(net.minecraft.tags.BlockTags.LEAVES)) { b = 0; break; }
+				}
+				sky.put(k, b);
+			}
+			return b == 1;
 		}
 
 		/** May a partial route end here? Not under rock (openEnd) and not at a known dead end (avoid). */
@@ -453,7 +498,9 @@ public class PlayerChime {
 		/** The next spot over at (x,z) from floor `ref`: a walking step, or (swim) the water's surface there. */
 		int next(int x, int z, int ref) {
 			int nf = stepTo(w, x, z, ref, pos);
-			return nf == NONE && swim ? surface(w, x, z, ref, pos) : nf;
+			if (nf == NONE && swim) nf = surface(w, x, z, ref, pos);
+			if (nf == NONE && useKnown) nf = Known.at(x, z, ref); // ground you walked, where the world shows nothing (not loaded)
+			return nf;
 		}
 
 		/** A swimming spot: the water's surface is right above this "floor". */

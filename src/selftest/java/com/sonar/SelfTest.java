@@ -13,6 +13,7 @@ public class SelfTest {
 		World.boot();
 		var leaf = net.minecraft.world.level.block.Blocks.OAK_LEAVES.defaultBlockState();
 		check(leaf.is(net.minecraft.tags.BlockTags.LEAVES), "fake world: vanilla block tags are loaded (oak leaves are leaves)");
+		if (System.getenv("SONAR_R18") != null) { try { R18Explore.run(); } catch (Exception e) { e.printStackTrace(); } System.exit(0); }
 		if (System.getenv("SONAR_TEST_ONLY") != null) { R16Tests.run((ok, what) -> check(ok, what)); System.out.println(failed == 0 ? "ALL OK" : failed + " FAILED"); System.exit(failed == 0 ? 0 : 1); } // quick: just the newest round's checks
 		WorldTests.run((ok, what) -> check(ok, what));
 		PorchTests.run((ok, what) -> check(ok, what));
@@ -24,6 +25,7 @@ public class SelfTest {
 		RoomTests.run((ok, what) -> check(ok, what));
 		DirectorTests.run((ok, what) -> check(ok, what));
 		R16Tests.run((ok, what) -> check(ok, what));
+		R18Tests.run((ok, what) -> check(ok, what));
 
 		// the path bell's slider: the top of it must still be louder (the game caps a sound at 1.0)
 		check(PathGuide.bellVolume(1f, 2f) < 1f && PathGuide.bellVolume(1f, 2f) > PathGuide.bellVolume(1f, 1.9f), "path bell: 200% on the slider is louder than 190% (not cut off at the game's 1.0 cap)");

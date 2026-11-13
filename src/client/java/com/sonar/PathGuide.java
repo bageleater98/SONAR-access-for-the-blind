@@ -238,6 +238,12 @@ public class PathGuide {
 
 	/** Is there a path to follow from here, in any world (the self-test)? Runs the bell's own search; true when the bell would play. */
 	static boolean findIn(net.minecraft.world.level.BlockGetter w, Me p, SonarConfig cfg) {
+		forgetWay();
+		return findAgain(w, p, cfg);
+	}
+
+	/** As findIn, but the way the bell was leading along is remembered from the last call (the self-test of turning on the spot). */
+	static boolean findAgain(net.minecraft.world.level.BlockGetter w, Me p, SonarConfig cfg) {
 		have = false;
 		guideCells = null;
 		find(w, p, cfg, null);
@@ -313,7 +319,7 @@ public class PathGuide {
 		for (int i = 0; i < 9; i++) {
 			if (cand[i] == null) continue;
 			double[] r = trace(w, p, cand[i][0], cand[i][1], cand[i][2], pos);
-			if (r != null && (best == null || r[3] > best[3])) { best = r; bestCells = traceCells; bestArms = traceArms; bestSX = traceSX; bestSZ = traceSZ; }
+			if (r != null && (best == null || rank(r) > rank(best))) { best = r; bestCells = traceCells; bestArms = traceArms; bestSX = traceSX; bestSZ = traceSZ; }
 		}
 		if (best == null) { say(mc, cfg, traceWhy != null ? traceWhy : "off: no path 8-11 blocks ahead"); return; }
 		if (cfg.debug && (!why.equals("on") || t % 100 == 0)) { // what the guide thinks the path is made of
@@ -355,6 +361,10 @@ public class PathGuide {
 		}
 		have = true;
 		lastFound = t;
+		if (!approach && !endMode) { // remember the way it leads along (from you to the lead point)
+			double kx = tx - p.x(), kz = tz - p.z(), kl = Math.hypot(kx, kz);
+			if (kl > 1e-6) { keepX = kx / kl; keepZ = kz / kl; keepT = t; }
+		}
 		if (mc != null) junction(mc, cfg);
 	}
 
@@ -498,6 +508,22 @@ public class PathGuide {
 
 	/** Results of the last trace (kept for the chosen one): how many arms of real path leave the start, and where the start was. */
 	private static int traceArms, bestArms;
+
+	// ---- the way the bell is leading along (kept while you face within Tuning.BELL_KEEP_DEG of it) ----
+	private static double keepX, keepZ; // unit direction from you to the last lead point (world)
+	private static int keepT = -100000;
+
+	/** How a candidate ranks: its facing score, or that plus 2 when it is the kept way (trace results of the end-ahead kind have no rank: their score). */
+	private static double rank(double[] r) { return r.length > 5 ? r[5] : r[3]; }
+
+	/** Is the candidate at offset ox,oz (length ol, facing score `score` = cos of the angle to where you face) the way the bell was already leading along? */
+	private static boolean keepWay(double ox, double oz, double ol, double score) {
+		if (t - keepT > Tuning.BELL_KEEP_TICKS || score < Math.cos(Math.toRadians(Tuning.BELL_KEEP_DEG))) return false;
+		return (ox * keepX + oz * keepZ) / ol >= 0.866; // within 30 degrees of the way it led
+	}
+
+	/** Forget the kept way (the self-test starts each case fresh). */
+	static void forgetWay() { keepT = -100000; }
 	private static int traceSX, traceSZ, bestSX, bestSZ;
 
 	/** Flood the connected path from a start cell and pick the way to guide: the path is split into ARMS (the ways leading away from the start, by walking distance), the arm you face most is
@@ -681,7 +707,10 @@ public class PathGuide {
 			boolean end = armMax[a] < 10 && !armCapped[a];
 			int lo = end ? Math.max(3, armMax[a] - 1) : 7, hi = end ? armMax[a] : 10;
 			var win = new java.util.ArrayList<Integer>();
-			for (int ci : order) if (arm[ci] == a && !isPlaza[ci] && dist[ci] >= lo && dist[ci] <= hi) win.add(ci);
+			// round 18 (Nov 10 20:05): the cells where the path runs on past the rise/fall window count too, wherever they are. On a steep staircase (1 up per step) the window
+			// ends 6 steps out, before the 7-10 steps above, and a 4-wide stair merges its up and down ways into one arm (the ring 3 steps out wraps round the start), so the
+			// way UP had no cells in the window, only the way down behind you was found, and the bell went silent. They are not an end of the path: the stairs go on.
+			for (int ci : order) if (arm[ci] == a && !isPlaza[ci] && (dist[ci] >= lo && dist[ci] <= hi || !end && capped[ci] && dist[ci] >= 3)) win.add(ci);
 			if (win.isEmpty() && !end) { // across a plaza: the path where it leaves the far side (its first real cells 7+ steps out)
 				int first = Integer.MAX_VALUE;
 				for (int ci : order) if (arm[ci] == a && !isPlaza[ci] && dist[ci] >= 7) first = Math.min(first, dist[ci]);
@@ -721,7 +750,10 @@ public class PathGuide {
 					if (end && score > 0.5 && (endAhead == null || score > endAhead[3])) endAhead = new double[]{gx, gy, gz, score, 1};
 					continue;
 				}
-				if (best == null || score > best[3]) { best = new double[]{gx, gy, gz, score, end ? 1 : 0}; bestArm = a; }
+				// STICKY WAY: the way the bell led along a moment ago keeps it while you still face within KEEP_DEG of it; it only gives way to the way you face most once you
+				// have turned further than that (before, it flipped to the other way as soon as you turned halfway toward it)
+				double rank = score + (keepWay(ox, oz, ol, score) ? 2 : 0);
+				if (best == null || rank > best[5]) { best = new double[]{gx, gy, gz, score, end ? 1 : 0, rank}; bestArm = a; }
 			}
 		}
 		// round 16 (pale-oak bridge): the last few blocks of the path ahead were under 2.5 away, so the only arm left was the one BEHIND you and the bell swung round
@@ -740,7 +772,7 @@ public class PathGuide {
 		}
 		if (best == null) { traceWhy = "off: the path ends here"; return null; }
 		// a blob of path blocks (a repaired patch, a small square) is not a path: the arm must run on past 11 blocks, or be clearly longer than it is wide
-		if (armReach[bestArm] < 11) {
+		if (armReach[bestArm] < 11 && !armCapped[bestArm]) { // (an arm only cut by the rise/fall window runs on: not a patch)
 			double mx = 0, mz = 0;
 			int n = 0;
 			for (int ci : order) if ((arm[ci] == bestArm || dist[ci] < 3) && dist[ci] <= 10) { mx += ci % W; mz += ci / W; n++; }
@@ -931,15 +963,12 @@ public class PathGuide {
 		if (!have) {  return; }
 		var p = mc.player;
 		// the bell plays CONTINUOUSLY from where it leads, worked out every tick (an intermittent ring was hard to follow)
-		// exaggerate the sideways angle (x2.5) so a small drift off the path is clearly heard left or right
+		// the bell sounds from its REAL direction (round 18: the old x2.5 / 25-degree squeeze hid how far off the path you were, and kept the bell loud whichever way you faced)
 		double yaw = Math.toRadians(p.getYRot()), fx = -Math.sin(yaw), fz = Math.cos(yaw), rx = -Math.cos(yaw), rz = -Math.sin(yaw);
 		double dx = tx - p.getX(), dz = tz - p.getZ();
 		double ang = Math.atan2(dx * rx + dz * rz, dx * fx + dz * fz);
 		if (!approach && Math.abs(ang) > Math.toRadians(100)) { say(mc, cfg, "silent: target is behind you (" + Math.round(Math.toDegrees(ang)) + " deg)");  return; } // never guide backwards
-		// small drifts are exaggerated x2.5, but the bell never moves more than ~25 degrees off straight ahead, so a path that bends away still sounds in front
-		// (Nov 3: "it should always stay in front of me", and after this: "that's a lot better". Keep it.)
-		double cap = Math.toRadians(25);
-		double a2 = approach ? ang : cap * Math.tanh(ang * 2.5 / cap), dist = approach ? Math.min(10.5, Math.max(2.0, Math.hypot(dx, dz))) : Math.min(15.0, Math.max(4.0, Math.hypot(dx, dz))); // leading you onto a path: its real direction, from all round
+		double a2 = ang, dist = approach ? Math.min(10.5, Math.max(2.0, Math.hypot(dx, dz))) : Math.min(15.0, Math.max(4.0, Math.hypot(dx, dz))); // leading you onto a path: its real direction, from all round
 		// glide in YOUR frame (its direction and distance from you), a little each tick: in the world the old spot is already behind you when you run
 		if (!Double.isNaN(lastBa)) { // always a glide, never a jump: a little each tick, however far the new spot is
 			double da = Math.atan2(Math.sin(a2 - lastBa), Math.cos(a2 - lastBa));
@@ -1006,6 +1035,9 @@ public class PathGuide {
 				double sc = Math.hypot(gx - prevX, gz - prevZ) + 0.5 * Math.hypot(gx - best[0], gz - best[2]); // carry on from the last point, toward the chosen way
 				if (sc < pickScore) { pickScore = sc; pick = new double[]{gx, gy, gz}; }
 			}
+			// the chosen way has run out (a steep stair is cut off by the rise window 6 steps out) and the nearest cells at this step are another branch's: the line stops
+			// here, it never jumps over to the other branch (round 18: it jumped to the way down BEHIND you and the bell went silent)
+			if (!line.isEmpty() && Math.hypot(pick[0] - prevX, pick[2] - prevZ) > 4.5) break;
 			line.add(pick);
 			prevX = pick[0]; prevZ = pick[2];
 		}

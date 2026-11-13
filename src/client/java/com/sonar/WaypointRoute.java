@@ -41,6 +41,15 @@ final class WaypointRoute {
 
 	boolean searching() { return sr != null; }
 
+	/** What the guide is doing for you right now, for what it says (GuideSpeech). */
+	enum Status { FINDING, GUIDING, OFF_ROUTE, BLOCKED, STUCK }
+
+	Status status(double mx, double my, double mz) {
+		if (route == null) return stuck ? Status.STUCK : Status.FINDING;
+		if (closest) return Status.BLOCKED;
+		return at(mx, my, mz) < 0 ? Status.OFF_ROUTE : Status.GUIDING;
+	}
+
 	/** Index of the route cell you are at (the furthest-along of the nearest), or -1 when you are off the route. */
 	int at(double mx, double my, double mz) {
 		if (route == null) return -1;
@@ -62,14 +71,16 @@ final class WaypointRoute {
 	 * (Long.MAX_VALUE: to the end, for the tests).
 	 */
 	void tick(BlockGetter w, double mx, double my, double mz, double[] stand, long nanos) {
-		int i = offForced ? -1 : at(mx, my, mz);
+		int i = at(mx, my, mz);
 		if (wait > 0) wait--;
+		if (closest && i < 0 && wait == 0) { closest = false; failsFromHere = 0; } // you left the closest-point route: look for a walking way again
 		if (sr == null && wait == 0) {
-			if (i < 0) { // no route, or you left it: a new one from where you are (the old one keeps sounding meanwhile)
+			if (i < 0 || replan) { // no route, you left it, or it needs replacing: a new one from where you are (the old one keeps sounding meanwhile)
+				replan = false;
 				double sx = mx, sy = my, sz = mz;
 				if (PlayerChime.floorUnder(w, mx, my, mz, new net.minecraft.core.BlockPos.MutableBlockPos()) == BlockRules.NONE && stand != null && !inWater(w, mx, my, mz)) { sx = stand[0]; sy = stand[1]; sz = stand[2]; } // mid-jump: from where you last stood
 				begin(w, sx, sy, sz, false);
-			} else if (!reached && left(i) < EXTEND) {
+			} else if (!reached && !closest && left(i) < EXTEND) {
 				double[] e = route.get(route.size() - 1);
 				begin(w, e[0] + 0.5, e[1] + 1, e[2] + 0.5, true);
 			}
@@ -90,6 +101,20 @@ final class WaypointRoute {
 	private void begin(BlockGetter w, double x, double y, double z, boolean fromEnd) {
 		this.fromEnd = fromEnd;
 		endAtStart = fromEnd ? route.get(route.size() - 1) : null;
+		if (desperate) { // nothing walks on from here: the last resort. Anything is allowed (ladders, swimming, ending under rock, old dead ends forgotten) and the spot NEAREST the waypoint is the goal
+			near = false;
+			if (dStage == 0 && !BlockRules.caveRoof(w, new net.minecraft.world.phys.Vec3(x, y + 0.5, z), 24)) dStage = 1; // not under rock: there is no cave to get out of
+			if (dStage == 0) { // FIRST the way OUT: the nearest spot in the open, found with no aim at the waypoint at all (a cave system floods before it ever leads out, when it is aimed at where the waypoint is)
+				sr = new PlayerChime.Search(w, x, y, z, new PlayerChime.Tgt(null, tx, ty, tz, ty + 1.6), false, true).greedy(0).widen(dMargin);
+				sr.exitMode = true; sr.swim = true; sr.useKnown = true; sr.cap = 300_000; sr.avoid = dead;
+				return;
+			}
+			sr = new PlayerChime.Search(w, x, y, z, new PlayerChime.Tgt(null, tx, ty, tz, ty + 1.6), true, true).widen(dMargin);
+			sr.nearest = true; sr.swim = true; sr.paths = true; sr.useKnown = true;
+			// first pass: only OPEN AIR may be where it ends (the way out of a cave system, ladders and all, to the surface); only if that finds nothing, anywhere at all (a sealed pocket's own far end)
+			sr.openEnd = dStage == 1; if (dStage == 1) sr.avoid = dead;
+			return;
+		}
 		double flat = Math.hypot(tx - x, tz - z);
 		if (fromEnd && flat <= Tuning.WP_ARRIVE && Math.abs(ty - (y - 1)) <= 2) { reached = true; last = "to the waypoint"; return; } // the route already ends at the waypoint
 		near = flat <= Tuning.WP_NEAR;
@@ -109,7 +134,7 @@ final class WaypointRoute {
 				if (sr == null) return;
 			}
 		}
-		sr.swim = true;
+		sr.swim = true; sr.useKnown = true;
 		sr.openEnd = !near;
 		sr.avoid = dead;
 		sr.paths = true;
@@ -117,17 +142,56 @@ final class WaypointRoute {
 
 	private void finish(BlockGetter w, double mx, double my, double mz) {
 		List<double[]> r;
+		measure(sr);
+		if (desperate && sr.clipped && sr.goal == null && sr.open.isEmpty() && dMargin < WaypointPlanner.MAX_MARGIN) { dMargin *= 2; sr = null; wait = 0; replan = true; return; } // the wider search hit its own edge: wider still
+		// CLOSED IN (round 18, a sealed cave): the scout looked at every spot there is, a smallish closed area, and found no way out. Re-planning (other angles, other sides,
+		// forgotten dead ends) only dithers: straight to the last resort, once, and then hold that route steady
+		if (!near && !fromEnd && !desperate && sr.goal == null && sr.open.isEmpty() && !sr.clipped && sr.expanded >= 200 && sr.expanded < Tuning.CLOSED_MAX) { // (a search that could not even start, in water or air, has looked at nothing: not "closed in")
+			lastSpots = sr.expanded; sr = null; plan.following = false;
+			dMargin = Tuning.SCOUT_MARGIN; desperate = true; wait = 0; replan = true; last = "closed in (searched all " + lastSpots + " spots): the closest point";
+			return;
+		}
 		double sx = fromEnd ? endAtStart[0] + 0.5 : mx, sy = fromEnd ? endAtStart[1] + 1 : my, sz = fromEnd ? endAtStart[2] + 0.5 : mz;
-		if (near) r = sr.path();
+		if (near || desperate) r = sr.path();
 		else {
 			r = plan.done(sr, sr.w, sx, sy, sz, again);
-			if (again[0] != null) { sr = again[0]; sr.swim = true; sr.openEnd = true; sr.avoid = dead; sr.paths = true; return; } // further round, same side
+			if (again[0] != null) { sr = again[0]; sr.swim = true; sr.useKnown = true; sr.openEnd = true; sr.avoid = dead; sr.paths = true; return; } // further round, same side
 		}
-		boolean hit = near && sr.reached();
+		boolean hit = (near || desperate) && sr.reached();
 		lastSpots = sr.expanded;
 		sr = null;
+		if (desperate && dStage == 0) { // the way out ran: out in the open (the route is joined on from its end by the normal search), or no way out
+			if (hit && r != null && r.size() >= 2) {
+				desperate = false; last = "out of the cave"; closest = false; failsFromHere = 0; wait = 0; closestWait = 100; reached = false; recovering = true;
+				put(r);
+				return;
+			}
+			dStage = 1; wait = 0; replan = true; return;
+		}
+		if (desperate && dStage == 1 && !(r != null && r.size() >= 2 && (hit || progress(r) >= 30))) { dStage = 2; wait = 0; replan = true; return; } // nothing out in the open: now anywhere
+		if (desperate) { dStage = 0; // the last resort ran: the closest the walking world gets to the waypoint, or nothing
+			desperate = false;
+			// the wider search (ladders, anything) got through: that is just the way, not a blocked one (round 18 night 2: it reached the waypoint and was still called "closest point")
+			if (r != null && r.size() >= 2 && (hit || progress(r) >= 30)) {
+				last = hit ? "to the waypoint (wider search)" : "new route (wider search)"; closest = false; failsFromHere = 0; wait = 40; closestWait = 100;
+				take(r, hit);
+				return;
+			}
+			if (r != null && r.size() >= 2 && r.get(r.size() - 1)[3] >= 3) {
+				last = "closest point"; closest = true; failsFromHere = 0; wait = closestWait; closestWait = Math.min(600, closestWait * 2); // (looked at again after 5 s, then 10, 20, 30: it would only find the same)
+				put(r);
+				dig = rockAhead(lastW, route.get(route.size() - 1));
+				up = openGroundUp(lastW, route.get(route.size() - 1));
+				digSaid = false;
+				return;
+			}
+			if (lastSpots < 50) { last = "no way at all (could not start: in water or air)"; wait = 20; return; } // nothing was looked at: no words
+			last = "no way at all"; wait = 60; stuck = true;
+			return;
+		}
 		if (r != null && r.size() >= 2 && (hit || progress(r) >= 2)) {
 			last = hit ? "to the waypoint" : fromEnd ? "extended" : "new route";
+			recovering = false; exitTries = 0;
 			failsFromHere = 0;
 			if (!fromEnd) wait = 40; // a fresh route from where you stand: no other from-scratch search for two seconds (it was re-planning every few seconds and flipping sides)
 			take(r, hit);
@@ -139,19 +203,94 @@ final class WaypointRoute {
 			// a dead end: that spot is avoided from now on, and the way is worked out again from where you are (it may need to go back a little: never blindly on)
 			double[] e = endAtStart;
 			dead.add(PlayerChime.Search.xz((int) e[0], (int) e[2]));
+				if (recovering) { // the way out ended in a place that leads nowhere either (a pit open to the sky): the next way out, at once, not after another round of looking
+					if (++exitTries < MAX_EXIT_TRIES) { route = trimToYou(mx, my, mz); dMargin = Tuning.SCOUT_MARGIN; desperate = true; dStage = 0; wait = 0; replan = true; last = "that way out leads nowhere: the next"; return; }
+					recovering = false; exitTries = 0; dStage = 1; desperate = true; wait = 0; replan = true; last = "no way out found: the closest point"; return;
+				}
 			route = trimToYou(mx, my, mz);
-			offForced = true; // the route stays for the sound; the next search starts from you
+				replan = true; // the route stays for the sound; the next search starts from you
 		} else {
-			if (!dead.isEmpty()) { dead.clear(); wait = 0; offForced = true; last = "no way on (forgetting the dead ends, looking again)"; return; } // the dead ends may have walled the only way off
 			wait = 20; // from where you are, no way on: look again in a second
 			if (++failsFromHere >= 2) { route = null; last = "no way on (the old route led nowhere: dropped)"; } // never keep leading into the wall
-			if (failsFromHere >= 3 && route == null) last = "no way at all";
+			if (failsFromHere >= 3) { dMargin = Tuning.SCOUT_MARGIN; desperate = true; wait = 0; replan = true; last = "no way on (last resort: the closest point)"; } // round 18 (Nov 10, a sealed cave): never "no way at all" and a sound stuck on a wall
 		}
 	}
 
 	private int wait;
 
-	private boolean offForced;
+	/** The next tick starts a search from where you are, even though a route is still being followed (it keeps sounding until the new one is joined in). */
+	private boolean replan;
+	/** The next search is the last resort (see begin). */
+	private boolean desperate;
+	private int dMargin = Tuning.SCOUT_MARGIN, closestWait = 100, dStage, exitTries;
+	/** A way out of a cave was taken and is being followed; if its end leads nowhere, the next way out is tried at once (at most MAX_EXIT_TRIES in a row). */
+	private boolean recovering;
+	static final int MAX_EXIT_TRIES = 5;
+	/** The route ends at the closest point the walking world gets to the waypoint (no walking way on): it is not extended from its end. */
+	boolean closest;
+	/** Every way to go on was tried and none was found: no route, and nothing to lead you to. */
+	private boolean stuck;
+	/** At the closest point: how many blocks of rock lie between it and open ground toward the waypoint (1 to 6), else -1. Said when you get there (the guide). */
+	int dig = -1;
+	boolean digSaid;
+	private BlockGetter lastW;
+	private PlayerChime.Search lastSr;
+	/** At the closest point: how many blocks up the nearest open ground (the surface, in the open) is, within 12 blocks across; -1 when there is none. */
+	int up = -1;
+	/** The box of what the last search looked at (minX, maxX, minY, maxY, minZ, maxZ), for the debug snapshot (F2). */
+	int[] searched;
+
+	private void measure(PlayerChime.Search s) {
+		lastW = s.w; lastSr = s;
+		if (!SonarConfig.cur.debug) return;
+		int[] b = {Integer.MAX_VALUE, Integer.MIN_VALUE, Integer.MAX_VALUE, Integer.MIN_VALUE, Integer.MAX_VALUE, Integer.MIN_VALUE};
+		for (var n : s.nodes.values()) {
+			b[0] = Math.min(b[0], n.x); b[1] = Math.max(b[1], n.x); b[2] = Math.min(b[2], n.y); b[3] = Math.max(b[3], n.y); b[4] = Math.min(b[4], n.z); b[5] = Math.max(b[5], n.z);
+		}
+		searched = b[0] == Integer.MAX_VALUE ? null : b;
+	}
+
+	/** The nearest open ground ABOVE the end cell that the closed area does not reach: the topmost solid block of a column within 12 blocks, with two blocks of air over it. Its height above you, 2 to 30, else -1. */
+	int openGroundUp(BlockGetter w, double[] end) {
+		if (w == null) return -1;
+		var pos = new net.minecraft.core.BlockPos.MutableBlockPos();
+		int ex = (int) end[0], ez = (int) end[2], ey = (int) end[1];
+		double best = Double.MAX_VALUE; int bestUp = -1;
+		for (int dx = -12; dx <= 12; dx++) for (int dz = -12; dz <= 12; dz++) {
+			int x = ex + dx, z = ez + dz;
+			for (int y = ey + 30; y >= ey + 2; y--) {
+				var s = w.getBlockState(pos.set(x, y, z));
+				if (s.getCollisionShape(w, pos).isEmpty()) continue;
+				// the topmost solid block: open ground when there is air over it and it is not a tree top or a liquid
+				if (w.getBlockState(pos.set(x, y + 1, z)).isAir() && w.getBlockState(pos.set(x, y + 2, z)).isAir() && !s.is(net.minecraft.tags.BlockTags.LEAVES) && (lastSr == null || !lastSr.nodes.containsKey(PlayerChime.key(x, y, z)))) {
+					double sc = (y - ey) + 0.5 * Math.hypot(dx, dz);
+					if (sc < best) { best = sc; bestUp = y - ey; }
+				}
+				break;
+			}
+		}
+		return bestUp;
+	}
+
+	/** From the route's end cell toward the waypoint: how many columns of rock lie before the next ground you could step onto (1 to 6), else -1. */
+	int rockAhead(BlockGetter w, double[] end) {
+		if (w == null) return -1;
+		var pos = new net.minecraft.core.BlockPos.MutableBlockPos();
+		double dx = tx - end[0] - 0.5, dz = tz - end[2] - 0.5, h = Math.max(1e-6, Math.hypot(dx, dz));
+		dx /= h; dz /= h;
+		int cx = (int) end[0], cz = (int) end[2], cur = (int) end[1], solid = 0;
+		for (double s = 0.5; s <= 8; s += 0.5) {
+			int nx = (int) Math.floor(end[0] + 0.5 + dx * s), nz = (int) Math.floor(end[2] + 0.5 + dz * s);
+			if (nx == cx && nz == cz) continue;
+			cx = nx; cz = nz;
+			int nf = PlayerChime.stepTo(w, nx, nz, cur, pos);
+			if (nf != BlockRules.NONE) return solid >= 1 && solid <= 6 ? solid : -1; // open ground again
+			if (w.getBlockState(pos.set(nx, cur + 1, nz)).isAir() && w.getBlockState(pos.set(nx, cur + 2, nz)).isAir()) return -1; // a gap or drop, not rock
+			solid++;
+		}
+		return -1;
+	}
+
 
 	/** How much nearer the waypoint the route's end is than its start. */
 	private double progress(List<double[]> r) {
@@ -162,7 +301,7 @@ final class WaypointRoute {
 	/** Takes a found stretch: joined onto the route (from its end) or as the new route (from you). */
 	private void take(List<double[]> r, boolean hit) {
 		reached = hit;
-		if (!fromEnd || route == null) { route = new ArrayList<>(r); offForced = false; return; }
+		if (!fromEnd || route == null) { put(r); return; }
 		List<double[]> out = new ArrayList<>(route);
 		double base = out.get(out.size() - 1)[3];
 		for (int k = 1; k < r.size(); k++) { double[] c = r.get(k).clone(); c[3] += base; out.add(c); }
@@ -170,6 +309,9 @@ final class WaypointRoute {
 	}
 
 	/** The route from the cell nearest you on, or null. */
+	/** A route found from where you are replaces the old one. */
+	private void put(List<double[]> r) { route = new ArrayList<>(r); replan = false; stuck = false; }
+
 	private List<double[]> trimToYou(double mx, double my, double mz) {
 		int i = at(mx, my, mz);
 		if (i < 0) return route;
@@ -186,7 +328,7 @@ final class WaypointRoute {
 	}
 
 	/** You (at mx..) count as off the route: forced after a dead end, or really off it. */
-	boolean off(double mx, double my, double mz) { return offForced || at(mx, my, mz) < 0; }
+	boolean off(double mx, double my, double mz) { return at(mx, my, mz) < 0; }
 
 	/**
 	 * The straight stretch: from (x,y,z) toward (tx,tz), `len` blocks, each cell stepped onto by the route search's own step rule (and both edges of your body

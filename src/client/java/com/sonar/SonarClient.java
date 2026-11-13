@@ -102,9 +102,9 @@ public class SonarClient implements ClientModInitializer {
 		SonarConfig.reloadIfChanged();
 		Scan.warm(SonarConfig.cur.range, SonarConfig.cur.frontRange);
 		ClientTickEvents.END_CLIENT_TICK.register(this::onTick);
-		// opening a door in the tutorial centres you on your block and squares you up, as a bump does, so you stand directly in front of it
+		// opening a door (anywhere, any world) centres you on your block and squares you up, as a bump does, so you stand directly in front of it
 		net.fabricmc.fabric.api.event.player.UseBlockCallback.EVENT.register((player, level, hand, hit) -> {
-			if (level.isClientSide() && Tutorial.active() && player instanceof net.minecraft.client.player.LocalPlayer lp && level.getBlockState(hit.getBlockPos()).is(net.minecraft.tags.BlockTags.DOORS)) centerAndSquare(lp);
+			if (level.isClientSide() && SonarConfig.cur.enabled && player instanceof net.minecraft.client.player.LocalPlayer lp && level.getBlockState(hit.getBlockPos()).is(net.minecraft.tags.BlockTags.DOORS)) centerOnDoor(lp, hit.getBlockPos());
 			return net.minecraft.world.InteractionResult.PASS;
 		});
 	}
@@ -147,7 +147,9 @@ public class SonarClient implements ClientModInitializer {
 			echoJob = null; echoDone = false;
 			Cues.pending.clear(); Cues.mobSeen.clear(); Echo.echoTail = 0; echoHold = 0;
 			PlayerChime.reset(); PathGuide.reset(); Markers.reset(); Timeline.reset(); Echo.forget(); WaypointGuide.reset();
+			guard("walked ground", () -> Known.switchTo(mc));
 		}
+		Known.tick(mc);
 		if (++tick % 20 == 0) SonarConfig.reloadIfChanged();
 		Timeline.tick(tick);
 		if (SonarConfig.cur.enabled) guard("facing", () -> sayFacing(mc));
@@ -531,6 +533,23 @@ public class SonarClient implements ClientModInitializer {
 	}
 
 	/** Moves you to the middle of the block you stand on (only if you fit there) and turns you to the nearest of north, east, south, west. Up/down look is kept. */
+	/**
+	 * Opening a door: you are turned straight at it, centred on its doorway, and moved right up against its block (0 blocks away), so the doorway is directly ahead
+	 * and the next step goes through it. Backs off a little if something is in the way.
+	 */
+	static void centerOnDoor(net.minecraft.client.player.LocalPlayer p, net.minecraft.core.BlockPos door) {
+		double dx = door.getX() + 0.5 - p.getX(), dz = door.getZ() + 0.5 - p.getZ();
+		boolean alongX = Math.abs(dx) >= Math.abs(dz);
+		int sx = alongX ? (dx > 0 ? 1 : -1) : 0, sz = alongX ? 0 : (dz > 0 ? 1 : -1); // which way the door lies
+		float yaw = alongX ? (sx > 0 ? -90f : 90f) : (sz > 0 ? 0f : 180f);
+		for (double back = 0.31; back <= 0.5; back += 0.04) { // 0.3 is half your width: touching the door's block; a little further back if that is blocked
+			double nx = alongX ? door.getX() + (sx > 0 ? -back : 1 + back) : door.getX() + 0.5, nz = alongX ? door.getZ() + 0.5 : door.getZ() + (sz > 0 ? -back : 1 + back);
+			if (p.level().noCollision(p, p.getBoundingBox().move(nx - p.getX(), 0, nz - p.getZ()))) { p.setPos(nx, p.getY(), nz); break; }
+		}
+		p.setYRot(yaw); p.yRotO = yaw; p.setYHeadRot(yaw);
+		if (SonarConfig.cur.debug) Dbg.send(p, Component.literal("door: moved up against it and turned to face it"));
+	}
+
 	static void centerAndSquare(net.minecraft.client.player.LocalPlayer p) {
 		double cx = Math.floor(p.getX()) + 0.5, cz = Math.floor(p.getZ()) + 0.5;
 		if (p.onGround() && p.level().noCollision(p, p.getBoundingBox().move(cx - p.getX(), 0, cz - p.getZ()))) p.setPos(cx, p.getY(), cz);
