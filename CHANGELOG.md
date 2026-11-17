@@ -1,6 +1,6 @@
 # Sonar Access: changes
 
-## 2.0.0
+## 1.6.0
 
 The "it just works" release: two keys, one small settings screen, and several things SONAR now does by itself.
 
@@ -22,8 +22,8 @@ The "it just works" release: two keys, one small settings screen, and several th
 - 31 narrator lines and 11 muffled block sounds clipped slightly when decoded; all are now under full scale.
 - The ledge warning and the edge brake no longer act while you ride, glide or fly, and SONAR is silent while you are dead or spectating.
 - Wall thuds no longer play while you are riding.
-
 - The player jingle and the waypoint route now go up stairs under a low ceiling (a dug staircase, a cellar) and over a carpet lying on a raised block; both used to count as "no way".
+
 ### Tutorial
 - The materials level teaches the helper key. The ledge level no longer asks for a key: the warning is on, as in the real game. Lines that named removed keys are re-recorded.
 

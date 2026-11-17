@@ -82,5 +82,40 @@ final class CoreTests {
 		boolean overBridge = rp != null, low = false;
 		if (rp != null) for (double[] c : rp) { low |= c[1] < 60; if (c[2] > 3.2 && c[2] < 7.8 && (c[0] < 9.9 || c[0] > 11.1)) overBridge = false; }
 		check.accept(rr.reached() && overBridge && !low, "route: across the ravine by its one bridge, ten blocks to the side");
+		ledges(check);
+	}
+
+	/** Is there a real ledge (drop 4+) ahead (south, +z) within `within` blocks? */
+	private static boolean ledgeAhead(Scan s, double within) {
+		for (var l : s.ledges) if (l.d != Float.MAX_VALUE && l.drop >= 4 && l.d < within && l.z >= 1) return true;
+		return false;
+	}
+
+	private static Scan look(World w) { return new Scan(w, RoomTests.CFG, 0.5, 66.62, 0.5, 0f).finish(); }
+
+	/** The ledge warning's detector in everyday places: you stand at 0,0 on a floor at 64, facing south. */
+	private static void ledges(BiConsumer<Boolean, String> check) {
+		BlockState fence = Blocks.OAK_FENCE.defaultBlockState();
+		// a cliff: the floor ends at z 5, ten blocks down beyond
+		java.util.function.Supplier<World> cliff = () -> new World().fill(-20, 62, -20, 20, 64, 5, STONE).fill(-20, 52, 6, 20, 54, 30, STONE);
+		check.accept(ledgeAhead(look(cliff.get()), 8), "ledges: a cliff ten blocks deep, five blocks ahead");
+		check.accept(!ledgeAhead(look(cliff.get().fill(-20, 65, 5, 20, 65, 5, fence)), 8), "ledges: the same cliff behind a fence is safe");
+		check.accept(ledgeAhead(look(cliff.get().fill(-20, 64, 6, 20, 64, 8, Blocks.OAK_LEAVES.defaultBlockState())), 8), "ledges: treetops level with the cliff edge are not a floor");
+		// a hillside going down one block per step: a walk, not a ledge
+		World hill = new World().fill(-20, 62, -20, 20, 64, 2, STONE);
+		for (int k = 1; k <= 12; k++) hill.fill(-20, 62 - k, 2 + k, 20, 64 - k, 2 + k, STONE);
+		hill.fill(-20, 50, 15, 20, 52, 30, STONE);
+		check.accept(!ledgeAhead(look(hill), 12), "ledges: a hillside down one block at a time is not a ledge");
+		// a one-block hole, six deep, three blocks ahead
+		World hole = new World().fill(-20, 58, -20, 20, 64, 20, STONE);
+		hole.fill(0, 59, 3, 0, 64, 3, Blocks.AIR.defaultBlockState());
+		check.accept(ledgeAhead(look(hole), 5), "ledges: a one-block hole six deep in your way");
+		// a ditch two deep: a step down, not a ledge
+		World ditch = new World().fill(-20, 60, -20, 20, 64, 20, STONE);
+		ditch.fill(-20, 63, 4, 20, 64, 6, Blocks.AIR.defaultBlockState());
+		Scan ds = look(ditch);
+		boolean step = false;
+		for (var l : ds.drops) if (l.d != Float.MAX_VALUE && l.drop <= 2 && l.d < 6) step = true;
+		check.accept(!ledgeAhead(ds, 8) && step, "ledges: a ditch two deep is a step down, not a ledge");
 	}
 }
