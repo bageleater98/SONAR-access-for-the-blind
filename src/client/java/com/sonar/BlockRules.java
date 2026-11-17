@@ -106,11 +106,19 @@ final class BlockRules {
 			if (s.is(BlockTags.DOORS) || s.is(BlockTags.FENCE_GATES) || s.is(BlockTags.CLIMBABLE)) continue; // look through to the floor under the doorway (or the foot of a ladder)
 			if (s.is(BlockTags.FENCES) || s.is(BlockTags.WALLS) || s.is(net.minecraft.world.level.block.Blocks.IRON_BARS)) return NONE;
 			if (!s.getCollisionShape(w, pos).isEmpty()) {
-				for (int h = y + 1; h <= Math.max(y, ref) + 2; h++) if (!passable(w, x, h, z, pos)) return NONE;
+				for (int h = y + 1; h <= Math.max(y, ref) + 2; h++) if (!passable(w, x, h, z, pos) && !(h == y + 1 && thin(w, x, h, z, pos))) return NONE;
 				return y;
 			}
 		}
 		return NONE;
+	}
+
+	/** A carpet or a couple of snow layers lying on a block: something you stand on, not something in your way (2.0: a rug on a raised block read as a wall). */
+	private static boolean thin(net.minecraft.world.level.BlockGetter w, int x, int y, int z, BlockPos.MutableBlockPos pos) {
+		net.minecraft.world.level.block.state.BlockState s = Sense.real(w, pos.set(x, y, z));
+		if (Sense.guide(s)) return false;
+		var sh = s.getCollisionShape(w, pos);
+		return !sh.isEmpty() && sh.max(net.minecraft.core.Direction.Axis.Y) <= 0.25;
 	}
 
 	/**
@@ -122,7 +130,12 @@ final class BlockRules {
 		if (nf != ref + 1) return nf;
 		net.minecraft.world.level.block.state.BlockState floor = Sense.real(w, pos.set(x, nf, z));
 		var shape = floor.getCollisionShape(w, pos);
-		if (!shape.isEmpty() && shape.max(net.minecraft.core.Direction.Axis.Y) <= 0.5) return nf; // a slab or the low half of a stair: no jump
+		if (!shape.isEmpty() && shape.max(net.minecraft.core.Direction.Axis.Y) <= 0.5) return nf; // a slab: no jump
+		// stairs met from their low side are walked up (2.0: a stair tunnel whose ceiling rises with the treads was "no way" for the jingle and the waypoint route)
+		if (floor.getBlock() instanceof net.minecraft.world.level.block.StairBlock && floor.getValue(net.minecraft.world.level.block.StairBlock.HALF) == net.minecraft.world.level.block.state.properties.Half.BOTTOM) {
+			net.minecraft.core.Direction f = floor.getValue(net.minecraft.world.level.block.StairBlock.FACING);
+			if (f.getStepX() == x - fx && f.getStepZ() == z - fz) return nf;
+		}
 		net.minecraft.world.level.block.state.BlockState under = Sense.real(w, pos.set(fx, ref, fz));
 		var us = under.getCollisionShape(w, pos);
 		if (!us.isEmpty() && us.max(net.minecraft.core.Direction.Axis.Y) <= 0.5) return nf; // you stand on a slab: the step is half a block... and your head is half a block lower

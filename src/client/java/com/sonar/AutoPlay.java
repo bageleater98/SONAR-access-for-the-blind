@@ -93,7 +93,7 @@ final class AutoPlay {
 			case "l6" -> jobs.add(walk(d, new String[]{"on the step", "top of the stairs", "top of the ladder", "in the cottage"}[Math.min(s, 3)]));
 			case "l7" -> {
 				if (s == 0) jobs.add(walk(d, "near the lip"));
-				else if (s == 1) { jobs.add(sneakTo(d, 6.5, 7, 10.35)); }
+				else if (s == 1) { jobs.add(sneakTo(d, 6.5, 7, 10.35)); jobs.add(push(o.keyShift, 20)); } // stays crouched at the lip a moment, as the step asks
 				else { jobs.add(sneakTo(d, 10.5, 7, 10.5)); jobs.add(sneakTo(d, 10.5, 7, 2.5)); }
 			}
 			case "l8" -> jobs.add(walk(d, new String[]{"big room", "garden"}[Math.min(s, 1)]));
@@ -215,11 +215,11 @@ final class AutoPlay {
 					i = 0;
 				}
 				double dGoal = Math.hypot(p.getX() - gx, p.getZ() - gz);
-				if (dGoal < 0.6 && Math.abs(p.getY() - gy) < 1.2) { release(mc); return true; }
+				if (dGoal < (careful ? 0.25 : 0.6) && Math.abs(p.getY() - gy) < 1.2) { release(mc); log(d.lesson.id + ": arrived " + what); return true; }
 				if (dGoal < bestD - 0.2) { bestD = dGoal; stall = 0; } else if (++stall > 160) { log(d.lesson.id + ": STUCK " + what + String.format(" at %.1f %.1f %.1f", room.rx(p.getX()), room.ry(p.getY()), room.rz(p.getZ())) + " (teleporting)"); teleport(mc); return true; }
-				while (i < path.size() - 1 && Math.hypot(path.get(i)[0] - p.getX(), path.get(i)[2] - p.getZ()) < 0.45) i++;
-				double[] t = i < path.size() ? path.get(i) : new double[]{gx, gy, gz};
-				if (i >= path.size() - 1) t = new double[]{gx, gy, gz};
+				// route cells are block corners with the FLOOR's y: walk their centres, feet one above (the bot used to walk along block edges, miss doorways and hang on ladders)
+				while (i < path.size() - 1 && Math.hypot(path.get(i)[0] + 0.5 - p.getX(), path.get(i)[2] + 0.5 - p.getZ()) < 0.45) { i++; stall = 0; }
+				double[] t = i >= path.size() - 1 ? new double[]{gx, gy, gz} : new double[]{path.get(i)[0] + 0.5, path.get(i)[1] + 1, path.get(i)[2] + 0.5};
 				double dx = t[0] - p.getX(), dz = t[2] - p.getZ();
 				float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
 				p.setYRot(yaw);
@@ -230,7 +230,8 @@ final class AutoPlay {
 				boolean jump = p.isInWater() || (p.horizontalCollision && p.onGround()) || (p.onClimbable() && t[1] > p.getY() + 0.5);
 				mc.options.keyJump.setDown(jump);
 				// a closed door in the way: open it, as a player would (right-click)
-				BlockPos ahead = BlockPos.containing(p.getX() + Math.signum(dx) * 0.8, p.getY() + 0.5, p.getZ() + Math.signum(dz) * 0.8);
+				double dl = Math.max(1e-6, Math.hypot(dx, dz));
+				BlockPos ahead = BlockPos.containing(p.getX() + dx / dl * 0.8, p.getY() + 0.5, p.getZ() + dz / dl * 0.8);
 				var st = mc.level.getBlockState(ahead);
 				if (st.is(BlockTags.DOORS) && st.hasProperty(net.minecraft.world.level.block.DoorBlock.OPEN) && !st.getValue(net.minecraft.world.level.block.DoorBlock.OPEN) && p.tickCount % 10 == 0) {
 					mc.gameMode.useItemOn(p, InteractionHand.MAIN_HAND, new BlockHitResult(Vec3.atCenterOf(ahead), Direction.getApproximateNearest(-dx, 0, -dz), ahead, false));
