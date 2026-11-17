@@ -51,6 +51,22 @@ final class V2Tests {
 		check.accept(order.get(0).x == 0 && order.get(1).x == 1 && order.get(2).x == 30 && order.get(3).x == 50, "waypoints: nearest first, in order (0, 1, 30, 50)");
 		check.accept(WaypointGuide.callOut(61, 60) == 0 && WaypointGuide.callOut(59.6, 60) == 60 && WaypointGuide.callOut(10, 15) == 0, "waypoint guide: the distance is called out when it has halved, not once you are close");
 
+		// the step rule under low branches and ceilings (found by the field test: a spruce branch over a one-block step down)
+		var STONE = net.minecraft.world.level.block.Blocks.STONE.defaultBlockState();
+		var LEAF = net.minecraft.world.level.block.Blocks.SPRUCE_LEAVES.defaultBlockState();
+		var pos = new net.minecraft.core.BlockPos.MutableBlockPos();
+		World down = new World().fill(-5, 60, -5, 5, 64, -1, STONE).fill(-5, 60, 0, 5, 63, 5, STONE); // floor 64 north of z 0, one block lower from z 0 on
+		check.accept(BlockRules.stepTo(down, 0, 0, 64, pos) == 63, "step rule: a one-block step down in the open is a step");
+		down.set(0, 66, 0, LEAF); // a branch two blocks over the LOWER floor: room to stand under it, but your head hits it coming from the upper floor
+		check.accept(BlockRules.stepTo(down, 0, 0, 64, pos) == BlockRules.NONE, "step rule: no stepping down under a branch that is at head height where you come from");
+		check.accept(BlockRules.stepTo(down, 0, 1, 63, pos) == 63 && BlockRules.stepTo(down, 0, 0, 63, pos) == 63, "step rule: walking under that branch on the lower floor is fine");
+		World up = new World().fill(-5, 60, -5, 5, 64, -1, STONE).fill(-5, 60, 0, 5, 65, 5, STONE); // a one-block step up at z 0
+		check.accept(BlockRules.stepFrom(up, 0, -1, 0, 0, 64, pos) == 65, "step rule: a one-block step up in the open is a jump you can make");
+		up.set(0, 67, -1, LEAF); // a branch right over your head where you would jump from
+		check.accept(BlockRules.stepFrom(up, 0, -1, 0, 0, 64, pos) == BlockRules.NONE && BlockRules.stepFrom(up, 1, -1, 1, 0, 64, pos) == 65, "step rule: no jumping up with a branch right over your head (beside it you can)");
+		up.set(0, 65, 0, net.minecraft.world.level.block.Blocks.STONE_SLAB.defaultBlockState());
+		check.accept(BlockRules.stepFrom(up, 0, -1, 0, 0, 64, pos) == 65, "step rule: a slab is walked onto without a jump, branch or not");
+
 		// settings written by 1.x: the removed switches and sliders go back to the tuned defaults, what still has a button is kept
 		SonarConfig old = new SonarConfig();
 		old.configVersion = 3; old.sweepGap = 5; old.directionSpread = 1.0f; old.gapCue = false; old.ledgeMinDrop = 8; old.echoCount = 2; old.volume = 1.4f; old.autoScan = true; old.guideVolume = 0.5f; old.waypointVolume = 1.7f;

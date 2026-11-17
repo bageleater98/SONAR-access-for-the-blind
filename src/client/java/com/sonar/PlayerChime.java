@@ -170,11 +170,11 @@ public class PlayerChime {
 			float bright = unreachable ? 0f : 1f - w, dull = unreachable ? 1f : w; // the low-passed copy fades in as the sound moves round behind you
 			// played from where it really is (inside the player's head, at the turn), with no distance fade from the game: the volume above already says how far
 			if (bright > 0.02f) {
-				play(mc, STEP_SND, cfg.volume * base * bright * 0.9f * cfg.chimeVolume, pt, tx, ty, tz);
+				play(mc, STEP_SND, cfg.volume * base * bright * 0.3f * cfg.chimeVolume, pt, tx, ty, tz);
 				play(mc, JINGLE, 0.6f * base * bright * cfg.chimeVolume, pt, tx, ty, tz);
 			}
 			if (dull > 0.02f) {
-				play(mc, STEP_DULL, cfg.volume * base * dull * 0.9f * cfg.chimeVolume, pt, tx, ty, tz);
+				play(mc, STEP_DULL, cfg.volume * base * dull * 0.3f * cfg.chimeVolume, pt, tx, ty, tz);
 				play(mc, JINGLE_DULL, 0.6f * base * dull * cfg.chimeVolume, pt, tx, ty, tz);
 			}
 		}
@@ -402,7 +402,7 @@ public class PlayerChime {
 					if (!climbable(w, c.x, c.y, c.z, pos)) continue;
 					nf = c.y - 1;
 				} else {
-					nf = next(nx, nz, c.y);
+					nf = next(c.x, c.z, nx, nz, c.y);
 					// onto the top of a ladder going down from a ledge (its top rung level with your floor): you hold on there, then climb down (k == 9). The step
 					// rule looks through ladders for a floor at most 3 below, so a longer ladder down used to have no way onto it at all.
 					if (nf == NONE && ladders && !diag && climbable(w, nx, c.y, nz, pos) && passable(w, nx, c.y + 1, nz, pos) && passable(w, nx, c.y + 2, nz, pos)) nf = c.y;
@@ -496,8 +496,11 @@ public class PlayerChime {
 		}
 
 		/** The next spot over at (x,z) from floor `ref`: a walking step, or (swim) the water's surface there. */
-		int next(int x, int z, int ref) {
-			int nf = stepTo(w, x, z, ref, pos);
+		int next(int x, int z, int ref) { return next(x, z, x, z, ref); }
+
+		/** The same, coming from column fx,fz (a step up is a jump: it needs the room over your head there). */
+		int next(int fx, int fz, int x, int z, int ref) {
+			int nf = fx == x && fz == z ? stepTo(w, x, z, ref, pos) : BlockRules.stepFrom(w, fx, fz, x, z, ref, pos);
 			if (nf == NONE && swim) nf = surface(w, x, z, ref, pos);
 			if (nf == NONE && useKnown) nf = Known.at(x, z, ref); // ground you walked, where the world shows nothing (not loaded)
 			return nf;

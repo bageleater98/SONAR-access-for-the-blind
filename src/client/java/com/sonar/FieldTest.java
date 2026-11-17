@@ -33,7 +33,7 @@ final class FieldTest {
 	static final boolean ON = SEED != null;
 	private static final String FOLDER = "sonar-field-test";
 	/** Where each trip starts, in blocks east and south of home. */
-	private static final int[][] TRIPS = {{90, 20}, {-30, -140}, {-170, 110}, {230, -210}};
+	private static final int[][] TRIPS = {{230, -210}, {90, 20}, {-170, 110}, {-30, -140}};
 	private static final int TIMEOUT = 20 * 300;
 
 	private static boolean started;
@@ -76,6 +76,17 @@ final class FieldTest {
 		if (s != null) s.execute(() -> s.getCommands().performPrefixedCommand(s.createCommandSourceStack().withSuppressedOutput(), cmd));
 	}
 
+	/** Puts the player on the surface at x, z (the chunk is made first, on the server, so the height is the real one). */
+	private static void putDown(Minecraft mc, int x, int z) {
+		var s = mc.getSingleplayerServer();
+		if (s == null) return;
+		s.execute(() -> {
+			var lvl = s.overworld();
+			int y = lvl.getChunk(x >> 4, z >> 4).getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING, x & 15, z & 15) + 1;
+			s.getCommands().performPrefixedCommand(s.createCommandSourceStack().withSuppressedOutput(), "tp @a " + x + " " + y + " " + z);
+		});
+	}
+
 	private static void keys(Minecraft mc, boolean fwd, boolean jump) {
 		mc.options.keyUp.setDown(fwd);
 		mc.options.keyJump.setDown(jump);
@@ -110,7 +121,7 @@ final class FieldTest {
 				if (trip >= TRIPS.length) { phase = 10; step = 0; return; }
 				keys(mc, false, false);
 				WaypointGuide.stop();
-				command(mc, "spreadplayers " + (home.x + TRIPS[trip][0]) + " " + (home.z + TRIPS[trip][1]) + " 0 6 false @a");
+				putDown(mc, home.x + TRIPS[trip][0], home.z + TRIPS[trip][1]);
 				wait = 120; phase = 3;
 			}
 			case 3 -> {
@@ -141,12 +152,13 @@ final class FieldTest {
 		if (h < lastHealth - 0.1f) { hits++; log(String.format("trip %d: hurt, health %.1f -> %.1f at %.0f %.0f %.0f", trip, lastHealth, h, p.getX(), p.getY(), p.getZ())); }
 		lastHealth = h; minHealth = Math.min(minHealth, h);
 		double d = Waypoints.distance(mc, home);
-		if (d < bestDist - 1) { bestDist = d; stillFor = 0; } else if (++stillFor == 200) { standstills++; log(String.format("trip %d: no progress for 10 s at %.0f %.0f %.0f, %d blocks to go", trip, p.getX(), p.getY(), p.getZ(), (int) d)); stillFor = 0; }
+		if (d < bestDist - 1) { bestDist = d; stillFor = 0; } else if (++stillFor == 200) { standstills++; if (standstills == 1) diagnose(mc); log(String.format("trip %d: no progress for 10 s at %.0f %.0f %.0f, %d blocks to go", trip, p.getX(), p.getY(), p.getZ(), (int) d)); stillFor = 0; }
 		boolean arrived = !WaypointGuide.active();
-		if (arrived || t > TIMEOUT) {
+		boolean stuck = standstills >= 2; // 20 s without getting nearer: a player would be lost by now
+		if (arrived || stuck || t > TIMEOUT) {
 			keys(mc, false, false);
 			String r = String.format("trip %d: %s, %d blocks straight, walked %.0f (x%.2f), %.0f s, %.1f blocks/s, standstills %d, hurt %d times (lowest health %.0f), deaths so far %d, guide said %s",
-				trip, arrived ? "ARRIVED" : "TIMED OUT " + (int) d + " blocks short", (int) startDist, walked, walked / Math.max(1, startDist), t / 20.0, walked / (t / 20.0), standstills, hits, minHealth, deaths, said);
+				trip, arrived ? "ARRIVED" : (stuck ? "STUCK " : "TIMED OUT ") + (int) d + " blocks short", (int) startDist, walked, walked / Math.max(1, startDist), t / 20.0, walked / (t / 20.0), standstills, hits, minHealth, deaths, said);
 			log(r); results.add(r);
 			trip++; phase = 2; wait = 20;
 			return;
@@ -158,6 +170,16 @@ final class FieldTest {
 		p.setYRot(p.getYRot() + Math.max(-10, Math.min(10, diff))); // turns like a person, not a compass needle
 		boolean fwd = Math.abs(diff) < 50;
 		keys(mc, fwd, p.isInWater() || (fwd && p.horizontalCollision && p.onGround()));
+	}
+
+	/** The first standstill of a trip: what the bot and the guide see, and the blocks around (config/sonar-spots, loadable into the self-test). */
+	private static void diagnose(Minecraft mc) {
+		var p = mc.player;
+		Vec3 s = WaypointGuide.soundAt();
+		log(String.format("trip %d STUCK at %.1f %.1f %.1f yaw %.0f: onGround %b, inWater %b, pushing a wall %b, standing on %s, sound at %s, guide: %s",
+			trip, p.getX(), p.getY(), p.getZ(), p.getYRot(), p.onGround(), p.isInWater(), p.horizontalCollision, p.getBlockStateOn().getBlock().getName().getString(),
+			s == null ? "none" : String.format("%.1f %.1f %.1f", s.x, s.y, s.z), String.valueOf(WaypointGuide.report()).lines().limit(2).reduce("", (x, y) -> x + " | " + y)));
+		Spot.save(mc);
 	}
 
 	/** Part 2: a scripted minute of the things Sonar says by itself and on the helper key; what was said is in the log. */
@@ -172,8 +194,8 @@ final class FieldTest {
 			case 4 -> { expect("Empty hand", "hand: empty"); net.minecraft.client.KeyMapping.click(com.mojang.blaze3d.platform.InputConstants.getKey(SonarClient.helpKey.saveString())); wait = 40; }
 			case 5 -> { expectAny(" block", "helper tap: names what you face"); SonarClient.helpKey.setDown(true); wait = 30; }
 			case 6 -> { SonarClient.helpKey.setDown(false); wait = 60; }
-			case 7 -> { expectAny("Facing ", "helper hold: where am I"); command(mc, "damage @a 15"); wait = 40; }
-			case 8 -> { expect("Health low", "health low"); command(mc, "damage @a 3"); wait = 40; }
+			case 7 -> { expectAny("Facing ", "helper hold: where am I"); command(mc, "difficulty easy"); command(mc, "damage @p 15"); wait = 40; }
+			case 8 -> { expect("Health low", "health low"); command(mc, "damage @p 3"); wait = 40; }
 			case 9 -> { expect("Health very low", "health very low"); command(mc, "effect give @a instant_health 1 10"); command(mc, "difficulty normal"); wait = 40; }
 			case 10 -> { var f = p.getLookAngle(); command(mc, String.format(java.util.Locale.ROOT, "summon zombie %.1f %.1f %.1f {NoAI:1b}", p.getX() + f.x * 5, p.getY(), p.getZ() + f.z * 5)); wait = 80; }
 			case 11 -> { expectAny("Zombie, ", "threat: the monster is named with its side"); command(mc, "kill @e[type=zombie]"); command(mc, "difficulty peaceful"); wait = 20; }

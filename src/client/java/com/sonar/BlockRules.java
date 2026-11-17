@@ -92,7 +92,12 @@ final class BlockRules {
 		return NONE;
 	}
 
-	/** Floor y when stepping onto column x,z from a floor at ref (up 1, down 3, with 2 blocks of headroom); NONE when you can not. */
+	/**
+	 * Floor y when stepping onto column x,z from a floor at ref (up 1, down 3, with 2 blocks of headroom); NONE when you can not.
+	 * Stepping DOWN, your body moves across at the height you came from before it drops, so the column must be clear from the new floor all the way up to
+	 * your head where you stood (2.0, a real world: a low spruce branch over a one-block step down stopped the waypoint route's follower dead, though the
+	 * space under the branch was two blocks high).
+	 */
 	static int stepTo(net.minecraft.world.level.BlockGetter w, int x, int z, int ref, BlockPos.MutableBlockPos pos) {
 		for (int y = ref + 1; y >= ref - 3; y--) {
 			net.minecraft.world.level.block.state.BlockState s = Sense.real(w, pos.set(x, y, z));
@@ -100,9 +105,28 @@ final class BlockRules {
 			if (s.getBlock() instanceof net.minecraft.world.level.block.LiquidBlock) return NONE;
 			if (s.is(BlockTags.DOORS) || s.is(BlockTags.FENCE_GATES) || s.is(BlockTags.CLIMBABLE)) continue; // look through to the floor under the doorway (or the foot of a ladder)
 			if (s.is(BlockTags.FENCES) || s.is(BlockTags.WALLS) || s.is(net.minecraft.world.level.block.Blocks.IRON_BARS)) return NONE;
-			if (!s.getCollisionShape(w, pos).isEmpty()) return passable(w, x, y + 1, z, pos) && passable(w, x, y + 2, z, pos) ? y : NONE;
+			if (!s.getCollisionShape(w, pos).isEmpty()) {
+				for (int h = y + 1; h <= Math.max(y, ref) + 2; h++) if (!passable(w, x, h, z, pos)) return NONE;
+				return y;
+			}
 		}
 		return NONE;
+	}
+
+	/**
+	 * stepTo, coming from column fx,fz: a step UP onto a full block is a jump, and a jump needs a third block of air over where you stand (a branch or a
+	 * ceiling right above your head and you can not get up). Stairs and slabs are walked up without jumping, so they need none.
+	 */
+	static int stepFrom(net.minecraft.world.level.BlockGetter w, int fx, int fz, int x, int z, int ref, BlockPos.MutableBlockPos pos) {
+		int nf = stepTo(w, x, z, ref, pos);
+		if (nf != ref + 1) return nf;
+		net.minecraft.world.level.block.state.BlockState floor = Sense.real(w, pos.set(x, nf, z));
+		var shape = floor.getCollisionShape(w, pos);
+		if (!shape.isEmpty() && shape.max(net.minecraft.core.Direction.Axis.Y) <= 0.5) return nf; // a slab or the low half of a stair: no jump
+		net.minecraft.world.level.block.state.BlockState under = Sense.real(w, pos.set(fx, ref, fz));
+		var us = under.getCollisionShape(w, pos);
+		if (!us.isEmpty() && us.max(net.minecraft.core.Direction.Axis.Y) <= 0.5) return nf; // you stand on a slab: the step is half a block... and your head is half a block lower
+		return passable(w, fx, ref + 3, fz, pos) ? nf : NONE;
 	}
 
 	static boolean climbable(net.minecraft.world.level.BlockGetter w, int x, int y, int z, BlockPos.MutableBlockPos pos) {
