@@ -83,6 +83,9 @@ public class CaveEcho {
 	}
 
 	/** Each tick: measure the next few directions of the pending job; once all are measured, the corner walk starts from them and goes on a little each tick. */
+	/** A new world or dimension: the old one's measuring is dropped. */
+	static void reset() { job = null; walk = null; holeWalk = null; }
+
 	static void tick(Minecraft mc) {
 		if (mc.level == null) { job = null; walk = null; holeWalk = null; return; }
 		if (holeWalk != null && holeWalk.w != Sense.hear(mc)) holeWalk = null;

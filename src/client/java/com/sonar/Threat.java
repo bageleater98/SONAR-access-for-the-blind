@@ -34,7 +34,17 @@ final class Threat {
 	private static final Map<Integer, Integer> named = new HashMap<>(); // entity id -> the tick it was last in notice
 	private static int nextBeat, lastName = -1000;
 
-	static void reset() { named.clear(); nextBeat = 0; }
+	private static boolean hadThreat;
+
+	static void reset() { named.clear(); nextBeat = 0; hadThreat = false; }
+
+	/** Hostile now: always for a true monster; a neutral one (enderman, zombified piglin, piglin) only once it is angry, as far as the client is told. */
+	static boolean angry(LivingEntity le) {
+		if (le instanceof net.minecraft.world.entity.monster.Enderman em) return em.isCreepy() || em.isAggressive();
+		if (le instanceof net.minecraft.world.entity.NeutralMob || le instanceof net.minecraft.world.entity.monster.piglin.AbstractPiglin)
+			return le instanceof net.minecraft.world.entity.Mob m && m.isAggressive();
+		return true;
+	}
 
 	/** Ticks between beats for a monster `d` blocks away: BEAT_FAST at CLOSE or nearer, BEAT_SLOW at the edge of notice. */
 	static int beat(double d) {
@@ -57,20 +67,23 @@ final class Threat {
 		var p = mc.player;
 		int tick = SonarClient.tick;
 		if (!cfg.threatCue || p.getAbilities().invulnerable) return;
-		if (tick % 5 != 0 && tick < nextBeat) return;
+		if (tick % 5 != 0 && (tick < nextBeat || !hadThreat)) return; // (nothing near: a look every quarter second, not every tick)
+		boolean menu = mc.gui.screen() != null;
 		LivingEntity nearest = null;
 		double best = RANGE;
 		for (var e : mc.level.entitiesForRendering()) {
 			if (!(e instanceof Enemy) || !(e instanceof LivingEntity le) || !le.isAlive() || le.isInvisible()) continue;
+			if (!angry(le)) continue; // a calm enderman, zombified piglin or piglin is no threat (the Nether was one long warning)
 			double d = le.distanceTo(p);
 			if (d > RANGE || !p.hasLineOfSight(le)) continue;
 			Integer seen = named.put(le.getId(), tick);
-			if ((seen == null || tick - seen > FORGET) && tick - lastName >= NAME_GAP) {
+			if (!menu && !Voice.speaking() && (seen == null || tick - seen > FORGET) && tick - lastName >= NAME_GAP) { // (never over a menu or the narrator)
 				lastName = tick;
 				Speech.say(mc, Component.literal(le.getName().getString() + ", " + side(bearing(p.getYRot(), le.getX() - p.getX(), le.getZ() - p.getZ()))));
 			} else if (seen == null) named.remove(le.getId()); // (not named yet: its turn comes once the gap has passed)
 			if (d < best) { best = d; nearest = le; }
 		}
+		hadThreat = nearest != null;
 		if (named.size() > 256) named.values().removeIf(t -> tick - t > FORGET);
 		if (nearest == null || tick < nextBeat) return;
 		nextBeat = tick + beat(best);

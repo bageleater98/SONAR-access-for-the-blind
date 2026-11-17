@@ -74,6 +74,7 @@ final class Announce {
 
 	/** Looking at a door or trapdoor right in front of you (the next block) for 2 seconds says "door ahead" / "trapdoor ahead", once, until you look at something else. */
 	private static void doorAhead(Minecraft mc) {
+		if (mc.gui.screen() != null) { lookTicks = 0; return; } // (not with a menu open)
 		BlockPos at = null;
 		boolean trap = false;
 		if (mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult bh && mc.hitResult.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK

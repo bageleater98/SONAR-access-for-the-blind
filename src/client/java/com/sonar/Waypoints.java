@@ -38,7 +38,10 @@ final class Waypoints {
 	static String write(List<Wp> list) { return GSON.toJson(list); }
 	static List<Wp> read(String text) {
 		List<Wp> l = GSON.fromJson(text, new TypeToken<List<Wp>>() {}.getType());
-		return l == null ? new ArrayList<>() : new ArrayList<>(l);
+		if (l == null) return new ArrayList<>();
+		List<Wp> out = new ArrayList<>(l);
+		out.removeIf(w -> w == null || w.name == null || w.dim == null); // (a hand-edited or old entry with no name or world crashed the guide)
+		return out;
 	}
 
 	/** This world's file name: the single player save folder, or the server address, made safe for a file name. */
@@ -59,14 +62,25 @@ final class Waypoints {
 		String key = worldKey(mc);
 		if (!key.equals(loadedFor)) {
 			all.clear();
-			try { Path f = file(key); if (Files.exists(f)) all.addAll(read(Files.readString(f))); } catch (Exception e) { SonarClient.LOG.warn("Sonar: could not read waypoints: " + e); }
+			Path f = file(key);
+			try { if (Files.exists(f)) all.addAll(read(Files.readString(f))); }
+			catch (Exception e) { // a broken file is kept aside, never overwritten by the next automatic save
+				SonarClient.LOG.warn("Sonar: could not read waypoints: " + e);
+				try { Files.copy(f, f.resolveSibling(key + ".broken-" + System.currentTimeMillis() + ".json")); } catch (Exception ignored) {}
+			}
 			loadedFor = key;
 		}
 		return all;
 	}
 
 	static void save(Minecraft mc) {
-		try { Path f = file(worldKey(mc)); Files.createDirectories(f.getParent()); Files.writeString(f, write(all)); }
+		try { // written whole to a side file first, then swapped in: a crash mid-save can not leave half a file
+			Path f = file(worldKey(mc)); Files.createDirectories(f.getParent());
+			Path tmp = f.resolveSibling(f.getFileName() + ".tmp");
+			Files.writeString(tmp, write(all));
+			try { Files.move(tmp, f, java.nio.file.StandardCopyOption.REPLACE_EXISTING, java.nio.file.StandardCopyOption.ATOMIC_MOVE); }
+			catch (java.nio.file.AtomicMoveNotSupportedException x) { Files.move(tmp, f, java.nio.file.StandardCopyOption.REPLACE_EXISTING); }
+		}
 		catch (Exception e) { SonarClient.LOG.warn("Sonar: could not save waypoints: " + e); }
 	}
 

@@ -232,6 +232,7 @@ final class Ledges {
 		double lead = Math.hypot(mv.x, mv.z) * 20.0 * 0.35; // running: judge the edge as if you were already 0.35 s further along
 		List<Ledge> near = new ArrayList<>();
 		stepAheadD = Float.MAX_VALUE;
+		edgeAheadD = Float.MAX_VALUE; // (the hole-under-you case returns early: the brake must never aim at an edge from an older look)
 		for (Ledge dr : s.drops) {
 			if (dr.d == Float.MAX_VALUE || dr.d >= stepAheadD) {
 				continue;

@@ -1,5 +1,21 @@
 # Sonar Access: changes
 
+## 1.6.2
+
+### Voice
+- Monster warnings, waypoint distances ("Guiding to Bed, 300 blocks", "60 blocks to go"), arrivals and the time of day are now said in the narrator's voice instead of the system voice. Distances are rounded to numbers the voice has recorded.
+
+### Fixed
+- Calm endermen, zombified piglins and piglins no longer set off the monster warning (the Nether was one long warning). Monster names wait while the narrator is talking or a menu is open.
+- The path bell stops when you die, and a newly found path no longer starts from the old bell's direction or shows its icon while the bell is silent.
+- The waypoint guide is quiet while you are dead. Route searches from the last world are stopped when you change world or dimension (they could hold up new routes for up to 20 seconds).
+- A waypoint file that cannot be read is kept aside instead of being overwritten, and saving can no longer leave half a file.
+- The edge brake no longer stutters when you walk past a step beside you, and never brakes for an edge from an earlier look.
+- Lava next to a wall no longer hides that wall from the ping; lava is heard at once after joining another world.
+- Holding V: no more "0 blocks"; a step says its direction ("step ahead 2 blocks, then wall 5 blocks"); the ceiling is measured from the top of your head.
+- Tapping V under water names what you face, not the water; riding, it no longer names your own boat or horse.
+- "Door ahead" is not said with a menu open; the Sonar on/off button is not read twice with the game's Narrator on.
+
 ## 1.6.1
 
 - The waypoint guide no longer leads you straight at a one-block step you can not jump because a branch is right over your head (found in a birch forest); it goes round.

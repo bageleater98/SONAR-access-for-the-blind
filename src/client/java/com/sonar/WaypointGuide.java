@@ -43,6 +43,18 @@ final class WaypointGuide {
 	private static double nextCall;
 
 	/** While guided: the distance left is called out each time it has halved, down to CALL_MIN blocks ("120 blocks to go", "60 blocks to go"...). 0 = nothing to say now. */
+	/** A distance as it is said, in round numbers a voice has recorded: exact under 20, then tens to 100, fifties to 1000, five hundreds to 5000. */
+	static int spoken(double d) {
+		long n = Math.round(d);
+		if (n < 1) return 1;
+		if (n < 20) return (int) n;
+		if (n < 100) return (int) (Math.round(n / 10.0) * 10);
+		if (n < 1000) return (int) (Math.round(n / 50.0) * 50);
+		return (int) Math.min(5000, Math.round(n / 500.0) * 500);
+	}
+
+	static String blocks(int n) { return n == 1 ? "1 block" : n + " blocks"; }
+
 	static int callOut(double dist, double next) {
 		return dist <= next && dist >= Tuning.WP_CALL_MIN ? (int) Math.round(dist) : 0;
 	}
@@ -76,7 +88,7 @@ final class WaypointGuide {
 		startDist = Math.max(1, dist(mc));
 		saidDim = false; talk.reset(t);
 		nextCall = startDist / 2;
-		Speech.say(mc, Component.literal("Guiding to " + w.name + ", " + Math.round(startDist) + " blocks"));
+		Speech.say(mc, Component.literal("Guiding to " + w.name + ", " + blocks(spoken(startDist))));
 		Tutorial.event(Tutorial.Ev.WAYPOINT_GUIDING, startDist);
 	}
 
@@ -146,6 +158,7 @@ final class WaypointGuide {
 		if (!cfg.enabled || mc.player == null || mc.level == null) { if (hum != null) hum.tv = 0; return; }
 		t++;
 		var p = mc.player;
+		if (p.isDeadOrDying()) { if (hum != null) hum.tv = 0; return; } // (nothing said or played over the death screen)
 		if (!target.dim.equals(Waypoints.dim(mc))) { // in another dimension: nothing to follow here
 			if (!saidDim) { Speech.say(mc, Component.literal(target.name + " is in another dimension")); saidDim = true; }
 			if (hum != null) hum.tv = 0;
@@ -160,7 +173,7 @@ final class WaypointGuide {
 		}
 		double d = dist(mc), tx = target.x + 0.5, tz = target.z + 0.5;
 		int call = callOut(d, nextCall);
-		if (call > 0 && talk.say(text -> Speech.say(mc, Component.literal(text)), call + " blocks to go")) nextCall = d / 2; // (through the guide's own voice rule: never on top of another of its lines)
+		if (call > 0 && talk.say(text -> Speech.say(mc, Component.literal(text)), blocks(spoken(call)) + " to go")) nextCall = d / 2; // (through the guide's own voice rule: never on top of another of its lines)
 		PlayerChime.Tgt wpT = new PlayerChime.Tgt(null, tx, target.y - 1, tz, target.y + 0.6);
 		// the rolling route (WaypointRoute): always a checked route ahead, extended from its end before you get there; never a blind "straight at it"
 		if (wr == null || wr.tx != tx || wr.tz != tz) wr = new WaypointRoute(tx, target.y - 1, tz);

@@ -83,7 +83,7 @@ public class Speech {
 		String text = msg.getString().replace('\n', ' ');
 		if (SonarConfig.cur.debug && !text.isEmpty()) SonarClient.LOG.info("SONAR said: " + text);
 		FieldTest.heard(text);
-		if (!text.isEmpty() && Voice.phrase(mc, text, volume)) return;
+		if (!text.isEmpty() && (Voice.phrase(mc, text, volume) || Voice.pieces(mc, text, volume))) return; // the narrator's voice: a whole phrase, or a line made of recorded pieces ("Zombie" "left")
 		if (SILENT_TEST) return; // (a hidden test run: the system voice would talk out of the real speakers) // a fixed phrase: the narrator's own pre-rendered voice, on its own channel
 		menuTts = mc.gui != null && mc.gui.screen() != null;
 		var n = ((GameNarratorAccessor) mc.getNarrator()).sonar$narrator();

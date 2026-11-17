@@ -105,6 +105,7 @@ public class SonarClient implements ClientModInitializer {
 			echoJob = null; echoDone = false;
 			Cues.pending.clear(); Echo.echoTail = 0; echoHold = 0;
 			PlayerChime.reset(); PathGuide.reset(); Markers.reset(); Timeline.reset(); Echo.forget(); WaypointGuide.reset(); Threat.reset(); Announce.reset();
+			CaveEcho.reset(); Budget.cancelAll(); FluidLoop.quiet(); LedgeTone.fade(); Ledges.ledgeActive = false; EdgeBrake.cancel();
 			guard("walked ground", () -> Known.switchTo(mc));
 		}
 		Known.tick(mc);

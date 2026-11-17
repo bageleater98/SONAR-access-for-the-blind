@@ -174,6 +174,7 @@ final class Voice {
 		long dt = lastTick == 0 ? 0 : now - lastTick;
 		lastTick = now;
 		boolean screen = mc.gui != null && mc.gui.screen() != null;
+		nextPiece(mc);
 		if (screenWasOpen && !screen) stopMenu(mc);
 		screenWasOpen = screen;
 		if (playingId == null) return;
@@ -238,6 +239,32 @@ final class Voice {
 		phraseInMenu = menu;
 		mc.getSoundManager().play(phrase);
 		return true;
+	}
+
+	/** Pieces still to say, in order, after the phrase playing now (a line made of recorded pieces). */
+	private static final java.util.ArrayDeque<String> queue = new java.util.ArrayDeque<>();
+	private static int queueVolume;
+
+	/**
+	 * A line made of recorded pieces, split at its commas ("Zombie, left", "Guiding to Bed, 120 blocks"): said piece after piece in the narrator's voice. Only when
+	 * EVERY piece has a recording (never two voices in one sentence); false otherwise, and the system voice says the whole line.
+	 */
+	static boolean pieces(Minecraft mc, String text, int volume) {
+		String[] parts = text.split(",\s*");
+		if (parts.length < 2) return false;
+		java.util.List<String> ids = new java.util.ArrayList<>();
+		for (String p : parts) { String id = phraseId(p); if (id == null || !SECONDS.containsKey(id) || !fileExists(mc, id)) return false; ids.add(p); }
+		queue.clear();
+		phrase(mc, ids.get(0), volume);
+		for (int i = 1; i < ids.size(); i++) queue.add(ids.get(i));
+		queueVolume = volume;
+		return true;
+	}
+
+	/** Every tick: the next piece once the one before has finished. */
+	private static void nextPiece(Minecraft mc) {
+		if (queue.isEmpty() || (phrase != null && mc.getSoundManager().isActive(phrase))) return;
+		phrase(mc, queue.poll(), queueVolume);
 	}
 
 	// ---- menu speech: what a menu says (its name, the button you move to). Its own channel (UI: pausing leaves it alone), never cutting the narrator's

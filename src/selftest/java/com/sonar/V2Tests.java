@@ -51,6 +51,10 @@ final class V2Tests {
 		check.accept(order.get(0).x == 0 && order.get(1).x == 1 && order.get(2).x == 30 && order.get(3).x == 50, "waypoints: nearest first, in order (0, 1, 30, 50)");
 		check.accept(WaypointGuide.callOut(61, 60) == 0 && WaypointGuide.callOut(59.6, 60) == 60 && WaypointGuide.callOut(10, 15) == 0, "waypoint guide: the distance is called out when it has halved, not once you are close");
 
+		check.accept(WaypointGuide.spoken(0.2) == 1 && WaypointGuide.spoken(13.4) == 13 && WaypointGuide.spoken(64) == 60 && WaypointGuide.spoken(312) == 300
+			&& WaypointGuide.spoken(980) == 1000 && WaypointGuide.spoken(2240) == 2000 && WaypointGuide.spoken(99999) == 5000, "waypoint guide: distances said in round numbers the voice has recorded");
+		check.accept(Cues.far(0.3).equals("right here") && Cues.far(1.2).equals("1 block") && Cues.far(4.6).equals("5 blocks"), "where am I: never \"0 blocks\"");
+
 		// the step rule under low branches and ceilings (found by the field test: a spruce branch over a one-block step down)
 		var STONE = net.minecraft.world.level.block.Blocks.STONE.defaultBlockState();
 		var LEAF = net.minecraft.world.level.block.Blocks.SPRUCE_LEAVES.defaultBlockState();

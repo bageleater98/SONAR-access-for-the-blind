@@ -52,7 +52,7 @@ final class Menus {
 			SonarConfig.cur.enabled = !SonarConfig.cur.enabled;
 			try { SonarConfig.save(); } catch (Exception ignored) {}
 			b.setMessage(state.get());
-			Speech.say(mc, Component.literal(SonarConfig.cur.enabled ? "Sonar on" : "Sonar off"));
+			speak(mc, Component.literal(SonarConfig.cur.enabled ? "Sonar on" : "Sonar off")); // (the menu rule: not twice when the game Narrator is on)
 		}).bounds(w / 2 + 50, rowY + 24, 52, 20).build());
 		widgets.add(Button.builder(Component.literal("Waypoints"), b -> mc.gui.setScreen(new WaypointsScreen(screen))).bounds(w / 2 - 102, rowY + 48, 204, 20).build());
 	}

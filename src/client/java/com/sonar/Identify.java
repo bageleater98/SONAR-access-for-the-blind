@@ -22,14 +22,14 @@ final class Identify {
 		String name = null;
 		double best = REACH + 1;
 		var world = Sense.hear(mc); // guide blocks (barriers) are not there for Sonar (Sense)
-		HitResult h = world.clip(new net.minecraft.world.level.ClipContext(eye, end, net.minecraft.world.level.ClipContext.Block.OUTLINE, net.minecraft.world.level.ClipContext.Fluid.ANY, p));
+		HitResult h = world.clip(new net.minecraft.world.level.ClipContext(eye, end, net.minecraft.world.level.ClipContext.Block.OUTLINE, (p.isUnderWater() ? net.minecraft.world.level.ClipContext.Fluid.NONE : net.minecraft.world.level.ClipContext.Fluid.SOURCE_ONLY), p)); // (under water: what you face, not "Water, right here")
 		if (h.getType() == HitResult.Type.BLOCK) {
 			var bh = (net.minecraft.world.phys.BlockHitResult) h;
 			name = world.getBlockState(bh.getBlockPos()).getBlock().getName().getString();
 			best = eye.distanceTo(h.getLocation());
 		}
 		for (Entity e : mc.level.entitiesForRendering()) {
-			if (e == p || e.isInvisible()) continue;
+			if (e == p || e == p.getVehicle() || e.isInvisible()) continue; // (not your own boat or horse)
 			var hit = e.getBoundingBox().inflate(0.2).clip(eye, end);
 			if (hit.isPresent()) {
 				double d = eye.distanceTo(hit.get());

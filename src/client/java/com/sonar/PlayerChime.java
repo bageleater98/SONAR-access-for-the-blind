@@ -361,7 +361,11 @@ public class PlayerChime {
 		boolean run(int budget) { return run(budget, Long.MAX_VALUE); }
 
 		/** As run(budget), but also stops once `maxNanos` of time is used, so a slow patch of world never stalls the game (the game: about 2 ms a tick). */
+		/** Dropped (Budget.cancelAll): stops at its next look. */
+		volatile boolean cancelled;
+
 		boolean run(int budget, long maxNanos) {
+			if (cancelled) { done = true; failed = true; return true; }
 			if (pendingStart) {
 				pendingStart = false;
 				int sf = swim ? surface(w, startX, startZ, startFeet - 1, pos) : NONE;

@@ -806,6 +806,7 @@ public class PathGuide {
 	/** A new world or dimension: no path, no bell. */
 	static void reset() {
 		have = false; approach = false; endMode = false;  guideCells = null; traceCells = null; lastBa = Double.NaN;
+		forgetWay(); // (a new world: the way kept from the old one must not steer the new path)
 	}
 
 	/** The ways leaving one path cell: walking distance over the traced path, the cells 4-5 steps out grouped into separate ways (they do not touch), each kept only if it runs on to 10+ steps, is more than a sliver, and does not head the same way (within 45 degrees) as another.
@@ -943,7 +944,7 @@ public class PathGuide {
 	}
 
 	public static void tick(Minecraft mc, SonarConfig cfg) {
-		if (!cfg.enabled || !cfg.pathGuide || mc.level == null || mc.player == null || mc.player.isInWater() || mc.player.isSpectator()) { have = false; guideCells = null;  return; }
+		if (!cfg.enabled || !cfg.pathGuide || mc.level == null || mc.player == null || mc.player.isInWater() || mc.player.isSpectator() || mc.player.isDeadOrDying() || Tutorial.holdSonar()) { have = false; guideCells = null; lastBa = Double.NaN; approach = false; return; } // (dead or held: it used to ring on over the death screen)
 		t++;
 		var p0 = mc.player;
 		boolean moved = p0.getBlockX() != lbx || p0.getBlockY() != lby || p0.getBlockZ() != lbz || Math.abs(net.minecraft.util.Mth.wrapDegrees(p0.getYRot() - lyaw)) > 6;
@@ -959,8 +960,7 @@ public class PathGuide {
 		if (lastTry > lastFound && t - lastFound > Tuning.GRACE_BELL_GAP) have = false;
 		// the bell icon: every tick, on the middle of the path ahead of you (the spot the bell leads to, 7-10 steps along the path, which moves on as you walk),
 		// floating level at your eye height; it only waits for the ring to play the sound
-		if (have && !Double.isNaN(tx)) Markers.showAt(mc, "bell", net.minecraft.world.item.Items.BELL, tx, ty, tz);
-		if (!have) {  return; }
+		if (!have) { lastBa = Double.NaN; approach = false; return; } // (a path found later starts from its own direction, not the old bell's)
 		var p = mc.player;
 		// the bell plays CONTINUOUSLY from where it leads, worked out every tick (an intermittent ring was hard to follow)
 		// the bell sounds from its REAL direction (round 18: the old x2.5 / 25-degree squeeze hid how far off the path you were, and kept the bell loud whichever way you faced)
@@ -968,6 +968,7 @@ public class PathGuide {
 		double dx = tx - p.getX(), dz = tz - p.getZ();
 		double ang = Math.atan2(dx * rx + dz * rz, dx * fx + dz * fz);
 		if (!approach && Math.abs(ang) > Math.toRadians(100)) { say(mc, cfg, "silent: target is behind you (" + Math.round(Math.toDegrees(ang)) + " deg)");  return; } // never guide backwards
+		if (!Double.isNaN(tx)) Markers.showAt(mc, "bell", net.minecraft.world.item.Items.BELL, tx, ty, tz); // (the icon only where the bell actually leads)
 		double a2 = ang, dist = approach ? Math.min(10.5, Math.max(2.0, Math.hypot(dx, dz))) : Math.min(15.0, Math.max(4.0, Math.hypot(dx, dz))); // leading you onto a path: its real direction, from all round
 		// glide in YOUR frame (its direction and distance from you), a little each tick: in the world the old spot is already behind you when you run
 		if (!Double.isNaN(lastBa)) { // always a glide, never a jump: a little each tick, however far the new spot is

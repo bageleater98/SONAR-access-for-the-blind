@@ -31,6 +31,9 @@ final class Budget {
 	 * Works a route search on a helper thread (it only reads blocks, and is not touched by the game thread until it is over): the game thread never waits for a
 	 * route, so a long search can not stutter the game. True when the search is over (found, or no way); call it every tick until then.
 	 */
+	/** A new world or dimension: every search still running is stopped (they read the old world, and held up the new ones for up to 20 s). */
+	static void cancelAll() { for (var sr : RUNNING.keySet()) sr.cancelled = true; RUNNING.clear(); }
+
 	static boolean run(PlayerChime.Search sr) {
 		var f = RUNNING.get(sr);
 		if (RUNNING.size() > 16) RUNNING.values().removeIf(x -> x.isDone() && x != RUNNING.get(sr)); // (searches that were dropped before they ended)

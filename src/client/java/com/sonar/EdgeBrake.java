@@ -60,6 +60,7 @@ public final class EdgeBrake {
 		if (!o.keyUp.isDown()) forwardHeld = false; // letting go of forward even for a moment means no automatic sprint afterwards
 		if (p.isShiftKeyDown() || (f == 0 && sr == 0) || align < 0.5) { // sneaking, stopping, or turning to the side or away ends it at once
 			ticks = 0;
+			cooldown = 30; // (ended early too: without it the brake fired again every look, a stutter)
 			resumeSprint(p, o);
 			return;
 		}

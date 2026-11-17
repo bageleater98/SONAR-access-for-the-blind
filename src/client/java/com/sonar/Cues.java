@@ -245,7 +245,7 @@ public class Cues {
 		boolean inRoom = cfg.echoReplacesSonar && cfg.echoCue && cfg.echoCount != 0 && insideSpace(mc, s);
 		boolean quiet = inRoom && s.auto; // only the AUTO sonar goes quiet inside; a key press (R) always gives the full block sounds
 		long nowTick = mc.level.getGameTime();
-		boolean lavaDue = nowTick - lastLava >= 50; // lava sounds at most every 2.5 s, however fast you ping (repeat / fast auto scan)
+		boolean lavaDue = nowTick < lastLava || nowTick - lastLava >= 50; // (a new world whose clock is behind the last one: due at once) // lava sounds at most every 2.5 s, however fast you ping (repeat / fast auto scan)
 		boolean lavaPlayed = false;
 		final Cand[] hazards = s.best[0];
 		java.util.Arrays.sort(hazOrder, Comparator.comparingDouble(i -> hazards[i].state == null ? Double.MAX_VALUE : hazards[i].d));
@@ -263,7 +263,8 @@ public class Cues {
 					// the game's own gentle lava ambience (the old pop + rumble was too harsh); the nearest a little louder
 					cues.add(at(s, cfg, haz.d, haz.x + 0.5, haz.y + 0.5, haz.z + 0.5, SoundEvents.LAVA_AMBIENT, (rank == 0 ? 0.7F : 0.45F) * cfg.lavaVolume, 1.0F, 0));
 				}
-			} else {
+			}
+			{ // (lava in a slice no longer hides the water and walls in it: a lava pool in front of a wall left that wall silent)
 				if (wat.state != null && wat.d < nearWater) { nearWater = wat.d; waterAt = new double[]{wat.x + 0.5, wat.y + 0.5, wat.z + 0.5}; }
 				if (wat.state != null && !fluidLoop) {
 					int depth = waterDepth(mc, wat.x, wat.y, wat.z);
@@ -676,13 +677,11 @@ public class Cues {
 	}
 
 	static void extraCues(Scan s, SonarConfig cfg, List<com.sonar.Cues.Cue> out) {
-		float[] dist = nearestBy16(s);
-
-		double fwd = Math.atan2(Math.cos(Math.toRadians(s.yaw)), -Math.sin(Math.toRadians(s.yaw)));
 		if (cfg.gapCue) {
+			float[] near = nearest(s); // (once: it casts 32 rays)
 			for (double ang : gaps(s)) {
 				int i = Math.floorMod((int) Math.floor((ang + Math.PI) / (2 * Math.PI) * Scan.BLOCK_YAW), Scan.BLOCK_YAW);
-				double r = Math.min(6.0, nearest(s)[i]);
+				double r = Math.min(6.0, near[i]);
 				out.add(at(s, cfg, (float) r, s.ex + Math.cos(ang) * r, s.ey, s.ez + Math.sin(ang) * r, SoundEvents.AMETHYST_BLOCK_CHIME, 0.7F, 1.4F, 2));
 			}
 		}
@@ -757,6 +756,9 @@ public class Cues {
 		return dist;
 	}
 
+	/** A distance as said: "right here" under a block, "1 block", "3 blocks" (never "0 blocks"). */
+	static String far(double d) { long n = Math.round(d); return d < 0.75 ? "right here" : n <= 1 ? "1 block" : n + " blocks"; }
+
 	public static String summary(Minecraft mc, Scan s) {
 		String[] names = new String[]{"ahead", "right", "behind", "left"};
 		double fwd = Math.atan2(Math.cos(Math.toRadians(s.yaw)), -Math.sin(Math.toRadians(s.yaw)));
@@ -791,24 +793,22 @@ public class Cues {
 			}
 
 			if (ledgeD[k] < 1.0E9F) {
-				sb.append("ledge ").append(names[k]).append(' ').append(Math.round(ledgeD[k])).append(" blocks. ");
+				sb.append("ledge ").append(names[k]).append(' ').append(far(ledgeD[k])).append(". ");
 			}
 
 			if (dEye < range) {
 				if (dLow < dEye - 1.5) {
-					sb.append("step ").append(Math.round(dLow)).append(", ");
-				}
-
-				sb.append("wall ").append(names[k]).append(' ').append(Math.round(dEye)).append(" blocks. ");
+					sb.append("step ").append(names[k]).append(' ').append(far(dLow)).append(", then wall ").append(far(dEye)).append(". ");
+				} else sb.append("wall ").append(names[k]).append(' ').append(far(dEye)).append(". ");
 			} else if (dLow < range) {
-				sb.append("step ").append(names[k]).append(' ').append(Math.round(dLow)).append(" blocks. ");
+				sb.append("step ").append(names[k]).append(' ').append(far(dLow)).append(". ");
 			} else {
 				sb.append("open ").append(names[k]).append(". ");
 			}
 		}
 
-		double up = rayLen(mc, eye, 0.0, 1.0, 0.0, 20.0, false);
-		sb.append(up < 20.0 ? "Ceiling " + Math.round(up) + " blocks above." : "Open above.");
+		double up = rayLen(mc, eye, 0.0, 1.0, 0.0, 20.0, false) - 0.18; // (from the top of your head, not your eyes)
+		sb.append(up >= 19.8 ? "Open above." : up < 0.5 ? "Ceiling right over your head." : "Ceiling " + far(up) + " above.");
 		return sb.toString().trim();
 	}
 
