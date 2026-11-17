@@ -125,7 +125,7 @@ final class WaypointGuide {
 			for (double s = 0.25; s <= len; s += 0.25) {
 				int nx = (int) Math.floor(mx + dx * s - dz * side), nz = (int) Math.floor(mz + dz * s + dx * side);
 				if (nx == cx && nz == cz) continue;
-				int nf = PlayerChime.stepTo(w, nx, nz, cur, pos);
+				int nf = BlockRules.stepFrom(w, cx, cz, nx, nz, cur, pos);
 				if (nf == BlockRules.NONE) return false;
 				cur = nf; cx = nx; cz = nz;
 			}

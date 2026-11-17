@@ -1,5 +1,9 @@
 # Sonar Access: changes
 
+## 1.6.1
+
+- The waypoint guide no longer leads you straight at a one-block step you can not jump because a branch is right over your head (found in a birch forest); it goes round.
+
 ## 1.6.0
 
 The "it just works" release: two keys, one small settings screen, and several things SONAR now does by itself.

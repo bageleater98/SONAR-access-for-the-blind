@@ -361,7 +361,7 @@ final class WaypointRoute {
 			int nx = (int) Math.floor(x + dx * s), nz = (int) Math.floor(z + dz * s);
 			if (nx == cx && nz == cz) continue;
 			if (Math.abs(nx - cx) + Math.abs(nz - cz) == 2 && (PlayerChime.stepTo(w, nx, cz, cur, pos) != cur || PlayerChime.stepTo(w, cx, nz, cur, pos) != cur)) break; // never cut a corner
-			int nf = PlayerChime.stepTo(w, nx, nz, cur, pos);
+			int nf = BlockRules.stepFrom(w, cx, cz, nx, nz, cur, pos); // (1.6.1: "straight on" led up a step under a birch branch you can not jump under)
 			if (nf == BlockRules.NONE) break;
 			// out in the open only: "straight on" never walks into a tunnel or cave mouth (a walkable tunnel pointing at the waypoint is how round 16 led into a dead end)
 			if (BlockRules.caveRoof(w, new net.minecraft.world.phys.Vec3(nx + 0.5, nf + 1.5, nz + 0.5), 24)) return null;

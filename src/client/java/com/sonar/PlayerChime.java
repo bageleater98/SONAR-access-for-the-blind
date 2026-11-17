@@ -579,7 +579,7 @@ public class PlayerChime {
 					if (Math.abs(nx - cx) + Math.abs(nz - cz) == 2) { // crossing a corner: both blocks beside it walkable at this height
 						if (stepTo(w, nx, cz, cy, pos) != cy || stepTo(w, cx, nz, cy, pos) != cy) return null;
 					}
-					int f = stepTo(w, nx, nz, cy, pos);
+					int f = BlockRules.stepFrom(w, cx, cz, nx, nz, cy, pos); // (a jump up needs the room over your head where you jump from)
 					if (f == NONE) return null;
 					cx = nx; cz = nz; cy = f;
 					cells.add(new double[]{cx, cy, cz, 0});

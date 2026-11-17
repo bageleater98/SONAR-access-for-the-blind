@@ -83,12 +83,28 @@ final class CoreTests {
 		if (rp != null) for (double[] c : rp) { low |= c[1] < 60; if (c[2] > 3.2 && c[2] < 7.8 && (c[0] < 9.9 || c[0] > 11.1)) overBridge = false; }
 		check.accept(rr.reached() && overBridge && !low, "route: across the ravine by its one bridge, ten blocks to the side");
 		ledges(check);
+		// a step up with a branch right over your head (field test, a birch forest): straight on is not a way, round the branch is
+		World birch = flat();
+		birch.fill(-45, 65, 3, 45, 65, 45, STONE); // the ground is one block higher from z 3 on
+		birch.fill(-1, 67, 1, 1, 68, 2, Blocks.BIRCH_LEAVES.defaultBlockState()); // leaves over the last two blocks before the step, three wide
+		var br = route(birch, 0.5, 66, 10.5);
+		List<double[]> bp = br.path();
+		boolean under = false;
+		if (bp != null) for (int k = 1; k < bp.size(); k++) if (bp.get(k)[1] > bp.get(k - 1)[1] && Math.abs(bp.get(k - 1)[0]) <= 1 && bp.get(k - 1)[2] <= 2.5 && bp.get(k - 1)[2] >= 1) under = true;
+		check.accept(br.reached() && !under, "route: the step up is taken beside the branch, never from under it");
+		check.accept(WaypointRoute.straight(birch, 0.5, 65, 0.5, 0.5, 10.5, 10) == null || noJumpUnder(WaypointRoute.straight(birch, 0.5, 65, 0.5, 0.5, 10.5, 10)), "waypoint route: straight on stops at a step you can not jump (a branch overhead)");
 	}
 
 	/** Is there a real ledge (drop 4+) ahead (south, +z) within `within` blocks? */
 	private static boolean ledgeAhead(Scan s, double within) {
 		for (var l : s.ledges) if (l.d != Float.MAX_VALUE && l.drop >= 4 && l.d < within && l.z >= 1) return true;
 		return false;
+	}
+
+	/** No cell of this straight stretch is higher than the one before while that one lies under the leaves of the birch scene. */
+	private static boolean noJumpUnder(List<double[]> l) {
+		for (int k = 1; k < l.size(); k++) if (l.get(k)[1] > l.get(k - 1)[1] && l.get(k - 1)[2] >= 1 && l.get(k - 1)[2] <= 2.5) return false;
+		return true;
 	}
 
 	private static Scan look(World w) { return new Scan(w, RoomTests.CFG, 0.5, 66.62, 0.5, 0f).finish(); }
