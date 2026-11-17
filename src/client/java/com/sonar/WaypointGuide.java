@@ -37,6 +37,8 @@ final class WaypointGuide {
 	private static int t;
 	private static double walkLeft = -1;
 	private static boolean saidDim;
+	private static double[] pushAt;
+	private static int pushTicks;
 	/** The straight distance at which the next "N blocks to go" is said (half of the last one each time). */
 	private static double nextCall;
 
@@ -175,6 +177,15 @@ final class WaypointGuide {
 				wr.digSaid = talk.say(say, GuideSpeech.hint(wr.dig, wr.up)); // (kept for the next tick when it is too soon after another line)
 			}
 		}
+		// pushing against something where the route says you can walk, for 3 seconds without getting anywhere: that way is closed, another is found, and you are told
+		if (p.horizontalCollision && wr.route != null && !wr.searching()) {
+			if (pushAt == null || Math.hypot(p.getX() - pushAt[0], p.getZ() - pushAt[1]) > 1.5) { pushAt = new double[]{p.getX(), p.getZ()}; pushTicks = 0; }
+			if (++pushTicks >= Tuning.WP_PUSH_TICKS && wr.avoidAhead(p.getX(), p.getY(), p.getZ())) {
+				pushTicks = 0;
+				talk.say(say, GuideSpeech.IN_THE_WAY);
+				if (cfg.debug) Dbg.send(p, Component.literal(Dbg.fmt("waypoint: pushing against the route at %.0f %.0f %.0f: that way is closed, finding another", p.getX(), p.getY(), p.getZ())));
+			}
+		} else if (!p.horizontalCollision && pushTicks > 0) pushTicks--;
 		if (wr.route != null) wr.trim(p.getX(), p.getY(), p.getZ());
 		if (wr.route == null && "no way at all".equals(wr.last)) { sound = null; if (hum != null) hum.tv = 0; return; } // nothing to lead to: quiet, never a sound stuck on a wall
 		route = wr.route; reached = wr.reached;

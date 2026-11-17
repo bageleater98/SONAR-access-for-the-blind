@@ -208,4 +208,6 @@ final class Tuning {
 	// ---- waypoints
 	/** The guide stops calling out the distance left below this many blocks (you can hear how near you are). */
 	static final double WP_CALL_MIN = 12;
+	/** Pushing against something on the waypoint route for this many ticks (3 s) closes that way and finds another. */
+	static final int WP_PUSH_TICKS = 60;
 }

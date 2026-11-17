@@ -15,6 +15,7 @@ package com.sonar;
 final class GuideSpeech {
 	static final String FINDING = "Finding a route.", RECALC = "Recalculating route.", HOLD = "Hold on, I'm finding another way.",
 		OFF = "You've fallen off the route. Let me find you another way.",
+		IN_THE_WAY = "Something's in the way. Let me find another way.",
 		BLOCKED = "I can't find a walking way on from here. I'll lead you to the closest spot I can, and you may need to dig or build from there.",
 		STUCK = "I can't find a way on from here yet. Try turning back, or dig through.";
 

@@ -327,6 +327,18 @@ final class WaypointRoute {
 		}
 	}
 
+	/**
+	 * You have been pushing against something on the route (the world is not what the route took it for: a mob, a block placed since, a shape the step rule
+	 * misjudged): the next two cells ahead are never routed through again, and a new way is found from where you stand. False when you are not on a route.
+	 */
+	boolean avoidAhead(double mx, double my, double mz) {
+		int i = at(mx, my, mz);
+		if (i < 0 || route == null) return false;
+		for (int k = i + 1; k <= i + 2 && k < route.size(); k++) dead.add(PlayerChime.Search.xz((int) route.get(k)[0], (int) route.get(k)[2]));
+		replan = true; wait = 0;
+		return true;
+	}
+
 	/** You (at mx..) count as off the route: forced after a dead end, or really off it. */
 	boolean off(double mx, double my, double mz) { return at(mx, my, mz) < 0; }
 
