@@ -437,7 +437,9 @@ final class Director {
 		progress.lesson = lessons.get(0).id;
 		progress.save();
 		SonarClient.LOG.info("SONAR tutorial: complete");
-		nar.say("end.complete", host::leave);
+		nar.say("end.complete");
+		nar.say("end.extras");
+		nar.say("end.extras2", host::leave); // what Sonar does by itself out in the world (no level needed: it just happens)
 	}
 
 	void skip() {
@@ -482,17 +484,6 @@ final class Director {
 	void repeat() {
 		if (phase == Phase.PLAY && lesson.onRepeat(this)) return;
 		if (!nar.repeat()) nar.say("sys.nothing");
-	}
-
-	/** The "this was confusing" key: a mark in the lesson log and the game log, a quiet click, nothing else. */
-	void confusing() {
-		var m = new LessonLog.Mark();
-		m.t = System.currentTimeMillis();
-		m.x = host.x(); m.y = host.y(); m.z = host.z();
-		m.lastLine = nar.current() != null ? nar.current() : nar.lastInstruction;
-		SonarClient.LOG.info(String.format("SONAR tutorial: confusing (lesson %s, at %.1f %.1f %.1f, last line %s)", lesson == null ? "-" : lesson.id, m.x, m.y, m.z, m.lastLine));
-		if (log != null) { log.confusing.add(m); LessonLog.write(log, m.t); }
-		host.click();
 	}
 
 	void stop() {

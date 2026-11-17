@@ -27,6 +27,7 @@ final class Lessons {
 		c.autoScan = false;
 		c.echoCue = true;
 		c.sweepGap = SWEEP_GAP;
+		c.announce = false; c.threatCue = false; // nothing talks over the narrator: the last line of the course says what Sonar does by itself
 		c.pathGuide = false; // the path bell and the ripple only where they are taught (the path bell lesson) and in the graduation
 		c.floorEdge = false;
 		if (beforeLedges) { c.autoLedge = false; c.edgeBrake = false; c.sideLedges = false; } // the ledge lesson teaches these

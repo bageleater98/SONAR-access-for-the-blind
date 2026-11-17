@@ -46,20 +46,24 @@ New to SONAR? Start with the **[voiced tutorial](#-the-tutorial)**: 19 short lev
 | | |
 |---|---|
 | 🎧 **True 3D sound** | Every sound comes from the direction of the thing that made it. |
-| 📡 **Sonar ping** | One key press scans everything within your range, up to 60 blocks. |
+| 📡 **Sonar ping** | One key press scans everything within your range, 45 blocks by default. |
 | 🔄 **Auto-ping** | SONAR keeps pinging on its own at a steady rhythm, so your hands stay free. |
 | ⚠️ **Ledge warning** | A tone that speeds up as you get closer to a drop, a steep slope or lava. The warning matches the danger: a 3-block drop is a soft, low tone, a 4-block drop a little louder and higher, and 5 blocks or more (or lava) is full strength. Ordinary stairs and fenced edges are ignored, edges on ground well above you (the top of a wall beside you) stay silent, and it stays quiet while you sneak. A drop beside a staircase or ridge sounds from that side, not from ahead. The tone starts very quiet and rises sharply as you close in, and it drops to a whisper after you stand still for half a second. On a path with the guide bell on, it switches to a path mode that tells you which side of the path you are drifting towards. |
-| 🛑 **Edge brake** | A safety net, on by default: if you run at a real drop, SONAR slows you down for half a second. Sneaking, stopping or turning away cancels it at once, so it can never trap you. You can turn it off under **Warnings** in Sonar Access. |
+| 🛑 **Edge brake** | A safety net, on by default: if you run at a real drop, SONAR slows you down for half a second. Sneaking, stopping or turning away cancels it at once, so it can never trap you. You can turn it off under **Advanced** in Sonar Access. |
 | 🌊 **Echo guide** | The echo shows you the way out of a building, like a sound coming out of each door. Inside a room it plays one tick from each door or opening to the outside that you can see, and one from each staircase up or down. Plain walls and glass never echo, and the main way out always plays last. Outside, it still marks cave mouths and big covered openings, and the entrances of buildings near you, found by walking in along the floor even when you cannot see inside. A roof alone (a covered deck or porch) does not count as a room. Underground it switches to **cave mode**: it listens up to 175 blocks out (Cave echo range slider, up to 300) and plays one echo for every route leading away, such as tunnels off a cavern, both ends of a ravine, or the floor of a ravine you look down into. A small hole is a quiet, light tick and a wide tunnel a bigger, fuller one; a far route sounds deeper rather than quieter. Big halls and glass domes count as rooms too. Up to 8 echoes per ping. |
 | 🛤️ **Path guide** | A bell rings from the path 8 to 11 blocks ahead so you can follow roads and corridors. It follows dirt path blocks and also sparse trails of separate blocks, up to 6 blocks apart in a roughly straight line, such as stepping stones climbing a hill. It follows the path by walking distance, so it stays on the path through bends, and it says "path intersection" where three or more paths meet and "path turns left" or "right" when you reach a sharp corner (not on gentle bends or curving stairs). Crossings count whatever the paths are made of. Crossings are announced even when you stand just off the path (on a gazebo floor, say). It picks up a path from up to 4 blocks away and leads you onto it first. It sticks to one material (a stone path will not run on into a wooden farm), and it stays quiet inside buildings, on patios and plazas, on farm edging, on fence tops, on small patches of path blocks (or a strip of cobblestone set into a stone floor), and on paths shorter than 12 blocks end to end. A tree canopy over a garden stairway does not count as a roof. |
 | 〰️ **Path ripple** | On a path, a short ripple of sound starts 3 blocks ahead on the path and runs out to 12 blocks, one quick tick per block, in the sound of each block it passes. It follows stairs and slopes, works in the air, and on sparse trails it ripples along the actual blocks. Where a path begins ahead of you, you hear it too. |
 | 💧 **Water and lava** | Within a few blocks of either, SONAR repeats its sound every couple of seconds so you always know it is there. |
 | 💥 **Wall thud** | Walk into a wall and you hear a thud. Two thuds in a row mean the wall is taller than you can jump (anything over one block, such as a block with a slab on top); if any block you are touching is only one tall, you hear one thud. Tapping W into a wall works too: the second tap thuds right away. Keep pushing for a second thud and you are moved to the middle of your block and turned to face straight north, east, south or west (switch: Center after 2 bumps). |
-| 🗣️ **Spoken help** | Hear the name and distance of whatever you are looking at, or a short summary of your surroundings. |
+| 🗣️ **Helper key** | Tap **V** to hear the name and distance of whatever you are facing: a block, an animal, a monster, a dropped item. Hold **V** to hear where you are: what is on each side, your coordinates, the biome and the time of day. |
 | 🧍 **Player chime** | Other players give off a steady jingle, so you can find each other. It leads you along the route you can walk (round corners, through doors, to the bottom of the stairs first, and up them until you are on their level), sounding from the farthest point of that route you can see. Ladders are only used when there is no walking way at all. A friend close by stays clearly audible even when the walking route is long. It is bright in front, a little lower and duller to the sides, and lower and duller behind you. |
+| 👹 **Threat warning** | A monster that can see you is named once, with its side ("Zombie, behind"), and then the nearest one pulses: a low double beat from where it stands, faster and louder as it closes in. |
+| 🎒 **Items and health** | SONAR says the item in your hand when you switch to it ("Torch, 12"), warns when a tool is nearly broken, and tells you when your health, food or air runs low, or when you catch fire. |
+| 💎 **Loot tick** | After a ping, the dropped items near you answer with a light pop from where they lie, so you can pick up what you just mined. |
+| 🗨️ **Spoken menus** | Every button on SONAR's own screens says its name and value as you Tab to it, with or without the game's Narrator. |
 | 🎓 **Voiced tutorial** | Nineteen small levels with a spoken guide, from "which ear is left" to finding a friend across a hill. See [the tutorial](#-the-tutorial). |
-| 📍 **Waypoints** | Save a place from the pause menu (**Sonar Access**, then **Waypoints**) and be guided back to it from anywhere: a steady hum and three rising notes lead you round walls, louder as you get closer. |
-| 🎛️ **Fully adjustable** | Volumes, range, key bindings and every cue can be changed in game. |
+| 📍 **Waypoints** | Save a place from the pause menu (**Waypoints**), with or without typing a name, and be guided back to it from anywhere: a steady hum and three rising notes lead you round walls, louder as you get closer, and the distance left is called out as it halves. SONAR also remembers two places by itself: **Last death**, so you can walk back to your things, and **Bed**. |
+| 🎛️ **Simple by design** | Two keys and one small settings screen. Everything is tuned to work out of the box; the few things worth changing are under **Advanced**. |
 
 ---
 
@@ -99,23 +103,20 @@ SONAR comes with a tutorial you can play entirely by ear. Click **Sonar Access T
 | 17 | Waypoints | Saving a place and being guided back to it. |
 | 18 | Graduation | A long course that uses everything, with no help unless you ask. |
 
-In the tutorial, press **Escape** for the tutorial menu: hear the last instruction again, open the levels, restart the level, or leave. If anything Wren says confuses you, press **K** and the tutorial quietly makes a note, so it can be improved.
+In the tutorial, press **Escape** for the tutorial menu: hear the last instruction again, open the levels, restart the level, or leave.
 
 ---
 
 ## 🎮 Controls
 
+SONAR has two keys.
+
 | Key | Action | What it does |
 |:---:|---|---|
 | **R** | Ping | Tap for a single ping. Hold for 2 seconds to turn auto-ping on or off. |
-| **V** | Front ping | Ping only what is in front of you. |
-| **B** | Spoken summary | Ping, then speak a short summary of your surroundings. |
-| **N** | Identify | Speak the name and distance of whatever your crosshair is pointing at, block or creature. |
-| **H** | Echo | Turn the echo guide on or off. |
-| **J** | Ledge warning | Turn the ledge warning on or off. |
-| **K** | Mark as confusing | Tutorial only: make a note that what Wren just said was confusing. |
+| **V** | Helper | Tap to hear what you are facing and how far it is. Hold to hear where you are. |
 
-Every key can be changed: open the pause menu, choose **Sonar Access**, then **Keys**, click an action and press the key you want.
+Everything else happens by itself: the ledge warning, the echo, the path bell, the player jingle, the threat warning and the spoken hints need no key. Both keys can be changed in Minecraft's own **Controls** screen, under **Sonar Access**.
 
 ---
 
@@ -143,19 +144,24 @@ The ping also keeps some noise down: grass and dirt behind you are skipped, anim
 
 ---
 
-## 🎛️ Make it yours
+## 🎛️ Settings
 
-Open the pause menu and choose **Sonar Access**. The **ON/OFF** button at its right end switches the whole mod on or off. Everything else is on separate screens: **Sliders**, **Volumes**, **Warnings**, **Paths and Echo**, **Keys** and **Advanced** (debug and reset).
+SONAR is meant to work without setting anything up. Open the pause menu and you will find two rows: **Sonar Access** (with an **ON/OFF** switch for the whole mod at its right end) and **Waypoints**. The same settings are on the title screen.
+
+**Sonar Access** is one small screen:
 
 | Setting | What it does |
 |---|---|
-| Sonar range | How far SONAR listens, from 15 to 60 blocks. |
-| Direction spread | Exaggerates left and right so directions are easier to tell apart. |
-| Smallest drop warned | The smallest fall that triggers a warning, from 2 to 8 blocks. |
-| Switches | Turn individual cues on or off, such as hazards, close-range touch, gaps and doors, wall thud, water and lava, path guide, path ripple and edge brake. |
-| Reset | Put every setting back to its default. |
+| Sonar | The whole mod on or off. |
+| Auto scan | SONAR pings by itself (the same as holding **R**). |
+| Sonar volume | How loud every SONAR sound is. |
+| Voice volume, Voice speed | How loud and how fast SONAR talks. |
+| Waypoints, Tutorial | Open the waypoint list, or start the tutorial. |
+| Advanced | A switch and a volume for each feature (echo, ledge warning, player jingle, path bell, path ripple, edge brake, threat warning, spoken items and health, facing words, icons for sighted friends), how often auto scan pings, how far the sonar reaches, and **Reset everything**. |
 
-Settings are saved in `config/sonar.json` and reload instantly, so you can edit the file while the game is running. If the file contains a mistake, SONAR keeps your last working settings.
+Every button says its name and value when you Tab to it.
+
+Settings are saved in `config/sonar.json` and reload instantly, so you can edit the file while the game is running. If the file contains a mistake, SONAR keeps your last working settings. Settings from an older version are brought up to date by themselves.
 
 The first time you play, SONAR also turns on Minecraft's *Directional Audio* setting, which is what gives you proper 3D sound. You can switch it back afterwards.
 
@@ -194,7 +200,7 @@ They are strongly recommended. Stereo headphones are what let you tell which dir
 It is designed not to. The scan is split into small pieces spread over many game ticks, so the game does not freeze or stutter.
 
 **It is too loud, too busy or too quiet. What can I do?**
-Open **Sonar Access**. You can change the volumes and range, and switch off any cue you do not want.
+Open **Sonar Access**. The volume sliders are on the first screen; under **Advanced** you can change each feature's volume and the range, or switch off a feature you do not want.
 
 **How do I report a problem or suggest an idea?**
 Open an issue on this repository. SONAR is built for blind players, so feedback from the people using it matters most.
@@ -218,7 +224,8 @@ To change what Wren says, edit `src/client/resources/assets/sonar/voice/script.j
 ### Project layout
 
 ```
-src/client/java/com/sonar/    The mod: Scan, Echo, Cues, helpers, the settings screens,
+src/client/java/com/sonar/    The mod: SonarClient (keys, tick order), Scan, Cues, Echo, the guides,
+                              Announce / Identify / Threat (speech), the settings screens,
                               and the tutorial (Director, Lessons, TutorialRooms, Narrator)
 src/selftest/                 The self-test that runs with every build
 src/client/resources/

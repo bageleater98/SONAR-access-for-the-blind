@@ -2,53 +2,67 @@
 
 Client-only Fabric mod (Minecraft 26.3, Mojang names) that turns the surroundings into sound for blind players.
 
+The rule behind every decision: **it just works**. Two keys, one small settings screen, and everything else happens by itself.
+
+## The tick (`SonarClient`)
+`SonarClient` owns the two keys and the order things run in; each feature lives in its own class and runs inside `guard(...)`, so a bug in one
+feature is logged and rests for 5 seconds while the rest carry on.
+
+- **R** pings on release (`Scan` then `Cues.emit`); held for 2 seconds it switches auto scan. A tap shorter than one tick still counts.
+- **V** (`Identify`): a tap says what you are facing; held it scans silently and says where you are.
+- Dead, spectating, the master switch off, or a tutorial room still loading: everything that loops is faded and no cue plays.
+
 ## Pipeline
-1. **Scan** (`Scan`): time-sliced sphere scan, a few Y-layers per tick (twice as many while you move, so the picture is not stale
-   when it plays). Each exposed solid block competes for one slot per *sector* (16 yaw x 3 height) and *category* (hazard, solid,
-   tactile, water). A block only counts if you could see it (line-of-sight ray) and if its face toward you is at least half open.
-   Walkable slabs and stairs count as floor, not walls (`ignoreSteps`).
-2. **Cues** (`Cues.emit`): turns the winners into sounds. Priority hazard > wall > tactile. Per-material budgets (terrain up to 16,
-   trees) keep it readable; grass/dirt behind you is dropped. Sounds are placed along the true direction at a compressed 1-13 block
-   distance around where you are NOW (`Cues.lag` shifts them by how far you moved since the scan began). Behind you: quieter, lower
-   pitch, and a bundled low-passed copy of the sound. Sounds start 0-2 ticks apart, front first. Optional `directionSpread`
-   exaggerates sideways angles. Animal noises are full volume within 2 blocks and halve every 4 blocks after that.
-3. **Echo** (`Cues.echo`, `ExitGuide`): a guide, not a reflection.
-   - Inside a building (`Cues.enclosed`: a roof over you AND walls in 6 of 8 directions within 10 blocks, so a covered deck is outside)
-     `ExitGuide` flood-fills the floor you can walk on (up 1, down 3, 2 blocks of headroom, doors count as passable) up to 16 blocks.
-     Doors and cells with open sky are "ways out", and floor 3+ blocks above/below you marks staircases. Only targets with a clear
-     line of sight count. Ways out within 50 degrees of a nearer one merge into one echo. Walls and glass never echo.
-   - Outside (or in a cave) the ray-based `mouths` detector marks covered openings.
-   - Echoes play in reverse importance order (main way out last), 6 ticks apart. No echo means no start click either.
-   - `echoReplacesSonar` only mutes the block sounds inside an enclosed room, not outside next to an opening.
+1. **Scan** (`Scan`): time-sliced sphere scan. Each exposed solid block competes for one slot per *sector* (32 yaw x 5 bands) and *category*
+   (hazard, solid, water). A block only counts if you could see it (line-of-sight ray) and if a face toward you is open. Walkable slabs and
+   stairs are floor, not walls. Floors never sound.
+2. **Cues** (`Cues.emit`): turns the winners into sounds. Blocks are grouped by material (`Cues.groupKey`), about one sound per three heard,
+   spread over direction, and played as four even beats: front, right, left, behind. Behind you: quieter, lower, and a low-passed copy
+   (`sounds/m`). Inside a room or cave the AUTO sonar leaves the block sounds out (the echo speaks there); a key press always plays them.
+3. **Echo** (`Echo`, `ExitGuide`, `CaveEcho`, `Rooms`): a guide, not a reflection. Clicks from the ways out of the room or cave you are in,
+   from entrances you can reach outside, and from holes into caves. The nearest entrance always clicks last. Ways out of sight are muffled
+   (`sounds/h`). The slow work is spread over ticks (`Echo.Job`, `Budget`).
 
 ## Always-on helpers
-- `LedgeTone` / `Scan.ledgePass`: tones that speed up near drops, steep slopes and lava (plain stairs and fenced edges are ignored,
-  as are edges on ground more than 2 blocks above you). Volume and pitch follow the drop (`Cues.dropFactor` / `dropPitch`): 3 blocks
-  soft and low, 4 a little louder, 5+ and lava full. With the path guide on and you standing on a real path (2+ touching path
-  neighbours), `PathGuide.edges` measures the path sides and the warning switches to path mode.
-- `PathGuide`: a bell from the built path 8-11 blocks ahead (not in buildings or on plazas, the connected path must reach 8+ blocks).
-  A cell needs 2 free blocks above it, so the side of a house is never a path. Dirt path blocks count as built. A cell with few
-  neighbours also bridges to built blocks up to 6 away along the trail's heading (within 40 degrees, up/down 2), so sparse trails
-  of separate blocks are followed (`PathGuide.sparseTrail`).
-- `FloorEdge` (the "Path ripple" switch): a ripple of the path blocks' own sounds (dirt path uses its louder break sound), starting
-  3 blocks ahead, one tick per block out to 12, fading 10% per block, over the two forward diagonals (and a softer straight ahead).
-  It follows stairs and slopes (the floor is tracked per step), works while jumping, and delayed hits are shifted by your speed.
-  On a sparse trail (or when the three lines find nothing) it ripples along the guide's actual trail blocks instead.
-- `PlayerChime`: constant jingle from other players. `stuck()`: thud (double for 2+ tall walls).
-- `Speech`: Windows voice via a persistent PowerShell process, falling back to the game narrator.
+- `Ledges` / `LedgeTone` / `EdgeBrake`: the edge tone, and the brake that slows you when you head straight for a drop. Off while riding,
+  gliding or flying.
+- `Bump`: thuds when you push into a wall (two for a wall too tall to jump), centring after two thuds, squaring up to a door you open.
+- `PathGuide` (the bell on built paths) and `FloorEdge` (the path ripple).
+- `PlayerChime`: the jingle from other players, led along the walkable route (`PlayerChime.Search`, an A* that can pause between ticks).
+- `Waypoints` / `WaypointGuide` / `WaypointRoute` / `WaypointPlanner` / `GuideSpeech`: saved places and the guide to them. "Last death" and
+  "Bed" are kept automatically (`Waypoints.tick`).
+- `FluidLoop`: water and lava nearby.
+- `Announce`: what a sighted player reads off the screen, said aloud: the way you face, a door ahead, the item you switch to, low health,
+  hunger and air, catching fire.
+- `Threat`: a monster that can see you is named with its side, then the nearest pulses from where it stands; and the loot tick after a ping.
+- `Speech`: Windows voice via a persistent PowerShell process, falling back to the game narrator. Fixed phrases are pre-rendered in the
+  tutorial narrator's voice (`Voice.phrase`).
+- `Loud`, `Tuning`: the shared loudness rules and every tuned number.
+
+## Menus
+`Menus` adds two rows to the pause menu and makes Sonar's screens speak: every widget says its label on focus and on change (unless the
+game's Narrator is on). `SettingsScreen` is the whole everyday screen; `AdvancedScreen` holds the per-feature switches and Reset;
+`WaypointsScreen` the places. `Scroller` scrolls any Sonar screen that does not fit and makes Tab wrap round.
 
 ## Config
-`config/sonar.json`, hot-reloaded. A bad file keeps the previous settings. Screens: `SettingsScreen` -> `VolumesScreen`,
-`KeysScreen`, `MoreScreen` (opened from the pause menu).
+`config/sonar.json` (`SonarConfig`), hot-reloaded; a bad file keeps the previous settings. Only the fields in the first block have a button.
+`upgrade()` brings an older file up to date one version at a time.
 
-## Debug
-Set `"debug": true` in `sonar.json` to print what the cues decide into chat and `logs/latest.log` (wall pings, ledge tone choices,
-the guide's reasons, the echo's findings and the ripple's blocks).
+## The tutorial
+`Tutorial` (entry points, events), `TutorialWorld` + `TutorialRooms` + `RoomBuilder` + `RoomEdits` (the void world and its rooms),
+`Director` + `Lessons` (the levels as steps and reactions), `Narrator` + `Voice` (the queue and the recorded lines), `Sandbox` (the player's
+own settings are untouched), `Sense` (guide barriers are air to every sound). The script is `assets/sonar/voice/script.json`; render it with
+`tools/voice/render.py`.
+
+## Testing
+- `./gradlew build --offline` runs the self-test first (`src/selftest`: fake worlds with real blocks and tags).
+- `AutoPlay` (env `SONAR_TUTORIAL_AUTOSTART=1 SONAR_TUTORIAL_AUTOPLAY=1`): a scripted player plays the whole tutorial in the real game.
+- `FieldTest` (env `SONAR_FIELD_TEST=<seed>`): a bot in a fresh survival world follows the waypoint guide's sound home from several
+  directions and reports each trip, then checks everything Sonar says.
+- `SONAR_HIDDEN_WINDOW=1` hides the window. With OpenAL's wave-file driver (`ALSOFT_DRIVERS=wave`) the game's audio is written to a file
+  and can be measured (levels, clipping, left/right balance).
+- Debug log in the Advanced screen: "SONAR ..." lines in `logs/latest.log`, including everything said ("SONAR said: ...").
 
 ## Releases
-`release.ps1 "message" -Level patch|minor|major` bumps `gradle.properties`, builds, commits, pushes, tags, and publishes a GitHub
-release with the jar.
-
-## Assets
-`assets/sonar/sounds/m/*` are generated low-passed copies of vanilla block sounds (`muffled.txt` lists them),
-`step*.ogg` / `chime.ogg` are the filtered player-jingle sounds.
+`release.ps1 "message" -Level patch|minor|major` bumps `gradle.properties`, builds, commits, pushes, tags, and publishes a GitHub release
+with the jar.

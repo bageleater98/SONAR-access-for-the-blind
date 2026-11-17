@@ -26,6 +26,7 @@ public class SelfTest {
 		DirectorTests.run((ok, what) -> check(ok, what));
 		R16Tests.run((ok, what) -> check(ok, what));
 		R18Tests.run((ok, what) -> check(ok, what));
+		V2Tests.run((ok, what) -> check(ok, what));
 
 		// the path bell's slider: the top of it must still be louder (the game caps a sound at 1.0)
 		check(PathGuide.bellVolume(1f, 2f) < 1f && PathGuide.bellVolume(1f, 2f) > PathGuide.bellVolume(1f, 1.9f), "path bell: 200% on the slider is louder than 190% (not cut off at the game's 1.0 cap)");

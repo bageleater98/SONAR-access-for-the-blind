@@ -74,11 +74,6 @@ final class GameHost implements Host {
 			Cues.queue(new Cues.Pending(SoundEvents.NOTE_BLOCK_CHIME.value(), 0.6f, new float[]{1.0f, 1.26f, 1.5f}[k], p.getX(), p.getEyeY() + 0.5, p.getZ(), new int[]{k * 3}));
 	}
 
-	@Override public void click() {
-		var p = mc.player;
-		Cues.play(mc, SoundEvents.UI_BUTTON_CLICK.value(), 0.25f, 1.6f, p.getX(), p.getEyeY(), p.getZ());
-	}
-
 	@Override public SonarConfig cfg() { return SonarConfig.cur; }
 	@Override public void saveCfg() { try { SonarConfig.save(); } catch (Exception ignored) {} }
 	@Override public void leave() { Tutorial.leave(mc); }

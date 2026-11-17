@@ -49,6 +49,7 @@ public class SonarClient implements ClientModInitializer {
 	public void onInitializeClient() {
 		LOG.info("Sonar " + net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer("sonar").map(m -> m.getMetadata().getVersion().getFriendlyString()).orElse("?") + " starting (settings: config/sonar.json)"); // the version at the top of the log, for bug reports
 		Menus.init();
+		FieldTest.init(); // (test runs only)
 		Tutorial.init();
 		Scroller.init();
 		var cat = KeyMapping.Category.register(Identifier.fromNamespaceAndPath("sonar", "sonar"));
@@ -83,6 +84,7 @@ public class SonarClient implements ClientModInitializer {
 	void onTick(Minecraft mc) {
 		try {
 			tickInner(mc);
+			if (FieldTest.ON) FieldTest.tick(mc);
 		} catch (Throwable t) {
 			scan = null;
 			if (tick - lastFail > 200) { lastFail = tick; LOG.error("Sonar tick failed", t); }
@@ -121,7 +123,7 @@ public class SonarClient implements ClientModInitializer {
 		if (!cfg.enabled || Tutorial.holdSonar() || !present(mc.player)) { // master switch off, a tutorial room still loading, or you are dead: silence everything that loops and skip all cues
 			LedgeTone.fade(); FluidLoop.quiet(); FluidLoop.tick(mc, cfg); Ledges.ledgeActive = false; EdgeBrake.cancel(); rHeld = 0; vHeld = 0;
 			scan = null; describe = false; echoJob = null; echoDone = false;
-			pressed(scanKey); pressed(helpKey); // (presses made meanwhile are not kept for later)
+			clicked(scanKey); clicked(helpKey); // (presses made meanwhile are not kept for later)
 			PathGuide.tick(mc, cfg);
 			WaypointGuide.tick(mc, cfg);
 			return;
@@ -131,23 +133,22 @@ public class SonarClient implements ClientModInitializer {
 		stillTicks = Math.hypot(mdx, mdz) > 0.03 ? 0 : stillTicks + 1;
 
 		// R: a short press pings when you let go; held for two seconds it switches auto scan (and never pings)
-		boolean ping = false;
+		// (a tap so quick that the key was down and up again between two ticks is never seen held: its click alone counts as the tap)
+		boolean ping = false, rClick = clicked(scanKey);
 		if (scanKey.isDown()) {
 			if (++rHeld == AUTO_HOLD) toggleAuto(mc, cfg);
 		} else {
-			ping = rHeld > 0 && rHeld < AUTO_HOLD;
+			ping = rHeld > 0 ? rHeld < AUTO_HOLD : rClick;
 			rHeld = 0;
 		}
-		pressed(scanKey); // (drain the clicks: R acts on release)
 		// V: a tap says what you are facing; held a little longer it says where you are
-		boolean where = false;
+		boolean where = false, vClick = clicked(helpKey);
 		if (helpKey.isDown()) {
 			if (++vHeld == WHERE_HOLD) where = true;
 		} else {
-			if (vHeld > 0 && vHeld < WHERE_HOLD) guard("identify", () -> Identify.facing(mc));
+			if (vHeld > 0 ? vHeld < WHERE_HOLD : vClick) guard("identify", () -> Identify.facing(mc));
 			vHeld = 0;
 		}
-		pressed(helpKey);
 
 		if (!cfg.directionalAudioDone) { // once: turn on Directional Audio (binaural 3D), still changeable afterwards
 			cfg.directionalAudioDone = true;
@@ -273,16 +274,11 @@ public class SonarClient implements ClientModInitializer {
 		EdgeBrake.consider(mc, cfg, p, v);
 	}
 
-	private static final java.util.Map<KeyMapping, Boolean> wasDown = new java.util.HashMap<>();
-
-	/** True only on the first tick of a press. Ignores OS key-repeat, which Minecraft reports as fresh clicks while a key is held. */
-	static boolean pressed(KeyMapping k) {
-		boolean clicked = false;
-		while (k.consumeClick()) clicked = true;
-		boolean down = k.isDown();
-		boolean was = wasDown.getOrDefault(k, false);
-		wasDown.put(k, down);
-		return (clicked || down) && !was;
+	/** Takes the key's clicks since the last tick (the game also counts the keyboard's auto-repeat while a key is held as clicks). True when there was one. */
+	static boolean clicked(KeyMapping k) {
+		boolean any = false;
+		while (k.consumeClick()) any = true;
+		return any;
 	}
 
 	static void toggleAuto(Minecraft mc, SonarConfig cfg) {

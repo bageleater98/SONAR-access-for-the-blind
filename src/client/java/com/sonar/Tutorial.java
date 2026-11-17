@@ -168,7 +168,7 @@ public final class Tutorial {
 	}
 
 	private static void screenOpened(Minecraft mc, Screen screen, int w, int h) {
-		if (System.getenv("SONAR_TUTORIAL_AUTOSTART") != null) testScreen(mc, screen);
+		if (System.getenv("SONAR_TUTORIAL_AUTOSTART") != null || FieldTest.ON) testScreen(mc, screen);
 		if (screen instanceof TitleScreen) {
 			titleButton(mc, screen, w);
 			// test runs only (environment variable SONAR_TUTORIAL_AUTOSTART): start the tutorial by itself, once, so a smoke test needs no clicking
@@ -209,7 +209,7 @@ public final class Tutorial {
 		Screens.getWidgets(screen).add(new SpokenButton(w / 2 - 100, y + 24, 200, 20, Component.literal("Sonar Access settings"), b -> mc.gui.setScreen(new SettingsScreen(screen)), "menu.sonar"));
 		// the very first time the mod runs: one spoken offer, with the button focused so Enter starts it. Never asked again (the button stays).
 		Progress p = Progress.load();
-		if (!p.offered && System.getenv("SONAR_TUTORIAL_AUTOSTART") == null) {
+		if (!p.offered && System.getenv("SONAR_TUTORIAL_AUTOSTART") == null && !FieldTest.ON) {
 			p.offered = true;
 			p.save();
 			screen.setFocused(button);

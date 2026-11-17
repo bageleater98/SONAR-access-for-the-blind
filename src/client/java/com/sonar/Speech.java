@@ -19,6 +19,8 @@ public class Speech {
 		t.setDaemon(true);
 		return t;
 	});
+	/** Test runs with a hidden window (SONAR_HIDDEN_WINDOW): the system voice is never started; what would be said is only logged. */
+	private static final boolean SILENT_TEST = System.getenv("SONAR_HIDDEN_WINDOW") != null;
 	private static Process proc;
 	private static Writer out;
 	private static boolean failed, hooked;
@@ -69,7 +71,7 @@ public class Speech {
 
 	/** Start the speech process at launch so the first message is not delayed. */
 	public static void warm() {
-		EX.submit(Speech::ensure);
+		if (!SILENT_TEST) EX.submit(Speech::ensure);
 	}
 
 	public static void say(Minecraft mc, Component msg) {
@@ -79,7 +81,10 @@ public class Speech {
 	/** Says it at `volume` percent of the voice's normal loudness (the facing direction is said quietly). */
 	public static void say(Minecraft mc, Component msg, int volume) {
 		String text = msg.getString().replace('\n', ' ');
-		if (!text.isEmpty() && Voice.phrase(mc, text, volume)) return; // a fixed phrase: the narrator's own pre-rendered voice, on its own channel
+		if (SonarConfig.cur.debug && !text.isEmpty()) SonarClient.LOG.info("SONAR said: " + text);
+		FieldTest.heard(text);
+		if (!text.isEmpty() && Voice.phrase(mc, text, volume)) return;
+		if (SILENT_TEST) return; // (a hidden test run: the system voice would talk out of the real speakers) // a fixed phrase: the narrator's own pre-rendered voice, on its own channel
 		menuTts = mc.gui != null && mc.gui.screen() != null;
 		var n = ((GameNarratorAccessor) mc.getNarrator()).sonar$narrator();
 		float vol = mc.options.getFinalSoundSourceVolume(SoundSource.VOICE);

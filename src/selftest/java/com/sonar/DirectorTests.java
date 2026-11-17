@@ -22,7 +22,7 @@ final class DirectorTests {
 		double x, y, z;
 		float yaw;
 		boolean ground = true, water, paused, neverLoad, left;
-		int notReady, clicks, chimes, passChimes;
+		int notReady, chimes, passChimes;
 		final Set<Key> keys = EnumSet.noneOf(Key.class);
 		final List<String> teleports = new ArrayList<>(), commands = new ArrayList<>();
 		final SonarConfig cfg = new SonarConfig();
@@ -49,7 +49,6 @@ final class DirectorTests {
 		@Override public String floorBlock() { return floor; }
 		@Override public void chime(int side) { chimes++; }
 		@Override public void passChime() { passChimes++; }
-		@Override public void click() { clicks++; }
 		@Override public SonarConfig cfg() { return cfg; }
 		@Override public void saveCfg() {}
 		@Override public void leave() { left = true; }
@@ -303,14 +302,12 @@ final class DirectorTests {
 		Rig r = new Rig(List.of(lesson("t0", TutorialRooms.GARDEN, d -> false), lesson("t1", TutorialRooms.COURTYARD, d -> false)));
 		r.d.begin(progress(dir, "t0"));
 		r.run(2);
-		r.d.confusing();
-		check.accept(r.host.clicks == 1, "director: the confusing key: a quiet click, nothing else");
 		r.d.skip();
 		r.run(2);
 		var day = LessonLog.read(LessonLog.file(System.currentTimeMillis()));
 		var t0 = day.lessons.stream().filter(e -> e.lesson.equals("t0")).reduce((a, b) -> b).orElse(null);
-		check.accept(t0 != null && t0.skipped && t0.confusing.size() == 1 && t0.confusing.get(0).lastLine != null && day.voice.contains("af_heart") && day.rooms.length() == 40,
-			"lesson log: written locally with the lesson, skip, confusing mark (with the last line), world rooms and voice");
+		check.accept(t0 != null && t0.skipped && day.voice.contains("af_heart") && day.rooms.length() == 40,
+			"lesson log: written locally with the lesson, skip, world rooms and voice");
 		Progress p = progress(dir, "l0");
 		p.offered = true;
 		p.save();

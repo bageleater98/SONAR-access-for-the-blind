@@ -58,6 +58,12 @@ def variants(script):
                 yield line["id"] + ".short.rb", rebound(line["short"])
 
 
+def peak(path):
+    """The loudest sample of a file as the game decodes it."""
+    y, _ = sf.read(path)
+    return float(np.abs(y).max()) if len(y) else 0.0
+
+
 def main():
     force = "--force" in sys.argv
     with open(SCRIPT, encoding="utf-8") as f:
@@ -83,11 +89,19 @@ def main():
         say = spoken(text, keys)
         h = hashlib.sha1(f"{TOOL_VERSION}|{voice}|{speed}|{QUALITY}|{say}".encode()).hexdigest()
         path = os.path.join(OUT, vid + ".ogg")
-        if cache.get(vid) == h and os.path.exists(path) and vid in index:
+        if cache.get(vid) == h and os.path.exists(path) and vid in index and peak(path) <= 1.0:
             continue
         x, sr = voicelib.kokoro(voice, say, speed)
         x = voicelib.normalise(voicelib.trim(x, sr), sr)
-        sf.write(path, x.astype(np.float32), sr, format="OGG", subtype="VORBIS", compression_level=QUALITY)
+        # the low-bitrate encoder overshoots the limiter's ceiling on some lines (decoded peaks up to 1.38: a crackle at full volume):
+        # encode, measure what the game will actually decode, and turn the line down until it stays under full scale
+        gain = 1.0
+        for _ in range(5):
+            sf.write(path, (x * gain).astype(np.float32), sr, format="OGG", subtype="VORBIS", compression_level=QUALITY)
+            pk = peak(path)
+            if pk <= 0.98:
+                break
+            gain *= 0.96 / pk
         cache[vid] = h
         index[vid] = round(len(x) / sr, 2)
         rendered += 1

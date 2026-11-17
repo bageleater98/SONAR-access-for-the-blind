@@ -10,12 +10,9 @@ import java.util.List;
 
 /**
  * THE LESSON LOG (local only, never sent anywhere): config/sonar-tutorial/log-YYYY-MM-DD.json, one entry per lesson played, so a playtest can be read back
- * afterwards to find the rooms that confused people: how long it took, which hints were heard, retries, skips, resets and why, wrong-way moments, and every
- * "this was confusing" mark (with where you were and the last line said).
+ * afterwards to find the rooms that confused people: how long it took, which hints were heard, retries, skips, resets and why and wrong-way moments.
  */
 final class LessonLog {
-	static final class Mark { long t; double x, y, z; String lastLine; }
-
 	static final class Entry {
 		String lesson;
 		long start, end;
@@ -25,7 +22,6 @@ final class LessonLog {
 		boolean skipped;
 		List<String> resets = new ArrayList<>();
 		int wrongWay;
-		List<Mark> confusing = new ArrayList<>();
 		String passedHow;
 	}
 

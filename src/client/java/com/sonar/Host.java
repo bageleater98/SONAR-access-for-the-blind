@@ -32,9 +32,6 @@ interface Host {
 	void chime(int side);
 	/** The pass chime (three rising notes). */
 	void passChime();
-	/** A quiet click (the "confusing" mark). */
-	void click();
-
 	/** The settings in use (the tutorial's own copy), and saving them. */
 	SonarConfig cfg();
 	void saveCfg();

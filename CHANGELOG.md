@@ -1,5 +1,31 @@
 # Sonar Access: changes
 
+## 2.0.0
+
+The "it just works" release: two keys, one small settings screen, and several things SONAR now does by itself.
+
+### Simpler
+- Two keys instead of seven. **R** pings (hold two seconds for auto scan). **V** is the new helper key: tap to hear what you are facing and how far it is, hold to hear where you are (each side, coordinates, biome, time of day, distance to your waypoint). The front scan, summary, identify, echo, ledge and "confusing" keys are gone; the echo and the ledge warning are simply on.
+- One small **Sonar Access** screen (the switch, auto scan, Sonar volume, voice volume and speed, Waypoints, Tutorial) plus one **Advanced** page. The Sliders, Volumes, Warnings, Paths and Echo, and Keys screens are gone; what they held is tuned and fixed. Settings files from older versions are brought up to date by themselves.
+- The pause menu has two rows: Sonar Access (with ON/OFF) and Waypoints.
+- Mob sounds, floor sounds and the front scan are removed.
+
+### New
+- **Spoken menus**: every button on SONAR's screens says its name and value when you Tab to it and when you change it, without the game's Narrator.
+- **Items and health**: the item in your hand is said when you switch to it; a tool nearly worn out is announced; low health, hunger, air and catching fire are said once each.
+- **Threat warning**: a monster that can see you is named with its side, then the nearest one pulses from where it stands, faster as it closes in.
+- **Loot tick**: dropped items near you answer each ping with a light pop.
+- **Waypoints**: "Save this spot" needs no typing (Waypoint 1, 2, ...). SONAR keeps **Last death** and **Bed** by itself. The list is sorted nearest first and scrolls when it is long. While you are guided, the distance left is called out each time it halves.
+
+### Fixed
+- A very quick tap of R (pressed and released within one game tick) was ignored. Every tap now pings.
+- 31 narrator lines and 11 muffled block sounds clipped slightly when decoded; all are now under full scale.
+- The ledge warning and the edge brake no longer act while you ride, glide or fly, and SONAR is silent while you are dead or spectating.
+- Wall thuds no longer play while you are riding.
+
+### Tutorial
+- The materials level teaches the helper key. The ledge level no longer asks for a key: the warning is on, as in the real game. Lines that named removed keys are re-recorded.
+
 ## 1.5.1
 
 ### Tutorial

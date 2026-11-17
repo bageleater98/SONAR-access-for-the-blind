@@ -428,6 +428,18 @@
       "text": "And that's the whole course. Every room, done. The tutorial is saved as complete, and the level menu is yours whenever you want a refresher. Go and explore. I'll be listening."
     },
     {
+      "id": "end.extras",
+      "category": "success",
+      "priority": 1,
+      "text": "One last thing. Out in the world, Sonar does a few things by itself. It says the item in your hand when you switch to it. It tells you when your health, your food or your air runs low."
+    },
+    {
+      "id": "end.extras2",
+      "category": "success",
+      "priority": 1,
+      "text": "When a monster sees you, it says its name and which side it's on. Then a low double beat comes from where it stands, faster as it gets closer. Dropped items answer your ping with a light pop. And if you die, the spot is saved in Waypoints as Last death, so you can walk back to your things."
+    },
+    {
       "id": "title.l0",
       "category": "reaction",
       "priority": 1,

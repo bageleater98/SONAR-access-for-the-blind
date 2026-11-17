@@ -64,6 +64,9 @@ final class WaypointGuide {
 
 	static boolean active() { return target != null; }
 
+	/** Where the guide's sound is right now (null: silent). */
+	static Vec3 soundAt() { return sound; }
+
 	/** Starts guiding to w (from here: the volume scale starts at this distance). */
 	static void start(Minecraft mc, Waypoints.Wp w) {
 		stop();
