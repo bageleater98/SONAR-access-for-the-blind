@@ -2,7 +2,6 @@ package com.sonar;
 
 import com.sonar.Scan.Cand;
 import com.sonar.Scan.Ledge;
-import com.sonar.mixin.MobAccessor;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -36,7 +35,6 @@ import static com.sonar.Echo.*;
 import static com.sonar.Ledges.*;
 
 public class Cues {
-	static final Map<Integer, Long> mobSeen = new HashMap<>();
 	static final List<com.sonar.Cues.Pending> pending = new ArrayList<>();
 	static long lastLava = -1000;
 	/** Short clips of the vanilla lava/water ambience (the vanilla lava sound is 8 s long and kept playing from where you used to stand). */
@@ -170,9 +168,7 @@ public class Cues {
 		float vol = Math.min(1.0F, cfg.volume * closeness(d, s.range) * volMul * (behind ? Tuning.BEHIND_SONAR : 1.0F) * (pri != 0 ? (float) (1 - (1 - diagonal(rel)) * nearFade(d)) : 1.0F)); // (the diagonal dip fades out up close: a wall beside you is never dimmed)
 		if (behind) {
 			e = muffled(e);
-			if (cfg.behindPitch) {
-				pitch *= 0.88F;
-			}
+			pitch *= 0.88F;
 		}
 
 		double heard = place(rel, pri, cfg.directionSpread);
@@ -195,7 +191,7 @@ public class Cues {
 	}
 
 	static SoundEvent blockSound(BlockState st, SonarConfig cfg) {
-		return cfg.materialSounds ? materialSound(st) : SoundEvents.STONE_HIT;
+		return materialSound(st);
 	}
 
 	/** A block's own sound (with Material sounds on). */
@@ -246,7 +242,7 @@ public class Cues {
 		}
 
 		// inside a cave or building (where the echo would play): the sonar's block sounds would just be a wall of stone, so only the echo, hazards, water, mobs and ledges sound
-		boolean inRoom = cfg.echoReplacesSonar && cfg.echoCue && cfg.echoCount != 0 && !s.front && insideSpace(mc, s);
+		boolean inRoom = cfg.echoReplacesSonar && cfg.echoCue && cfg.echoCount != 0 && insideSpace(mc, s);
 		boolean quiet = inRoom && s.auto; // only the AUTO sonar goes quiet inside; a key press (R) always gives the full block sounds
 		long nowTick = mc.level.getGameTime();
 		boolean lavaDue = nowTick - lastLava >= 50; // lava sounds at most every 2.5 s, however fast you ping (repeat / fast auto scan)
@@ -294,56 +290,21 @@ public class Cues {
 			}
 		}
 
-		if (!s.front) {
-			if (!cfg.autoLedge) { // Ledge warning is off: a ping still names the nearest edges, but at the warning's own loudness (closer = louder, small drops quiet), not flat full blast
-				List<Ledge> near = new ArrayList<>();
-				for (Ledge l : s.ledges) if (l.d != Float.MAX_VALUE && l.d <= cfg.ledgeWarnRange) near.add(l);
-				near.sort(Comparator.comparingDouble(l -> l.d));
-				for (int i = 0; i < Math.min(2, near.size()); i++) {
-					Ledge l = near.get(i);
-					float c = Math.max(0.0F, Math.min(1.0F, 1.0F - l.d / cfg.ledgeWarnRange));
-					float vol = Math.min(1.0F, 0.72F * ledgeCurve(c, l.drop) * dropFactor(l.drop) * cfg.volume / 0.6F * cfg.ledgeVolume);
-					float pitch = Math.max(0.4F, Math.min(2.0F, (0.75F + 0.7F * c) * dropPitch(l.drop)));
-					ledgeCues.add(at(s, cfg, l.d, l.x + 0.5, l.y, l.z + 0.5, ledgeSound(cfg), vol, pitch, 0));
-				}
-			}
-
-			if (!quiet) {
-				extraCues(s, cfg, cues);
+		if (!cfg.autoLedge) { // Ledge warning is off: a ping still names the nearest edges, but at the warning's own loudness (closer = louder, small drops quiet), not flat full blast
+			List<Ledge> near = new ArrayList<>();
+			for (Ledge l : s.ledges) if (l.d != Float.MAX_VALUE && l.d <= cfg.ledgeWarnRange) near.add(l);
+			near.sort(Comparator.comparingDouble(l -> l.d));
+			for (int i = 0; i < Math.min(2, near.size()); i++) {
+				Ledge l = near.get(i);
+				float c = Math.max(0.0F, Math.min(1.0F, 1.0F - l.d / cfg.ledgeWarnRange));
+				float vol = Math.min(1.0F, 0.72F * ledgeCurve(c, l.drop) * dropFactor(l.drop) * cfg.volume / 0.6F * cfg.ledgeVolume);
+				float pitch = Math.max(0.4F, Math.min(2.0F, (0.75F + 0.7F * c) * dropPitch(l.drop)));
+				ledgeCues.add(at(s, cfg, l.d, l.x + 0.5, l.y, l.z + 0.5, ledgeSound(cfg), vol, pitch, 0));
 			}
 		}
 
-		Integer[] order = new Integer[Scan.SECTORS];
-
-		for (int i = 0; i < order.length; i++) {
-			order[i] = i;
-		}
-
-		Arrays.sort(order, Comparator.comparingDouble(ix -> s.mobD[ix]));
-		long now = mc.level.getGameTime();
-		int mobCount = 0;
-		Integer[] var25 = order;
-		int var27 = var25.length;
-
-		for (int var30 = 0; var30 < var27; var30++) {
-			int i = var25[var30];
-			if (mobCount >= cfg.maxMobCues) {
-				break;
-			}
-
-			if (s.mobs[i] != null && s.mobD[i] != Float.MAX_VALUE) {
-				Mob m = s.mobs[i];
-				Long last = mobSeen.get(m.getId());
-				if (mobSeen.size() > 512) mobSeen.values().removeIf(v -> now - v >= 60L); // forget mobs long gone
-				if (last == null || now - last >= 60L) {
-					SoundEvent amb = ((MobAccessor)m).sonar$ambient();
-					if (amb != null) {
-						mobSeen.put(m.getId(), now);
-						mobCount++;
-						cues.add(at(s, cfg, s.mobD[i], m.getX(), m.getY() + m.getBbHeight() / 2.0F, m.getZ(), amb, 0.9F * (float) Loud.at(s.mobD[i], 2, s.range), 1.0F, 1)); // the shared fade over the scan's range: full right next to it, silent at the edge
-					}
-				}
-			}
+		if (!quiet) {
+			extraCues(s, cfg, cues);
 		}
 
 		if (lavaPlayed) {
@@ -354,7 +315,7 @@ public class Cues {
 
 		boolean path = !inRoom && FloorEdge.ping(mc, cfg); // no path ripple inside a room
 
-		if (!s.front && cfg.echoCue && s.withEcho) {
+		if (cfg.echoCue && s.withEcho) {
 			echo(mc, s, cfg);
 			Tutorial.event(Tutorial.Ev.ECHO, 1);
 		}
@@ -401,33 +362,31 @@ public class Cues {
 		// you can not STEP onto, by the same rule the player route and the clearance use (BlockRules.stepTo): a wall, fence, rail or anything 2+ tall is one; a step up,
 		// a slab, stairs or a doorway is not. Water is not a wall (and the ledge warning covers drops). Material budgets never drop it, and it plays even inside a cave or
 		// room where the auto sonar otherwise leaves everything to the echo.
-		if (!s.front) {
-			var wpos = new net.minecraft.core.BlockPos.MutableBlockPos();
-			int cy = BlockRules.floorUnder(Sense.hear(mc), s.ex, s.feetY, s.ez, wpos);
-			int lx = (int) Math.floor(s.ex), lz = (int) Math.floor(s.ez);
-			for (int r = 1; r <= 2 && cy != BlockRules.NONE; r++) {
-				int cx = (int) Math.floor(s.ex + tfx * r), cz = (int) Math.floor(s.ez + tfz * r);
-				if (cx == lx && cz == lz) continue;
-				lx = cx; lz = cz;
-				int next = BlockRules.stepTo(Sense.hear(mc), cx, cz, cy, wpos);
-				if (next != BlockRules.NONE) { cy = next; continue; }
-				int wy = BlockRules.NONE;
-				boolean wet = false;
-				for (int y = cy + 1; y <= cy + 2 && wy == BlockRules.NONE; y++) {
-					BlockState bs = Sense.hear(mc).getBlockState(wpos.set(cx, y, cz));
-					if (!bs.getFluidState().isEmpty()) wet = true;
-					else if (!bs.getCollisionShape(Sense.hear(mc), wpos).isEmpty()) wy = y;
-				}
-				if (wet || wy == BlockRules.NONE) break; // water, or a drop: not a wall
-				BlockState ws = Sense.hear(mc).getBlockState(wpos.set(cx, wy, cz));
-				SoundEvent ev = blockSound(ws, cfg);
-				double wd = Math.hypot(cx + 0.5 - s.ex, cz + 0.5 - s.ez) - 0.5;
-				int bx = cx, by = wy, bz = cz;
-				cues.removeIf(c -> Math.abs(c.x() - (bx + 0.5)) < 0.6 && Math.abs(c.y() - (by + 0.5)) < 0.6 && Math.abs(c.z() - (bz + 0.5)) < 0.6);
-				cues.add(at(s, cfg, (float) Math.max(0.1, wd), bx + 0.5, by + 0.5, bz + 0.5, ev, 1.0F, materialPitch(ev), 1));
-				if (cfg.debug && mc.player != null) Dbg.send(mc.player, Component.literal(Dbg.fmt("wall ahead: %s %.1f blocks (can not step there)", ws.getBlock().getDescriptionId(), wd)));
-				break;
+		var wpos = new net.minecraft.core.BlockPos.MutableBlockPos();
+		int cy = BlockRules.floorUnder(Sense.hear(mc), s.ex, s.feetY, s.ez, wpos);
+		int lx = (int) Math.floor(s.ex), lz = (int) Math.floor(s.ez);
+		for (int r = 1; r <= 2 && cy != BlockRules.NONE; r++) {
+			int cx = (int) Math.floor(s.ex + tfx * r), cz = (int) Math.floor(s.ez + tfz * r);
+			if (cx == lx && cz == lz) continue;
+			lx = cx; lz = cz;
+			int next = BlockRules.stepTo(Sense.hear(mc), cx, cz, cy, wpos);
+			if (next != BlockRules.NONE) { cy = next; continue; }
+			int wy = BlockRules.NONE;
+			boolean wet = false;
+			for (int y = cy + 1; y <= cy + 2 && wy == BlockRules.NONE; y++) {
+				BlockState bs = Sense.hear(mc).getBlockState(wpos.set(cx, y, cz));
+				if (!bs.getFluidState().isEmpty()) wet = true;
+				else if (!bs.getCollisionShape(Sense.hear(mc), wpos).isEmpty()) wy = y;
 			}
+			if (wet || wy == BlockRules.NONE) break; // water, or a drop: not a wall
+			BlockState ws = Sense.hear(mc).getBlockState(wpos.set(cx, wy, cz));
+			SoundEvent ev = blockSound(ws, cfg);
+			double wd = Math.hypot(cx + 0.5 - s.ex, cz + 0.5 - s.ez) - 0.5;
+			int bx = cx, by = wy, bz = cz;
+			cues.removeIf(c -> Math.abs(c.x() - (bx + 0.5)) < 0.6 && Math.abs(c.y() - (by + 0.5)) < 0.6 && Math.abs(c.z() - (bz + 0.5)) < 0.6);
+			cues.add(at(s, cfg, (float) Math.max(0.1, wd), bx + 0.5, by + 0.5, bz + 0.5, ev, 1.0F, materialPitch(ev), 1));
+			if (cfg.debug && mc.player != null) Dbg.send(mc.player, Component.literal(Dbg.fmt("wall ahead: %s %.1f blocks (can not step there)", ws.getBlock().getDescriptionId(), wd)));
+			break;
 		}
 
 		boolean nearLedge = false;
@@ -485,7 +444,7 @@ public class Cues {
 	 * ones (stone bricks or cobblestone walls are not the rock face they stand against). Null for air and water.
 	 * (Round 15: by sound alone, a tree's leaves and the grassy hill under it were one group: leaves and grass blocks make the very same sound.)
 	 */
-	static Object groupKey(BlockState st, SonarConfig cfg) { return groupKey(st, cfg.materialSounds); }
+	static Object groupKey(BlockState st, SonarConfig cfg) { return groupKey(st, true); }
 
 	static Object groupKey(BlockState st, boolean materialSounds) {
 		if (st.isAir()) return null;
@@ -682,7 +641,7 @@ public class Cues {
 			rel[rank] = c.rel(); // the beat is the REAL direction's quarter
 			pri[rank] = c.pri();
 		}
-		int[] at = beatTicks(rel, pri, cfg.stagger ? Math.max(1, cfg.sweepGap) : 0); // the sweep speed slider
+		int[] at = beatTicks(rel, pri, Math.max(1, cfg.sweepGap)); // the sweep speed slider
 		boolean dbg = mc.player != null && cfg.debug;
 		StringBuilder playedLog = dbg && cfg.trace ? new StringBuilder("played:") : null;
 		for (int rank = 0; rank < n; rank++) {
@@ -725,16 +684,6 @@ public class Cues {
 				int i = Math.floorMod((int) Math.floor((ang + Math.PI) / (2 * Math.PI) * Scan.BLOCK_YAW), Scan.BLOCK_YAW);
 				double r = Math.min(6.0, nearest(s)[i]);
 				out.add(at(s, cfg, (float) r, s.ex + Math.cos(ang) * r, s.ey, s.ez + Math.sin(ang) * r, SoundEvents.AMETHYST_BLOCK_CHIME, 0.7F, 1.4F, 2));
-			}
-		}
-
-		if (cfg.emptyCue) {
-			for (int k = 0; k < 4; k++) {
-				double ang = fwd + k * Math.PI / 2.0;
-				int i = Scan.yawSector(Math.cos(ang), Math.sin(ang));
-				if (dist[i] == Float.MAX_VALUE) {
-					out.add(at(s, cfg, s.range, s.ex + Math.cos(ang) * 8.0, s.ey, s.ez + Math.sin(ang) * 8.0, SoundEvents.AMETHYST_BLOCK_RESONATE, 0.25F, 0.6F, 3));
-				}
 			}
 		}
 	}

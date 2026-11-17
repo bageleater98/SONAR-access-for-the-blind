@@ -200,7 +200,7 @@ final class TutorialTests {
 			}
 			check.accept(!Voice.LINES.isEmpty() && missing.isEmpty(), "voice: every line and short variant has its file, its sounds.json entry and its length" + (missing.isEmpty() ? "" : " (missing " + missing + ")"));
 			check.accept(total <= 12L * 1024 * 1024, "voice: all files together " + total / 1024 + " KB, within the 12 MB budget");
-			check.accept(Voice.withKeys("Press {key:scan}, then {key:confusing}.", null).equals("Press R, then K."), "voice: key names in the text are the default keys the files say");
+			check.accept(Voice.withKeys("Press {key:scan}, then {key:help}.", null).equals("Press R, then V."), "voice: key names in the text are the default keys the files say");
 			check.accept(Voice.estimate("one two three four five") > 1, "voice: the system-voice fallback has a length to wait for");
 			boolean known = true;
 			for (String id : List.of("l0.intro", "l1.task", "l2.after", "sys.reset.fell", "hint.skip", "end.complete", "menu.open")) known &= Voice.LINES.containsKey(id);

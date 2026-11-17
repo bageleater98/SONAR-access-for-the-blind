@@ -27,7 +27,7 @@ public class Scan {
 	/** A reusable ledge-only scan for the continuous ledge watcher, so no scan objects are allocated every few ticks. */
 	public static Scan ledgeScan(Minecraft mc, SonarConfig cfg) {
 		if (pool == null || pool.level != mc.level || pool.cfg != cfg) {
-			pool = new Scan(mc, cfg, false);
+			pool = new Scan(mc, cfg);
 			pool.ledgeOnly = true;
 		} else {
 			pool.refresh(mc);
@@ -68,7 +68,6 @@ public class Scan {
 	public final Cand[][] best = new Cand[4][SECTORS];
 	public final Ledge[] ledges = new Ledge[YAW];
 	public final Ledge[] drops = new Ledge[YAW]; // walkable steps down of 2+ blocks (too small to warn about, but worth a brake)
-	public final boolean front;
 	public final int range;
 	public double ex, ey, ez;
 	public int feetY, px, pz;
@@ -104,10 +103,9 @@ public class Scan {
 	 * A scan of ANY world from an eye position (the self-test: the tutorial rooms and F2 spots), exactly as in play but without a player: no mobs, standing still.
 	 * eyeY is the eye height (feet + 1.62).
 	 */
-	Scan(net.minecraft.world.level.BlockGetter w, SonarConfig cfg, double eyeX, double eyeY, double eyeZ, float yaw, boolean front) {
+	Scan(net.minecraft.world.level.BlockGetter w, SonarConfig cfg, double eyeX, double eyeY, double eyeZ, float yaw) {
 		this.cfg = cfg;
-		this.front = front;
-		this.range = front ? cfg.frontRange : cfg.range;
+		this.range = cfg.range;
 		this.level = null;
 		this.world = w;
 		this.heard = Sense.hear(w);
@@ -131,10 +129,9 @@ public class Scan {
 	private long chunkKey = Long.MIN_VALUE;
 	private LevelChunk chunk;
 
-	public Scan(Minecraft mc, SonarConfig cfg, boolean front) {
+	public Scan(Minecraft mc, SonarConfig cfg) {
 		this.cfg = cfg;
-		this.front = front;
-		this.range = front ? cfg.frontRange : cfg.range;
+		this.range = cfg.range;
 		this.level = mc.level;
 		this.world = mc.level;
 		this.heard = Sense.hear(mc);
@@ -281,7 +278,7 @@ public class Scan {
 		int bx = (int) Math.floor(ex), bz = (int) Math.floor(ez), by = (int) Math.floor(ey);
 		int[] o = order(range);
 		var mv = viewer == null ? net.minecraft.world.phys.Vec3.ZERO : viewer.getDeltaMovement();
-		int layers = cfg.layersPerTick * (mv.x * mv.x + mv.z * mv.z > 0.0144 ? 2 : 1); // moving: scan twice as fast so the picture is not stale when it plays
+		int layers = Tuning.SCAN_LAYERS * (mv.x * mv.x + mv.z * mv.z > 0.0144 ? 2 : 1); // moving: scan twice as fast so the picture is not stale when it plays
 		int per = (int) Math.ceil((double) o.length * layers / (2 * range + 1)); // the same number of ticks per scan as the old layer-by-layer pass
 		int end = Math.min(o.length, idx + per);
 		// the AUTO scan holds each step to SCAN_TICK_NS (round 16: 5-7 ms a step starved the route searches), taking up to twice its usual ticks; a key press never waits
@@ -293,7 +290,7 @@ public class Scan {
 			if (s == null || s.isAir() || buried(x, y, z)) continue;
 			consider(s, x, y, z);
 		}
-		if (idx >= o.length) { ledgePass(); entityPass(); done = true; }
+		if (idx >= o.length) { ledgePass(); done = true; }
 		nanos += System.nanoTime() - t0;
 	}
 
@@ -304,7 +301,7 @@ public class Scan {
 		if (vx != 0 && !covered(vx < 0 ? x + 1 : x - 1, y, z)) return false;
 		if (vz != 0 && !covered(x, y, vz < 0 ? z + 1 : z - 1)) return false;
 		boolean up = vy < 0;
-		return vy == 0 || (up && !cfg.floorSounds) || covered(x, up ? y + 1 : y - 1, z);
+		return vy == 0 || up || covered(x, y - 1, z); // (a block below your eyes shows its top: floors never sound)
 	}
 
 	private boolean covered(int x, int y, int z) {
@@ -327,24 +324,16 @@ public class Scan {
 		boolean liquid = s.getBlock() instanceof LiquidBlock;
 		if (!liquid && (ignored(s, x, y, z) || !solid(s, x, y, z))) return;
 		// a slab or stair you could simply walk onto (free headroom above it) is part of the floor, not a wall: slab stairways and slab roofs used to ping on every step
-		if (cfg.ignoreSteps && !liquid && (s.is(BlockTags.SLABS) || s.is(BlockTags.STAIRS)) && passable(x, y + 1, z) && passable(x, y + 2, z) && steppable(x, y, z)) return;
+		if (!liquid && (s.is(BlockTags.SLABS) || s.is(BlockTags.STAIRS)) && passable(x, y + 1, z) && passable(x, y + 2, z) && steppable(x, y, z)) return;
 		double vx = x + 0.5 - ex, vy = y + 0.5 - ey, vz = z + 0.5 - ez;
 		double d = Math.sqrt(vx * vx + vy * vy + vz * vz);
 		if (d < 0.8 || d > range) return;
-		if (front) {
-			double h = Math.sqrt(vx * vx + vz * vz);
-			if (h > 0.5 && (vx * fx + vz * fz) / h < 0.64) return;
-		}
 		// Up to three camera-facing faces (one per axis); the block counts only if one of them is both open and actually visible.
 		boolean ox = vx != 0 && open(vx < 0 ? x + 1 : x - 1, y, z, vx < 0 ? net.minecraft.core.Direction.WEST : net.minecraft.core.Direction.EAST);
 		boolean oz = vz != 0 && open(x, y, vz < 0 ? z + 1 : z - 1, vz < 0 ? net.minecraft.core.Direction.NORTH : net.minecraft.core.Direction.SOUTH);
 		boolean up = vy < 0; // block below the eye shows its top face
-		boolean oy = vy != 0 && !(up && !cfg.floorSounds) && open(x, up ? y + 1 : y - 1, z, up ? net.minecraft.core.Direction.DOWN : net.minecraft.core.Direction.UP);
+		boolean oy = vy != 0 && !up && open(x, y - 1, z, net.minecraft.core.Direction.UP); // the underside of a block above your eyes (a floor's top never sounds)
 		if (!ox && !oz && !oy) return;
-		// the floor you are standing on is texture, not scenery: nearby blocks at or below foot level made of the same material as your floor stay silent
-		// (a stair-and-slab floor used to fire a ring of close-range sounds that drowned out everything else). Walls and other materials still sound.
-		if (cfg.ignoreFloorBumps && !liquid && y <= feetY && floorBlock != null && s.getBlock() == floorBlock && d < 8) return;
-
 		int cat;
 		if (liquid) {
 			cat = s.getFluidState().is(FluidTags.LAVA) ? HAZARD : WATER;
@@ -353,8 +342,7 @@ public class Scan {
 		}
 		int sec = sector(vx, vy, vz, d);
 		Cand c = best[cat][sec];
-		if (d < c.d && (!cfg.lineOfSight
-				|| (ox && faceVisible(x, y, z, vx < 0 ? 1 : -1, 0, 0))
+		if (d < c.d && ((ox && faceVisible(x, y, z, vx < 0 ? 1 : -1, 0, 0))
 				|| (oz && faceVisible(x, y, z, 0, 0, vz < 0 ? 1 : -1))
 				|| (oy && faceVisible(x, y, z, 0, up ? 1 : -1, 0)))) {
 			c.d = (float) d; c.x = x; c.y = y; c.z = z; c.state = s;
@@ -481,7 +469,7 @@ public class Scan {
 
 	/** Flood-fill the cells the player can walk to, and report open edges where the ground falls away. */
 	private void ledgePass() {
-		if (!cfg.ledgeCue || front) return;
+		if (!cfg.ledgeCue) return;
 		int R = cfg.ledgeRange, W = 2 * R + 1;
 		int f0 = standY(px, pz);
 		if (f0 == NONE) return;
@@ -578,23 +566,5 @@ public class Scan {
 			prevFloor = bf;
 		}
 		return built + Math.min(2, natural / 2);
-	}
-
-	/** Nearest mob per sector within entityRange. */
-	public final net.minecraft.world.entity.Mob[] mobs = new net.minecraft.world.entity.Mob[SECTORS];
-	public final float[] mobD = new float[SECTORS];
-
-	private void entityPass() {
-		java.util.Arrays.fill(mobD, Float.MAX_VALUE);
-		if (!cfg.entityCue || level == null) return;
-		double max = Math.min(range, cfg.entityRange);
-		for (var e : level.entitiesForRendering()) {
-			if (!(e instanceof net.minecraft.world.entity.Mob m)) continue;
-			double vx = m.getX() - ex, vy = m.getY() + m.getBbHeight() / 2 - ey, vz = m.getZ() - ez;
-			double d = Math.sqrt(vx * vx + vy * vy + vz * vz);
-			if (d < 0.8 || d > max) continue;
-			int sec = sector(vx, vy, vz, d);
-			if (d < mobD[sec]) { mobD[sec] = (float) d; mobs[sec] = m; }
-		}
 	}
 }

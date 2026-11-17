@@ -37,6 +37,13 @@ final class WaypointGuide {
 	private static int t;
 	private static double walkLeft = -1;
 	private static boolean saidDim;
+	/** The straight distance at which the next "N blocks to go" is said (half of the last one each time). */
+	private static double nextCall;
+
+	/** While guided: the distance left is called out each time it has halved, down to CALL_MIN blocks ("120 blocks to go", "60 blocks to go"...). 0 = nothing to say now. */
+	static int callOut(double dist, double next) {
+		return dist <= next && dist >= Tuning.WP_CALL_MIN ? (int) Math.round(dist) : 0;
+	}
 	/** What the guide says about itself (one place: GuideSpeech). */
 	private static final GuideSpeech talk = new GuideSpeech();
 
@@ -63,6 +70,7 @@ final class WaypointGuide {
 		target = w;
 		startDist = Math.max(1, dist(mc));
 		saidDim = false; talk.reset(t);
+		nextCall = startDist / 2;
 		Speech.say(mc, Component.literal("Guiding to " + w.name + ", " + Math.round(startDist) + " blocks"));
 		Tutorial.event(Tutorial.Ev.WAYPOINT_GUIDING, startDist);
 	}
@@ -130,7 +138,7 @@ final class WaypointGuide {
 
 	static void tick(Minecraft mc, SonarConfig cfg) {
 		if (target == null) return;
-		if (!cfg.waypoints || !cfg.enabled || mc.player == null || mc.level == null) { if (hum != null) hum.tv = 0; return; }
+		if (!cfg.enabled || mc.player == null || mc.level == null) { if (hum != null) hum.tv = 0; return; }
 		t++;
 		var p = mc.player;
 		if (!target.dim.equals(Waypoints.dim(mc))) { // in another dimension: nothing to follow here
@@ -146,6 +154,8 @@ final class WaypointGuide {
 			return;
 		}
 		double d = dist(mc), tx = target.x + 0.5, tz = target.z + 0.5;
+		int call = callOut(d, nextCall);
+		if (call > 0 && talk.say(text -> Speech.say(mc, Component.literal(text)), call + " blocks to go")) nextCall = d / 2; // (through the guide's own voice rule: never on top of another of its lines)
 		PlayerChime.Tgt wpT = new PlayerChime.Tgt(null, tx, target.y - 1, tz, target.y + 0.6);
 		// the rolling route (WaypointRoute): always a checked route ahead, extended from its end before you get there; never a blind "straight at it"
 		if (wr == null || wr.tx != tx || wr.tz != tz) wr = new WaypointRoute(tx, target.y - 1, tz);

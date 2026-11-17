@@ -71,9 +71,7 @@ final class Voice {
 	static net.minecraft.client.KeyMapping keyFor(String name) {
 		return switch (name) {
 			case "scan" -> SonarClient.scanKey;
-			case "echo" -> SonarClient.echoKey;
-			case "ledge" -> SonarClient.ledgeKey;
-			case "confusing" -> Tutorial.confusingKey;
+			case "help" -> SonarClient.helpKey;
 			default -> null;
 		};
 	}

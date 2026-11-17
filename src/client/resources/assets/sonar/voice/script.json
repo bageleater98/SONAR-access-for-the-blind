@@ -3,10 +3,8 @@
   "voice": "af_heart",
   "speed": 1.0,
   "keys": {
-    "confusing": "K",
     "scan": "R",
-    "echo": "H",
-    "ledge": "J"
+    "help": "V"
   },
   "lines": [
     {
@@ -184,8 +182,8 @@
       "id": "l0.controls",
       "category": "instruction",
       "priority": 1,
-      "text": "Three things before we start. Press Escape for the tutorial menu: from there you can hear my last instruction again, open the levels, restart this level, or leave. And if something I say confuses you, press {key:confusing}. I'll quietly make a note, so this tutorial can get better.",
-      "short": "Escape opens the tutorial menu. {key:confusing} marks anything confusing."
+      "text": "One thing before we start. Press Escape for the tutorial menu: from there you can hear my last instruction again, open the levels, restart this level, or leave.",
+      "short": "Escape opens the tutorial menu."
     },
     {
       "id": "l0.phones",
@@ -597,6 +595,25 @@
       "short": "Find the wooden wall and touch it."
     },
     {
+      "id": "l4.task2",
+      "category": "instruction",
+      "priority": 1,
+      "text": "That's the wood. Now, your second key. Stay facing the wall, and tap {key:help}. I'll go quiet, and Sonar will tell you what you're facing, and how far away it is.",
+      "short": "Face the wall and tap {key:help}."
+    },
+    {
+      "id": "l4.named",
+      "category": "reaction",
+      "priority": 3,
+      "text": "That's the helper key. A tap names whatever you're facing: a block, an animal, a monster. Hold it a moment longer, and it tells you where you are instead: what's on each side, your coordinates, and the time of day."
+    },
+    {
+      "id": "l4.hint.v",
+      "category": "hint",
+      "priority": 2,
+      "text": "Tap {key:help} once, a quick press, like a ping."
+    },
+    {
       "id": "l4.groups",
       "category": "reaction",
       "priority": 3,
@@ -771,15 +788,8 @@
       "id": "l7.intro",
       "category": "intro",
       "priority": 1,
-      "text": "This terrace has a real drop at its north edge. Sonar can warn you about edges with a steady buzzing tone: the closer you get, the louder and higher it gets.",
+      "text": "This terrace has a real drop at its north edge. Sonar warns you about edges by itself, with a steady buzzing tone: the closer you get, the louder and higher it gets.",
       "short": "Edges buzz. Closer is louder."
-    },
-    {
-      "id": "l7.task0",
-      "category": "instruction",
-      "priority": 1,
-      "text": "First, switch the ledge warning on. Press {key:ledge}.",
-      "short": "Press {key:ledge} for the ledge warning."
     },
     {
       "id": "l7.task1",
@@ -793,12 +803,6 @@
       "category": "reaction",
       "priority": 3,
       "text": "That's it. That buzz means an edge ahead. Deeper drops sound fuller."
-    },
-    {
-      "id": "l7.on",
-      "category": "reaction",
-      "priority": 3,
-      "text": "Ledge warning on. Press {key:ledge} again any time to turn it off, handy when you're building near edges."
     },
     {
       "id": "l7.task2",
@@ -825,13 +829,6 @@
       "category": "reaction",
       "priority": 3,
       "text": "End of the ridge. Nicely balanced."
-    },
-    {
-      "id": "l7.task4",
-      "category": "instruction",
-      "priority": 1,
-      "text": "Last thing. Press {key:ledge} to turn the ledge warning off, then {key:ledge} again to turn it back on. Handy when you're building near edges.",
-      "short": "Press {key:ledge} twice."
     },
     {
       "id": "l7.brake",
@@ -862,12 +859,6 @@
       "category": "hint1",
       "priority": 2,
       "text": "Walk right, east, until something stops you. That is the ridge's side. Then turn north and walk along it, keeping the left and right tones even."
-    },
-    {
-      "id": "l7.hint.j",
-      "category": "hint1",
-      "priority": 2,
-      "text": "Press {key:ledge}. It switches the ledge warning on and off."
     },
     {
       "id": "l7.done",
@@ -936,7 +927,7 @@
       "id": "l9.intro",
       "category": "intro",
       "priority": 1,
-      "text": "Indoors, pinging every wall would just be a wall of sound. So inside, Sonar uses the echo: short clicks from the ways out of the room you're in. The echo is already on. {key:echo} turns it on and off. This corridor's way out is round a corner, so its click is muffled, like a sound from the next room, and it comes from the corner you need to walk to.",
+      "text": "Indoors, pinging every wall would just be a wall of sound. So inside, Sonar uses the echo: short clicks from the ways out of the room you're in. The echo is always on. This corridor's way out is round a corner, so its click is muffled, like a sound from the next room, and it comes from the corner you need to walk to.",
       "short": "Indoors, the echo clicks from the ways out. Round a corner, it's muffled."
     },
     {
@@ -1376,42 +1367,6 @@
       "text": "Auto scan off"
     },
     {
-      "id": "say.echo.on",
-      "category": "phrase",
-      "priority": 3,
-      "text": "Echo on"
-    },
-    {
-      "id": "say.echo.off",
-      "category": "phrase",
-      "priority": 3,
-      "text": "Echo off"
-    },
-    {
-      "id": "say.ledge.on",
-      "category": "phrase",
-      "priority": 3,
-      "text": "Ledge warning on"
-    },
-    {
-      "id": "say.ledge.off",
-      "category": "phrase",
-      "priority": 3,
-      "text": "Ledge warning off"
-    },
-    {
-      "id": "say.wp.on",
-      "category": "phrase",
-      "priority": 3,
-      "text": "Waypoints on"
-    },
-    {
-      "id": "say.wp.off",
-      "category": "phrase",
-      "priority": 3,
-      "text": "Waypoints off"
-    },
-    {
       "id": "say.door",
       "category": "phrase",
       "priority": 3,
@@ -1428,12 +1383,6 @@
       "category": "phrase",
       "priority": 3,
       "text": "Stopped guiding"
-    },
-    {
-      "id": "say.typename",
-      "category": "phrase",
-      "priority": 3,
-      "text": "Type a name first"
     },
     {
       "id": "say.crossing",
@@ -1734,6 +1683,78 @@
       "category": "phrase",
       "priority": 3,
       "text": "Finding a route."
+    },
+    {
+      "id": "say.health.low",
+      "category": "phrase",
+      "priority": 3,
+      "text": "Health low"
+    },
+    {
+      "id": "say.health.critical",
+      "category": "phrase",
+      "priority": 3,
+      "text": "Health very low"
+    },
+    {
+      "id": "say.hungry",
+      "category": "phrase",
+      "priority": 3,
+      "text": "Hungry"
+    },
+    {
+      "id": "say.starving",
+      "category": "phrase",
+      "priority": 3,
+      "text": "Starving"
+    },
+    {
+      "id": "say.air",
+      "category": "phrase",
+      "priority": 3,
+      "text": "Running out of air"
+    },
+    {
+      "id": "say.fire",
+      "category": "phrase",
+      "priority": 3,
+      "text": "On fire"
+    },
+    {
+      "id": "say.empty",
+      "category": "phrase",
+      "priority": 3,
+      "text": "Empty hand"
+    },
+    {
+      "id": "say.sonar.on",
+      "category": "phrase",
+      "priority": 3,
+      "text": "Sonar on"
+    },
+    {
+      "id": "say.sonar.off",
+      "category": "phrase",
+      "priority": 3,
+      "text": "Sonar off"
+    },
+    {
+      "id": "say.death",
+      "category": "phrase",
+      "priority": 3,
+      "text": "Where you died is saved in Waypoints as Last death."
+    },
+    {
+      "id": "say.reset",
+      "category": "phrase",
+      "priority": 3,
+      "text": "Everything reset"
+    },
+    {
+      "id": "say.newname",
+      "category": "phrase",
+      "priority": 3,
+      "text": "Type the new name first"
     }
   ]
 }

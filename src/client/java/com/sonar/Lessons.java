@@ -27,7 +27,6 @@ final class Lessons {
 		c.autoScan = false;
 		c.echoCue = true;
 		c.sweepGap = SWEEP_GAP;
-		c.entityCue = false;
 		c.pathGuide = false; // the path bell and the ripple only where they are taught (the path bell lesson) and in the graduation
 		c.floorEdge = false;
 		if (beforeLedges) { c.autoLedge = false; c.edgeBrake = false; c.sideLedges = false; } // the ledge lesson teaches these
@@ -192,11 +191,12 @@ final class Lessons {
 		return l;
 	}
 
-	/** L4 MATERIALS: find the wooden wall and walk into it. */
+	/** L4 MATERIALS: find the wooden wall and walk into it; then the helper key (V) names it. */
 	static Lesson materials() {
 		Lesson l = lesson("l4", TutorialRooms.MATERIALS);
 		l.title = "Materials"; l.intro = "l4.intro"; l.done = "l4.done"; l.wrongWay = true; l.par = 60;
 		l.step(Step.of("l4.task", d -> d.count(Ev.BUMP) > 0 && d.rz() < 2.7 && d.rx() >= 2 && d.rx() < 11, null, "l4.hint1", "l4.hint2").example("l4.example"));
+		l.step(Step.of("l4.task2", d -> d.count(Ev.IDENTIFY) > 0, "l4.named", "l4.hint.v", null)); // the helper key (V), on the wall you just found
 		l.once(Ev.PING, (d, v) -> true, "l4.groups");
 		l.on(Ev.BUMP, (d, v) -> !(d.rz() < 2.7 && d.rx() >= 2 && d.rx() < 11), "l4.stone");
 		l.where(d -> d.host.floorBlock().endsWith("carpet"), "l4.carpet");
@@ -274,15 +274,14 @@ final class Lessons {
 		return l;
 	}
 
-	/** L7 LEDGES: switch the ledge warning on (J); the edge tone; sneak to the lip; the ridge to your right, along to its end. A fall is felt (a little damage), then you go back up. */
+	/** L7 LEDGES: the edge tone; sneak to the lip; the ridge to your right, along to its end. A fall is felt (a little damage), then you go back up. */
 	static Lesson ledges() {
 		Lesson l = new Lesson("l7", TutorialRooms.LEDGES) {
-			@Override void settings(SonarConfig c) { c.autoLedge = false; c.ledgeCue = true; c.edgeBrake = true; c.sideLedges = true; } // (the warning starts off: the first step is turning it on)
+			@Override void settings(SonarConfig c) { c.autoLedge = true; c.ledgeCue = true; c.edgeBrake = true; c.sideLedges = true; } // (the warning is simply on from here, as in the real game)
 		};
 		l.title = "Ledges"; l.intro = "l7.intro"; l.done = "l7.done"; l.par = 150;
 		l.goal = d -> d.at("ridge end", 1.6);
 		l.fallBelow = 5.0; l.fallLine = "l7.fell"; l.hurt = true;
-		l.step(Step.of("l7.task0", d -> d.cfg().autoLedge && d.count(Ev.LEDGE_TOGGLED) > 0, "l7.on", "l7.hint.j", null));
 		l.step(Step.of("l7.task1", d -> d.count(Ev.LEDGE_TONE) > 0, "l7.tone", "l7.hint.tone", null));
 		l.step(Step.of("l7.task2", d -> d.host.down(Host.Key.SNEAK) && d.rz() >= 10 && d.rz() < 10.9 && d.ry() >= 6.9, "l7.lip", "l7.hint.lip", null));
 		l.step(Step.of("l7.task3", d -> d.at("ridge end", 1.6), "l7.ridge", "l7.hint.ridge", null));

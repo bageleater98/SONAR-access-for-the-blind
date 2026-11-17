@@ -1,11 +1,5 @@
 {
-	"key.sonar.scan": "Sonar scan (hold 2 s: auto scan)",
-	"key.sonar.front": "Sonar front scan",
-	"key.sonar.summary": "Sonar spoken summary",
-	"key.sonar.echo": "Sonar echo toggle",
-	"key.sonar.ledge": "Sonar ledge warning toggle",
-	"key.sonar.identify": "Sonar identify target",
-	"key.category.sonar.sonar": "Sonar",
-	"key.category.sonar.tutorial": "Sonar Tutorial",
-	"key.sonar.confusing": "Mark: this was confusing"
+	"key.sonar.scan": "Sonar ping (hold 2 seconds: auto scan)",
+	"key.sonar.help": "Sonar helper (tap: what am I facing; hold: where am I)",
+	"key.category.sonar.sonar": "Sonar Access"
 }

@@ -15,7 +15,7 @@ final class GameHost implements Host {
 
 	@Override public void teleport(TutorialRooms.Room r, double rx, double ry, double rz, float yaw) {
 		TutorialWorld.teleport(mc, r, rx, ry, rz, yaw);
-		SonarClient.forgetFacing();
+		Announce.forgetFacing();
 		// the enderman's teleport sound, so you know you were moved (a new room, put back after a fall, the far corner)
 		mc.getSoundManager().play(net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(SoundEvents.ENDERMAN_TELEPORT, 1f, 0.5f));
 	}

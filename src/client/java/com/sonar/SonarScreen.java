@@ -38,7 +38,7 @@ public abstract class SonarScreen extends Screen {
 	protected void toggle(int col, int y, String name, BooleanSupplier get, Runnable flip) {
 		Supplier<Component> label = () -> Component.literal(name + "  ")
 			.append(Component.literal(get.getAsBoolean() ? "ON" : "OFF").withStyle(get.getAsBoolean() ? ChatFormatting.GREEN : ChatFormatting.GRAY));
-		this.addRenderableWidget(Button.builder(label.get(), b -> { flip.run(); save(); b.setMessage(label.get()); Tutorial.event(Tutorial.Ev.SETTING, get.getAsBoolean() ? 1 : 0, name); })
+		this.addRenderableWidget(Button.builder(label.get(), b -> { flip.run(); save(); b.setMessage(label.get()); Menus.speak(this.minecraft, label.get()); Tutorial.event(Tutorial.Ev.SETTING, get.getAsBoolean() ? 1 : 0, name); })
 			.bounds(colX(col), y, 150, 20).build());
 	}
 
@@ -76,6 +76,7 @@ public abstract class SonarScreen extends Screen {
 		protected void applyValue() {
 			set.accept(real());
 			save();
+			Menus.speak(net.minecraft.client.Minecraft.getInstance(), getMessage());
 			Tutorial.event(Tutorial.Ev.SETTING, real(), name);
 		}
 	}

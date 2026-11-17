@@ -21,24 +21,20 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.sounds.SoundEvents;
 
 /**
- * THE TUTORIAL, from the outside: its entry points (a narrated button on the title screen, rows in the Sonar settings and the pause menu), its two keys
- * (repeat; "this was confusing"), the events Sonar's own code publishes to it, and entering / leaving its world (Sandbox). The lessons themselves are run
+ * THE TUTORIAL, from the outside: its entry points (a narrated button on the title screen, rows in the Sonar settings and the pause menu), the events Sonar's own code publishes to it, and entering / leaving its world (Sandbox). The lessons themselves are run
  * by the Director. Singleplayer only; nothing here acts outside the tutorial's own save (TutorialWorld's marker).
  */
 public final class Tutorial {
 	private Tutorial() {}
 
 	/** What Sonar's own code tells the tutorial. The value: FACING 0 south 1 west 2 north 3 east; BUMP 1 jumpable / 2 too tall; PING 0 your own / 1 auto. */
-	enum Ev { FACING, BUMP, SQUARED, GUIDE_PUSH, PING, AUTO_TOGGLED, ECHO_TOGGLED, LEDGE_TOGGLED, ECHO, LEDGE_TONE, BRAKE, SETTING, WATER_IN, WATER_OUT,
+	enum Ev { IDENTIFY, FACING, BUMP, SQUARED, GUIDE_PUSH, PING, AUTO_TOGGLED, ECHO, LEDGE_TONE, BRAKE, SETTING, WATER_IN, WATER_OUT,
 		WAYPOINT_ADDED, WAYPOINT_GUIDING, WAYPOINT_ARRIVED, WAYPOINTS_OPENED, HEAD_BONK }
 
-	static KeyMapping confusingKey; // (repeating the last instruction is in the tutorial menu only: no key)
 	/** In the tutorial world right now, with the director running. */
 	private static boolean inWorld;
 
 	static void init() {
-		var cat = KeyMapping.Category.register(Identifier.fromNamespaceAndPath("sonar", "tutorial"));
-		confusingKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.sonar.confusing", InputConstants.KEY_K, cat));
 		var cfgDir = FabricLoader.getInstance().getConfigDir();
 		Progress.file = cfgDir.resolve("sonar-tutorial").resolve("progress.json");
 		LessonLog.dir = cfgDir.resolve("sonar-tutorial");
@@ -60,9 +56,9 @@ public final class Tutorial {
 	/** Sonar holds its sounds (the room is still loading). */
 	static boolean holdSonar() { return inWorld && director != null && director.holding(); }
 
-	/** Wren says "auto scan on" / "ledge warning on" herself in the first step of those two levels: the plain announcement stays silent that once. */
+	/** Wren says "auto scan on" herself in the first step of the auto scan level: the plain announcement stays silent that once. */
 	static boolean toggleSpoken() {
-		return inWorld && director != null && director.lesson != null && director.step == 0 && (director.lesson.id.equals("l5") || director.lesson.id.equals("l7"));
+		return inWorld && director != null && director.lesson != null && director.step == 0 && director.lesson.id.equals("l5");
 	}
 
 	/** The director of the tutorial running now (null outside it). */
@@ -88,7 +84,6 @@ public final class Tutorial {
 			else if (!nowIn && inWorld) exit(mc);
 			if (!inWorld) return;
 			Sandbox.tick();
-			while (confusingKey.consumeClick()) director.confusing();
 			director.tick();
 			if (AutoPlay.ON) AutoPlay.tick(mc); // (test runs only)
 		} catch (Throwable t) {
@@ -167,7 +162,9 @@ public final class Tutorial {
 		GuiEventListener f = s == null ? null : s.getFocused();
 		if (f == lastFocus) return;
 		lastFocus = f;
-		if (f instanceof Spoken b && ((net.minecraft.client.gui.components.AbstractWidget) f).isFocused()) b.speak(mc);
+		if (!(f instanceof AbstractWidget w) || !w.isFocused()) return;
+		if (f instanceof Spoken b) b.speak(mc);
+		else if (s instanceof SonarScreen) Menus.speak(mc, w.getMessage()); // Sonar's own screens: every widget says its name and value
 	}
 
 	private static void screenOpened(Minecraft mc, Screen screen, int w, int h) {

@@ -30,12 +30,12 @@ final class RoomTests {
 
 	/** A whole scan from a spot, facing `yaw` (game yaw). */
 	static Scan scan(World w, TutorialRooms.Room r, TutorialRooms.Spot s, float yaw) {
-		return new Scan(w, CFG, wx(r, s), wy(r, s) + 1.62, wz(r, s), yaw, false).finish();
+		return new Scan(w, CFG, wx(r, s), wy(r, s) + 1.62, wz(r, s), yaw).finish();
 	}
 
 	static Rooms.Space space(World w, TutorialRooms.Room r, TutorialRooms.Spot s) {
 		Rooms.lastRoom = false; // (the room test's memory of the last spot: each spot is judged on its own)
-		return Rooms.space(null, new Scan(w, CFG, wx(r, s), wy(r, s) + 1.62, wz(r, s), r.yaw(), false));
+		return Rooms.space(null, new Scan(w, CFG, wx(r, s), wy(r, s) + 1.62, wz(r, s), r.yaw()));
 	}
 
 	/** Degrees from where `yaw` faces to world point x,z from the spot (+ right). */
@@ -94,15 +94,15 @@ final class RoomTests {
 			}
 			check.accept(same, r.id() + ": its barrier box changes nothing Sonar hears (room survey and 64 rays the same without it)");
 			// the same sounds, room / outside / cave, echoes; and ledges only lost at the box's own edge (the railing rule)
-			Scan a = scan(w, r, spawn, r.yaw()), b = new Scan(scene, CFG, wx(r, spawn), wy(r, spawn) + 1.62, wz(r, spawn), r.yaw(), false).finish();
+			Scan a = scan(w, r, spawn, r.yaw()), b = new Scan(scene, CFG, wx(r, spawn), wy(r, spawn) + 1.62, wz(r, spawn), r.yaw()).finish();
 			boolean sounds = true;
 			for (int cat = 0; cat < 4; cat++) for (int i = 0; i < Scan.SECTORS; i++) {
 				var ca = a.best[cat][i]; var cb = b.best[cat][i];
 				if (ca.state != cb.state || (ca.state != null && (ca.x != cb.x || ca.y != cb.y || ca.z != cb.z))) sounds = false;
 			}
 			check.accept(sounds, r.id() + ": the same sonar sounds with and without its barrier box");
-			Rooms.lastRoom = false; Rooms.Space sa = Rooms.space(null, new Scan(w, CFG, wx(r, spawn), wy(r, spawn) + 1.62, wz(r, spawn), r.yaw(), false));
-			Rooms.lastRoom = false; Rooms.Space sb = Rooms.space(null, new Scan(scene, CFG, wx(r, spawn), wy(r, spawn) + 1.62, wz(r, spawn), r.yaw(), false));
+			Rooms.lastRoom = false; Rooms.Space sa = Rooms.space(null, new Scan(w, CFG, wx(r, spawn), wy(r, spawn) + 1.62, wz(r, spawn), r.yaw()));
+			Rooms.lastRoom = false; Rooms.Space sb = Rooms.space(null, new Scan(scene, CFG, wx(r, spawn), wy(r, spawn) + 1.62, wz(r, spawn), r.yaw()));
 			check.accept(sa == sb, r.id() + ": heard as the same space with and without its barrier box (" + sa + ")");
 			String ea = echoes(a), eb = echoes(b);
 			check.accept(ea.equals(eb), r.id() + ": the same echoes (ways out, entrances) with and without its barrier box");
@@ -153,7 +153,7 @@ final class RoomTests {
 		for (int w = 1; w <= 4; w++) {
 			World world = new World().fill(-20, 58, -20, 20, 58, 20, stone).fill(0, 59, -20, w - 1, 63, 20, stone); // ground 5 below, the bridge on top (x 0..w-1)
 			double cx = w / 2.0; // the bridge's middle
-			Scan sc = new Scan(world, CFG, cx, 65.62, 0.5, 180f, false).finish();
+			Scan sc = new Scan(world, CFG, cx, 65.62, 0.5, 180f).finish();
 			double yaw = Math.toRadians(180f);
 			double[] sd = Ledges.bridgeSides(sc, -Math.sin(yaw), Math.cos(yaw), -Math.cos(yaw), -Math.sin(yaw));
 			if (w == 4) { check.accept(sd == null, "bridge 4 wide: a wide path, not a bridge (the corridor rule as before)"); continue; }
@@ -162,7 +162,7 @@ final class RoomTests {
 		}
 		// a wall a block away: its sound is placed out where the game can place it (2 blocks), and it is still the loudest
 		World wall = new World().fill(-10, 63, -10, 10, 63, 10, stone).fill(-3, 64, -2, 3, 66, -2, stone);
-		Scan ws = new Scan(wall, CFG, 0.5, 65.62, 0.5, 180f, false).finish();
+		Scan ws = new Scan(wall, CFG, 0.5, 65.62, 0.5, 180f).finish();
 		var near = Cues.at(ws, CFG, 1.0f, 0.5, 65.5, -1.5, net.minecraft.sounds.SoundEvents.STONE_BREAK, 1f, 1f, 0);
 		var far = Cues.at(ws, CFG, 6.0f, 0.5, 65.5, -5.5, net.minecraft.sounds.SoundEvents.STONE_BREAK, 1f, 1f, 0);
 		double nd = Math.sqrt(Math.pow(near.x() - 0.5, 2) + Math.pow(near.y() - 65.62, 2) + Math.pow(near.z() - 0.5, 2));
@@ -219,12 +219,12 @@ final class RoomTests {
 		var st = Blocks.STONE_BRICKS.defaultBlockState();
 		// a room 7x7 (walls 3 from you), one doorway (1 wide) in its east wall, open ground beyond
 		World w = new World().fill(-20, 63, -20, 20, 63, 20, Blocks.STONE.defaultBlockState()).fill(-3, 64, -3, 3, 66, 3, st).fill(-2, 64, -2, 2, 66, 2, Blocks.AIR.defaultBlockState()).fill(3, 64, 0, 3, 65, 0, Blocks.AIR.defaultBlockState());
-		var g = Cues.gaps(new Scan(w, CFG, 0.5, 65.62, 0.5, -90f, false).finish());
+		var g = Cues.gaps(new Scan(w, CFG, 0.5, 65.62, 0.5, -90f).finish());
 		check.accept(g.size() == 1 && Math.abs(Math.toDegrees(g.get(0))) < 25, "gap cue: a doorway one wide, three blocks away, is a gap (" + g.size() + ")");
 		World open = new World().fill(-20, 63, -20, 20, 63, 20, Blocks.STONE.defaultBlockState());
-		check.accept(Cues.gaps(new Scan(open, CFG, 0.5, 65.62, 0.5, -90f, false).finish()).isEmpty(), "gap cue: open ground is not a gap");
+		check.accept(Cues.gaps(new Scan(open, CFG, 0.5, 65.62, 0.5, -90f).finish()).isEmpty(), "gap cue: open ground is not a gap");
 		World side = new World().fill(-20, 63, -20, 20, 63, 20, Blocks.STONE.defaultBlockState()).fill(-3, 64, -3, -3, 66, 3, st);
-		check.accept(Cues.gaps(new Scan(side, CFG, 0.5, 65.62, 0.5, -90f, false).finish()).isEmpty(), "gap cue: one wall beside you and open all round is not a gap");
+		check.accept(Cues.gaps(new Scan(side, CFG, 0.5, 65.62, 0.5, -90f).finish()).isEmpty(), "gap cue: one wall beside you and open all round is not a gap");
 	}
 
 	/** L4: the wooden wall sounds as wood, on your left (north) as you start facing east; cobblestone and bricks group as stone; the carpet is heard. */
@@ -331,9 +331,9 @@ final class RoomTests {
 	static void moves(BiConsumer<Boolean, String> check) {
 		var r = TutorialRooms.MOVES;
 		World w = world(r);
-		double top = SonarClient.wallTop(Sense.hear(w), r.ox() + 9, r.oy() + 2, r.oz() + 7) - (r.oy() + 2);
+		double top = Bump.wallTop(Sense.hear(w), r.ox() + 9, r.oy() + 2, r.oz() + 7) - (r.oy() + 2);
 		check.accept(Math.abs(top - 1) < 1e-9, "l6: the first obstacle is one block high (" + top + "): one thud, jump onto it");
-		double wall = SonarClient.wallTop(Sense.hear(w), r.ox() + 3, r.oy() + 2, r.oz() + 5) - (r.oy() + 2);
+		double wall = Bump.wallTop(Sense.hear(w), r.ox() + 3, r.oy() + 2, r.oz() + 5) - (r.oy() + 2);
 		check.accept(wall > 1.1, "l6: the lane's wall is too tall to jump (two thuds)");
 		var in = r.spot("in the cottage");
 		var s = scan(w, r, in, 90f); // facing west, toward the door

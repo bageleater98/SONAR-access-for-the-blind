@@ -200,4 +200,12 @@ final class Tuning {
 	// ---- the tutorial narrator
 	/** Sonar's own sounds (not the ledge warning) play at this share while the narrator speaks, so the voice is clear and the sounds still tell where things are. */
 	static final float VOICE_DUCK = 0.5f;
+
+	// ---- the scan
+	/** Height layers of the scan sphere worked through per tick (twice as many while you move). */
+	static final int SCAN_LAYERS = 8;
+
+	// ---- waypoints
+	/** The guide stops calling out the distance left below this many blocks (you can hear how near you are). */
+	static final double WP_CALL_MIN = 12;
 }

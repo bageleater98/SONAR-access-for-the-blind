@@ -2,7 +2,6 @@ package com.sonar;
 
 import com.sonar.Scan.Cand;
 import com.sonar.Scan.Ledge;
-import com.sonar.mixin.MobAccessor;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;

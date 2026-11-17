@@ -83,7 +83,7 @@ final class AutoPlay {
 			case "l1" -> { jobs.add(turnTo(180)); jobs.add(waitJob(20)); jobs.add(walk(d, "north wall")); jobs.add(push(o.keyUp, 50)); }
 			case "l2" -> { jobs.add(click(SonarClient.scanKey)); jobs.add(waitJob(200)); jobs.add(walk(d, "at the wall")); jobs.add(click(SonarClient.scanKey)); }
 			case "l3" -> { jobs.add(click(SonarClient.scanKey)); jobs.add(waitJob(30)); jobs.add(walk(d, "through the opening")); }
-			case "l4" -> { jobs.add(click(SonarClient.scanKey)); jobs.add(waitJob(30)); jobs.add(walk(d, "at the wooden wall")); jobs.add(turnTo(180)); jobs.add(push(o.keyUp, 50)); }
+			case "l4" -> { if (s == 0) { jobs.add(click(SonarClient.scanKey)); jobs.add(waitJob(30)); jobs.add(walk(d, "at the wooden wall")); jobs.add(turnTo(180)); jobs.add(push(o.keyUp, 50)); } else { jobs.add(turnTo(180)); jobs.add(click(SonarClient.helpKey)); } }
 			case "tree" -> { jobs.add(walk(d, "by the tree")); jobs.add(chop(d)); }
 			case "l5" -> {
 				if (s == 0) jobs.add(hold(SonarClient.scanKey, 46));
@@ -94,8 +94,7 @@ final class AutoPlay {
 			case "l7" -> {
 				if (s == 0) jobs.add(walk(d, "near the lip"));
 				else if (s == 1) { jobs.add(sneakTo(d, 6.5, 7, 10.35)); }
-				else if (s == 2) { jobs.add(sneakTo(d, 10.5, 7, 10.5)); jobs.add(sneakTo(d, 10.5, 7, 2.5)); }
-				else { jobs.add(click(SonarClient.ledgeKey)); jobs.add(waitJob(20)); jobs.add(click(SonarClient.ledgeKey)); }
+				else { jobs.add(sneakTo(d, 10.5, 7, 10.5)); jobs.add(sneakTo(d, 10.5, 7, 2.5)); }
 			}
 			case "l8" -> jobs.add(walk(d, new String[]{"big room", "garden"}[Math.min(s, 1)]));
 			case "l9" -> jobs.add(walk(d, "the court"));

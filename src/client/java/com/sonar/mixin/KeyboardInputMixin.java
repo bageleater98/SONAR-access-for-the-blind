@@ -14,7 +14,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class KeyboardInputMixin extends ClientInput {
 	@Inject(method = "tick", at = @At("TAIL"))
 	private void sonar$brake(CallbackInfo ci) {
-		if (SonarClient.brakeTicks > 0) {
+		if (com.sonar.EdgeBrake.ticks > 0) {
 			this.moveVector = new Vec2(this.moveVector.x * 0.1f, this.moveVector.y * 0.1f);
 		}
 	}
